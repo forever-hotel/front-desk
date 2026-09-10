@@ -53,3 +53,10 @@ The Front Desk backend exposes a lightweight health endpoint:
 
 ```http
 GET /health
+
+### Booking Search
+
+The Front Desk backend currently exposes a provisional booking-search endpoint:
+
+```http
+GET /bookings/search?query=<search-value>
