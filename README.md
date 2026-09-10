@@ -46,3 +46,10 @@ The Front Desk System backend is implemented using NestJS and TypeScript.
 ```bash
 cd backend
 npm install
+
+### Health Check
+
+The Front Desk backend exposes a lightweight health endpoint:
+
+```http
+GET /health
