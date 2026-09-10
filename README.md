@@ -31,3 +31,18 @@ front-desk/
 - main: production-ready branch
 - develop: development/integration branch
 - feature branches: used for each GitHub issue
+
+## Front Desk Backend
+
+The Front Desk System backend is implemented using NestJS and TypeScript.
+
+### Prerequisites
+
+- Node.js 24 LTS
+- npm 11 or later
+
+### Install Dependencies
+
+```bash
+cd backend
+npm install
