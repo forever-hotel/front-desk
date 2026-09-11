@@ -13,5 +13,6 @@ import { InMemoryBookingRepository } from './repositories/in-memory-booking.repo
       useClass: InMemoryBookingRepository,
     },
   ],
+  exports: [BookingRepository],
 })
 export class BookingsModule {}
