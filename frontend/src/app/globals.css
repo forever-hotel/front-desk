@@ -1,0 +1,41 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  background: #f5f6f8;
+  color: #1f2937;
+}
+
+.fds-shell {
+  min-height: 100vh;
+}
+
+.fds-main {
+  min-height: 100vh;
+  width: 100%;
+}
+
+.fds-content {
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 32px;
+}
+
+.fds-page h1 {
+  margin-top: 0;
+}
+
+@media (max-width: 768px) {
+  .fds-content {
+    padding: 20px;
+  }
+}
