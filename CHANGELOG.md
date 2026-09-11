@@ -11,3 +11,5 @@ All notable changes to the Front Desk System will be documented in this file.
 - Backend development, testing, linting, and build instructions.
 - Added a `GET /health` endpoint for Front Desk backend application health checks.
 - Added provisional Front Desk booking-search backend functionality using an in-memory repository.
+- Added provisional Front Desk guest check-in business logic and validations.
+- Added mock FOSS session activation for the Check-In workflow.

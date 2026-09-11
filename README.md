@@ -60,3 +60,10 @@ The Front Desk backend currently exposes a provisional booking-search endpoint:
 
 ```http
 GET /bookings/search?query=<search-value>
+
+### Check-In
+
+The Front Desk backend currently exposes a provisional Check-In endpoint:
+
+```http
+POST /check-in

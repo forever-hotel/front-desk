@@ -45,4 +45,25 @@ export class InMemoryBookingRepository extends BookingRepository {
       );
     });
   }
+
+  async findByReference(
+  bookingReference: string,
+): Promise<BookingSearchResult | null> {
+  const normalizedReference = bookingReference.trim().toLowerCase();
+
+  return (
+    this.bookings.find(
+      (booking) =>
+        booking.bookingReference.toLowerCase() === normalizedReference,
+    ) ?? null
+  );
+}
+
+async markCheckedIn(bookingReference: string): Promise<void> {
+  const booking = await this.findByReference(bookingReference);
+
+  if (booking) {
+    booking.status = 'CHECKED_IN';
+  }
+}
 }
