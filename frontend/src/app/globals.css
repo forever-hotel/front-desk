@@ -1,5 +1,8 @@
 :root {
-  /* Brand colours */
+  /* ========================================
+     BRAND COLOURS
+     ======================================== */
+
   --navy: #1a3c5e;
   --navy-mid: #2e5f8a;
   --navy-light: #e8eef4;
@@ -9,7 +12,10 @@
 
   --sidebar: #12263a;
 
-  /* Semantic colours */
+  /* ========================================
+     SEMANTIC COLOURS
+     ======================================== */
+
   --success: #1a6b3c;
   --success-bg: #e8f5ee;
 
@@ -19,17 +25,26 @@
   --warning: #7a4f00;
   --warning-bg: #fef7e6;
 
-  /* Backgrounds and surfaces */
+  /* ========================================
+     BACKGROUNDS AND SURFACES
+     ======================================== */
+
   --page-bg: #f5f3ef;
   --card-surface: #ffffff;
   --table-row-alt: #f9f7f4;
   --border: #ddd8cf;
 
-  /* Text */
+  /* ========================================
+     TEXT
+     ======================================== */
+
   --text: #1a1a18;
   --muted: #5a5650;
 
-  /* Sidebar */
+  /* ========================================
+     SIDEBAR
+     ======================================== */
+
   --sidebar-text: #94a2b1;
   --sidebar-heading: #64778a;
 }
@@ -178,7 +193,9 @@ html::-webkit-scrollbar-thumb:hover {
   display: none;
 }
 
-/* Sidebar sections */
+/* ========================================
+   SIDEBAR SECTIONS
+   ======================================== */
 
 .fds-nav-section {
   margin-bottom: 29px;
@@ -300,7 +317,9 @@ html::-webkit-scrollbar-thumb:hover {
   font-weight: 600;
 }
 
-/* Session status */
+/* ========================================
+   SIDEBAR SESSION STATUS
+   ======================================== */
 
 .fds-session-status {
   flex-shrink: 0;
@@ -387,7 +406,9 @@ html::-webkit-scrollbar-thumb:hover {
   gap: 13px;
 }
 
-/* Brand */
+/* ========================================
+   HEADER BRAND
+   ======================================== */
 
 .fds-brand {
   display: flex;
@@ -427,7 +448,9 @@ html::-webkit-scrollbar-thumb:hover {
   font-weight: 400;
 }
 
-/* Date/time */
+/* ========================================
+   HEADER DATE / TIME
+   ======================================== */
 
 .fds-date-pill {
   padding: 7px 13px;
@@ -453,7 +476,9 @@ html::-webkit-scrollbar-thumb:hover {
   white-space: nowrap;
 }
 
-/* User */
+/* ========================================
+   HEADER USER
+   ======================================== */
 
 .fds-user {
   display: flex;
@@ -508,7 +533,9 @@ html::-webkit-scrollbar-thumb:hover {
   font-size: 9px;
 }
 
-/* Escalation */
+/* ========================================
+   HEADER ESCALATION STATUS
+   ======================================== */
 
 .fds-escalated-pill {
   display: flex;
@@ -542,6 +569,10 @@ html::-webkit-scrollbar-thumb:hover {
 
   background: var(--danger);
 }
+
+/* ========================================
+   MOBILE MENU BUTTON
+   ======================================== */
 
 .fds-menu-button {
   display: none;
@@ -601,518 +632,16 @@ html::-webkit-scrollbar-thumb:hover {
 }
 
 /* ========================================
-   SEARCH BOOKING
-   ======================================== */
-
-.search-booking-page {
-  width: 100%;
-}
-
-/* Heading */
-
-.search-booking-title {
-  margin-bottom: 14px;
-}
-
-.search-booking-title-line {
-  display: flex;
-
-  align-items: center;
-
-  gap: 8px;
-}
-
-.search-booking-title-line svg {
-  color: var(--gold);
-}
-
-.search-booking-title h1 {
-  margin: 0;
-
-  color: var(--navy);
-
-  font-size: 22px;
-  font-weight: 500;
-  line-height: 1.25;
-}
-
-.search-booking-title p {
-  margin: 5px 0 0;
-
-  color: var(--muted);
-
-  font-size: 12px;
-  font-weight: 400;
-}
-
-/* Card */
-
-.search-booking-card {
-  overflow: hidden;
-
-  border: 1px solid var(--border);
-
-  border-radius: 6px;
-
-  background: var(--card-surface);
-
-  box-shadow:
-    0 1px 2px rgba(18, 38, 58, 0.04);
-}
-
-/* Search form */
-
-.search-booking-form {
-  padding: 18px 17px 15px;
-}
-
-.search-booking-fields {
-  display: grid;
-
-  grid-template-columns:
-    minmax(0, 2fr)
-    minmax(240px, 1fr);
-
-  gap: 10px;
-}
-
-.search-field {
-  min-width: 0;
-}
-
-.search-field label {
-  display: block;
-
-  margin-bottom: 7px;
-
-  color: #4f4c47;
-
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.7px;
-}
-
-.search-field input,
-.search-field select {
-  width: 100%;
-  height: 34px;
-
-  border: 1px solid #d6d8d5;
-
-  border-radius: 4px;
-
-  background: #ffffff;
-
-  color: var(--text);
-
-  outline: none;
-
-  transition:
-    border-color 120ms ease,
-    box-shadow 120ms ease;
-}
-
-.search-field input {
-  padding: 0 11px;
-}
-
-.search-field input::placeholder {
-  color: #b0ada7;
-}
-
-.search-field select {
-  padding: 0 35px 0 11px;
-
-  cursor: pointer;
-}
-
-.search-field input:focus,
-.search-field select:focus {
-  border-color: var(--navy-mid);
-
-  box-shadow:
-    0 0 0 2px
-    rgba(46, 95, 138, 0.1);
-}
-
-.search-field input:disabled,
-.search-field select:disabled {
-  cursor: not-allowed;
-
-  opacity: 0.7;
-
-  background: #f7f6f3;
-}
-
-/* Search buttons */
-
-.search-booking-actions {
-  display: flex;
-
-  gap: 8px;
-
-  margin-top: 11px;
-}
-
-.search-primary-button,
-.search-clear-button,
-.table-primary-button,
-.table-secondary-button {
-  min-height: 31px;
-
-  border-radius: 4px;
-
-  cursor: pointer;
-
-  font-size: 11px;
-  font-weight: 500;
-
-  transition:
-    background 120ms ease,
-    border-color 120ms ease,
-    opacity 120ms ease;
-}
-
-.search-primary-button {
-  min-width: 74px;
-
-  padding: 0 16px;
-
-  border: 1px solid var(--navy);
-
-  background: var(--navy);
-
-  color: #ffffff;
-}
-
-.search-primary-button:hover:not(:disabled) {
-  border-color: var(--navy-mid);
-
-  background: var(--navy-mid);
-}
-
-.search-clear-button {
-  min-width: 63px;
-
-  padding: 0 14px;
-
-  border: 1px solid #cfd4d0;
-
-  background: #ffffff;
-
-  color: #494743;
-}
-
-.search-clear-button:hover:not(:disabled) {
-  background: var(--table-row-alt);
-}
-
-.search-primary-button:disabled,
-.search-clear-button:disabled {
-  cursor: not-allowed;
-
-  opacity: 0.6;
-}
-
-/* ========================================
-   SEARCH RESULTS TABLE
-   ======================================== */
-
-.search-results-wrapper {
-  width: 100%;
-
-  overflow-x: auto;
-}
-
-.search-results-table {
-  width: 100%;
-  min-width: 950px;
-
-  border-collapse: collapse;
-
-  table-layout: auto;
-}
-
-.search-results-table thead {
-  background: var(--navy-light);
-}
-
-.search-results-table th {
-  height: 31px;
-
-  padding: 0 13px;
-
-  color: #4d5358;
-
-  text-align: left;
-
-  white-space: nowrap;
-
-  font-size: 9px;
-  font-weight: 600;
-
-  letter-spacing: 0.65px;
-
-  text-transform: uppercase;
-}
-
-.search-results-table td {
-  height: 56px;
-
-  padding: 8px 13px;
-
-  border-top: 1px solid #e7e3dc;
-
-  color: #262521;
-
-  vertical-align: middle;
-
-  font-size: 11px;
-}
-
-.search-results-table tbody tr:nth-child(even) {
-  background: var(--table-row-alt);
-}
-
-.search-results-table tbody tr:hover {
-  background: #faf9f6;
-}
-
-/* Guest */
-
-.guest-cell {
-  display: flex;
-
-  min-width: 155px;
-
-  flex-direction: column;
-
-  gap: 3px;
-}
-
-.guest-name {
-  color: var(--text);
-
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.guest-email {
-  color: var(--muted);
-
-  font-size: 9px;
-}
-
-/* Booking reference */
-
-.booking-ref-cell {
-  white-space: nowrap;
-
-  font-family:
-    "SFMono-Regular",
-    Consolas,
-    "Liberation Mono",
-    monospace;
-
-  font-size: 10px;
-}
-
-/* Source badge */
-
-.source-badge {
-  display: inline-flex;
-
-  align-items: center;
-  justify-content: center;
-
-  padding: 3px 8px;
-
-  border: 1px solid #cdd9e3;
-
-  border-radius: 999px;
-
-  background: var(--navy-light);
-
-  color: var(--navy);
-
-  font-family:
-    "SFMono-Regular",
-    Consolas,
-    "Liberation Mono",
-    monospace;
-
-  font-size: 9px;
-  font-weight: 500;
-}
-
-/* ========================================
-   STATUS BADGES
-   ======================================== */
-
-.status-pill {
-  display: inline-flex;
-
-  align-items: center;
-
-  gap: 5px;
-
-  padding: 4px 9px;
-
-  border-radius: 999px;
-
-  white-space: nowrap;
-
-  font-size: 9px;
-  font-weight: 500;
-}
-
-.status-dot {
-  width: 5px;
-  height: 5px;
-
-  border-radius: 50%;
-
-  background: currentColor;
-}
-
-.status-pending {
-  border: 1px solid #e7c777;
-
-  background: var(--warning-bg);
-
-  color: var(--warning);
-}
-
-.status-checked-in {
-  border: 1px solid #a9d8ba;
-
-  background: var(--success-bg);
-
-  color: var(--success);
-}
-
-.status-checked-out {
-  border: 1px solid #d2d4d1;
-
-  background: #f1f2f0;
-
-  color: #66645f;
-}
-
-/* ========================================
-   TABLE ACTION BUTTONS
-   ======================================== */
-
-.booking-action-group {
-  display: flex;
-
-  align-items: center;
-
-  gap: 7px;
-
-  white-space: nowrap;
-}
-
-.table-primary-button,
-.table-secondary-button {
-  min-height: 27px;
-
-  padding: 0 12px;
-}
-
-.table-primary-button {
-  border: 1px solid var(--navy);
-
-  background: var(--navy);
-
-  color: #ffffff;
-}
-
-.table-primary-button:hover {
-  border-color: var(--navy-mid);
-
-  background: var(--navy-mid);
-}
-
-.table-secondary-button {
-  border: 1px solid #ced3cf;
-
-  background: #ffffff;
-
-  color: #55524d;
-}
-
-.table-secondary-button:hover {
-  background: var(--table-row-alt);
-}
-
-/* ========================================
-   SEARCH STATES
-   ======================================== */
-
-.search-feedback-state,
-.search-empty-state {
-  display: flex;
-
-  min-height: 120px;
-
-  align-items: center;
-  justify-content: center;
-
-  padding: 24px;
-
-  border-top: 1px solid var(--border);
-
-  color: var(--muted);
-
-  font-size: 12px;
-
-  text-align: center;
-}
-
-/* Loading */
-
-.search-feedback-state {
-  gap: 9px;
-}
-
-.search-loading-spinner {
-  width: 16px;
-  height: 16px;
-
-  flex-shrink: 0;
-
-  border: 2px solid var(--navy-light);
-
-  border-top-color: var(--navy-mid);
-
-  border-radius: 50%;
-
-  animation:
-    search-spin 0.7s linear infinite;
-}
-
-@keyframes search-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* Error */
-
-.search-error-state {
-  background: var(--danger-bg);
-
-  color: var(--danger);
-}
-
-/* ========================================
-   MOBILE SIDEBAR
+   MOBILE SIDEBAR OVERLAY
    ======================================== */
 
 .fds-overlay {
   display: none;
 }
+
+/* ========================================
+   RESPONSIVE APPLICATION SHELL
+   ======================================== */
 
 @media (max-width: 900px) {
   .fds-main-area {
@@ -1165,14 +694,8 @@ html::-webkit-scrollbar-thumb:hover {
 }
 
 /* ========================================
-   SEARCH RESPONSIVE
+   SMALL SCREEN HEADER
    ======================================== */
-
-@media (max-width: 800px) {
-  .search-booking-fields {
-    grid-template-columns: 1fr;
-  }
-}
 
 @media (max-width: 600px) {
   .fds-brand-hotel,
@@ -1187,22 +710,5 @@ html::-webkit-scrollbar-thumb:hover {
 
   .fds-escalated-pill {
     padding: 5px 7px;
-  }
-
-  .search-booking-title h1 {
-    font-size: 20px;
-  }
-
-  .search-booking-form {
-    padding: 15px;
-  }
-
-  .search-booking-actions {
-    flex-wrap: wrap;
-  }
-
-  .search-primary-button,
-  .search-clear-button {
-    flex: 1;
   }
 }
