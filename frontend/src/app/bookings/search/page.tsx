@@ -1,6 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 import type { FormEvent } from "react";
 import type { TableColumnsType } from "antd";
 
@@ -17,74 +21,17 @@ import {
 
 import { Search } from "lucide-react";
 
+import {
+  getRecentBookings,
+  searchBookings,
+} from "@/services/booking-search-api";
+
+import type {
+  BookingSearchField,
+  BookingSearchItem,
+} from "@/types/booking";
+
 import styles from "./search-booking.module.css";
-
-type SearchField =
-  | "all"
-  | "guest"
-  | "booking"
-  | "nic"
-  | "email"
-  | "phone";
-
-type BookingStatus =
-  | "PENDING"
-  | "CHECKED_IN"
-  | "CHECKED_OUT";
-
-type BookingSource = "Website" | "Booking.lk";
-
-type Booking = {
-  guestName: string;
-  email: string;
-  bookingReference: string;
-  room: string;
-  checkIn: string;
-  checkOut: string;
-  source: BookingSource;
-  status: BookingStatus;
-  nicOrPassport: string;
-  phone: string;
-};
-
-const bookings: Booking[] = [
-  {
-    guestName: "Thilini Weerasinghe",
-    email: "thilini@email.com",
-    bookingReference: "#FH-2026-0419",
-    room: "TBD",
-    checkIn: "10 Apr 2026",
-    checkOut: "13 Apr 2026",
-    source: "Website",
-    status: "PENDING",
-    nicOrPassport: "200012345678",
-    phone: "0771234567",
-  },
-  {
-    guestName: "Kamal Fernando",
-    email: "kamal@email.com",
-    bookingReference: "#BK-2026-0088",
-    room: "204",
-    checkIn: "09 Apr 2026",
-    checkOut: "11 Apr 2026",
-    source: "Booking.lk",
-    status: "CHECKED_IN",
-    nicOrPassport: "981234567V",
-    phone: "0712345678",
-  },
-  {
-    guestName: "Ruchira Bandara",
-    email: "ruchira@email.com",
-    bookingReference: "#FH-2026-0398",
-    room: "204",
-    checkIn: "08 Apr 2026",
-    checkOut: "10 Apr 2026",
-    source: "Website",
-    status: "CHECKED_OUT",
-    nicOrPassport: "199912345678",
-    phone: "0751234567",
-  },
-];
 
 const searchByOptions = [
   {
@@ -100,10 +47,6 @@ const searchByOptions = [
     label: "Booking Reference",
   },
   {
-    value: "nic",
-    label: "NIC / Passport",
-  },
-  {
     value: "email",
     label: "Email",
   },
@@ -117,90 +60,118 @@ export default function BookingSearchPage() {
   const [query, setQuery] = useState("");
 
   const [searchBy, setSearchBy] =
-    useState<SearchField>("all");
+    useState<BookingSearchField>("all");
 
-  const [submittedQuery, setSubmittedQuery] =
-    useState("");
-
-  const [submittedField, setSubmittedField] =
-    useState<SearchField>("all");
+  const [bookings, setBookings] = useState<
+    BookingSearchItem[]
+  >([]);
 
   const [isLoading, setIsLoading] =
-    useState(false);
+    useState(true);
 
   const [error, setError] =
     useState<string | null>(null);
 
-  const filteredBookings = useMemo(() => {
-    const normalizedQuery = submittedQuery
-      .trim()
-      .toLowerCase();
+  const [hasSearched, setHasSearched] =
+    useState(false);
 
-    if (!normalizedQuery) {
-      return bookings;
-    }
+  /*
+   * Load the most recent bookings.
+   *
+   * This is used:
+   * - when the page first opens
+   * - when Clear is clicked
+   * - when an empty search is submitted
+   */
+  const loadRecentBookings =
+    useCallback(async () => {
+      setIsLoading(true);
+      setError(null);
 
-    return bookings.filter((booking) => {
-      const matches = (value: string) =>
-        value.toLowerCase().includes(normalizedQuery);
+      try {
+        const recentBookings =
+          await getRecentBookings(5);
 
-      switch (submittedField) {
-        case "guest":
-          return matches(booking.guestName);
+        setBookings(recentBookings);
+        setHasSearched(false);
+      } catch (recentError) {
+        console.error(
+          "Recent bookings failed:",
+          recentError,
+        );
 
-        case "booking":
-          return matches(booking.bookingReference);
+        setBookings([]);
 
-        case "nic":
-          return matches(booking.nicOrPassport);
-
-        case "email":
-          return matches(booking.email);
-
-        case "phone":
-          return matches(booking.phone);
-
-        case "all":
-        default:
-          return (
-            matches(booking.guestName) ||
-            matches(booking.bookingReference) ||
-            matches(booking.nicOrPassport) ||
-            matches(booking.email) ||
-            matches(booking.phone)
-          );
+        setError(
+          "Unable to load recent bookings. Please try again.",
+        );
+      } finally {
+        setIsLoading(false);
       }
-    });
-  }, [submittedField, submittedQuery]);
+    }, []);
 
+  /*
+   * Load recent bookings when the page first opens.
+   */
+  useEffect(() => {
+    void loadRecentBookings();
+  }, [loadRecentBookings]);
+
+  /*
+   * Search bookings using the backend.
+   */
   const handleSearch = async (
     event: FormEvent<HTMLFormElement>,
   ) => {
     event.preventDefault();
 
+    const normalizedQuery = query.trim();
+
+    /*
+     * If the user submits an empty search,
+     * restore recent bookings instead.
+     */
+    if (!normalizedQuery) {
+      setQuery("");
+      setSearchBy("all");
+
+      await loadRecentBookings();
+
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
+    setHasSearched(true);
 
     try {
-      /*
-       * Temporary delay used to demonstrate the loading
-       * state before real backend integration.
-       */
-      await new Promise<void>((resolve) => {
-        window.setTimeout(resolve, 500);
-      });
+      const results =
+        await searchBookings(normalizedQuery);
 
       /*
-       * Temporary mock error trigger.
-       * Remove this when the real API is integrated.
+       * The current backend endpoint performs a
+       * general query search.
+       *
+       * Search By is applied as a secondary
+       * frontend filter using fields returned
+       * by the backend.
        */
-      if (query.trim().toLowerCase() === "error") {
-        throw new Error("Mock booking search failure");
-      }
+      const filteredResults =
+        filterBookingsByField(
+          results,
+          normalizedQuery,
+          searchBy,
+        );
 
-      setSubmittedQuery(query);
-      setSubmittedField(searchBy);
-    } catch {
+      setBookings(filteredResults);
+    } catch (searchError) {
+      console.error(
+        "Booking search failed:",
+        searchError,
+      );
+
+      setBookings([]);
+
       setError(
         "Unable to search bookings. Please try again.",
       );
@@ -209,84 +180,98 @@ export default function BookingSearchPage() {
     }
   };
 
+  /*
+   * Reset the form and restore recent bookings.
+   */
   const handleClear = () => {
     setQuery("");
     setSearchBy("all");
 
-    setSubmittedQuery("");
-    setSubmittedField("all");
-
-    setError(null);
-    setIsLoading(false);
+    void loadRecentBookings();
   };
 
-  const columns: TableColumnsType<Booking> = [
-    {
-      title: "Guest Name",
-      key: "guestName",
-      render: (_, booking) => (
-        <div className={styles.guestCell}>
-          <span className={styles.guestName}>
-            {booking.guestName}
-          </span>
+  const columns: TableColumnsType<BookingSearchItem> =
+    [
+      {
+        title: "Guest Name",
+        key: "guestName",
 
-          <span className={styles.guestEmail}>
-            {booking.email}
+        render: (_, booking) => (
+          <div className={styles.guestCell}>
+            <span className={styles.guestName}>
+              {booking.guestName}
+            </span>
+
+            <span className={styles.guestEmail}>
+              {booking.email}
+            </span>
+          </div>
+        ),
+      },
+
+      {
+        title: "Booking Ref",
+        dataIndex: "bookingReference",
+        key: "bookingReference",
+
+        render: (reference: string) => (
+          <span
+            className={
+              styles.bookingReference
+            }
+          >
+            {reference}
           </span>
-        </div>
-      ),
-    },
-    {
-      title: "Booking Ref",
-      dataIndex: "bookingReference",
-      key: "bookingReference",
-      render: (reference: string) => (
-        <span className={styles.bookingReference}>
-          {reference}
-        </span>
-      ),
-    },
-    {
-      title: "Room",
-      dataIndex: "room",
-      key: "room",
-    },
-    {
-      title: "Check-In",
-      dataIndex: "checkIn",
-      key: "checkIn",
-    },
-    {
-      title: "Check-Out",
-      dataIndex: "checkOut",
-      key: "checkOut",
-    },
-    {
-      title: "Source",
-      dataIndex: "source",
-      key: "source",
-      render: (source: BookingSource) => (
-        <Tag className={styles.sourceTag}>
-          {source}
-        </Tag>
-      ),
-    },
-    {
-      title: "Status",
-      dataIndex: "status",
-      key: "status",
-      render: (status: BookingStatus) => (
-        <BookingStatusTag status={status} />
-      ),
-    },
-    {
-      title: "Actions",
-      key: "actions",
-      render: (_, booking) => (
-        <BookingActions status={booking.status} />
-      ),
-    },
-  ];
+        ),
+      },
+
+      {
+        title: "Room Type",
+        dataIndex: "roomType",
+        key: "roomType",
+      },
+
+      {
+        title: "Check-In",
+        dataIndex: "checkInDate",
+        key: "checkInDate",
+
+        render: (date: string) =>
+          formatBookingDate(date),
+      },
+
+      {
+        title: "Check-Out",
+        dataIndex: "checkOutDate",
+        key: "checkOutDate",
+
+        render: (date: string) =>
+          formatBookingDate(date),
+      },
+
+      {
+        title: "Status",
+        dataIndex: "status",
+        key: "status",
+
+        render: (status: string) => (
+          <BookingStatusTag
+            status={status}
+          />
+        ),
+      },
+
+      {
+        title: "Actions",
+        key: "actions",
+
+        render: (_, booking) => (
+          <BookingActions
+            status={booking.status}
+          />
+        ),
+      },
+    ];
 
   return (
     <section className={styles.page}>
@@ -302,7 +287,7 @@ export default function BookingSearchPage() {
         </div>
 
         <p>
-          Search by name, booking ref, NIC/passport,
+          Search by guest name, booking reference,
           email or phone
         </p>
       </header>
@@ -324,7 +309,7 @@ export default function BookingSearchPage() {
                 onChange={(event) =>
                   setQuery(event.target.value)
                 }
-                placeholder="Guest name, booking ref, NIC/passport, email or phone..."
+                placeholder="Guest name, booking ref, email or phone..."
                 disabled={isLoading}
                 allowClear
               />
@@ -339,9 +324,9 @@ export default function BookingSearchPage() {
                 id="booking-search-by"
                 value={searchBy}
                 options={searchByOptions}
-                onChange={(value: SearchField) =>
-                  setSearchBy(value)
-                }
+                onChange={(
+                  value: BookingSearchField,
+                ) => setSearchBy(value)}
                 disabled={isLoading}
                 className={styles.select}
               />
@@ -373,31 +358,45 @@ export default function BookingSearchPage() {
               <Alert
                 type="error"
                 showIcon
-                message="Booking search failed"
+                message={
+                  hasSearched
+                    ? "Booking search failed"
+                    : "Recent bookings could not be loaded"
+                }
                 description={error}
               />
             </div>
           ) : isLoading ? (
             <div className={styles.loadingState}>
-              <Spin size="default" />
+              <Spin />
 
-              <span>Searching bookings...</span>
+              <span>
+                {hasSearched
+                  ? "Searching bookings..."
+                  : "Loading recent bookings..."}
+              </span>
             </div>
-          ) : filteredBookings.length === 0 ? (
+          ) : bookings.length === 0 ? (
             <div className={styles.emptyState}>
               <Empty
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description="No bookings found."
+                image={
+                  Empty.PRESENTED_IMAGE_SIMPLE
+                }
+                description={
+                  hasSearched
+                    ? "No bookings found."
+                    : "No recent bookings available."
+                }
               />
             </div>
           ) : (
-            <Table<Booking>
+            <Table<BookingSearchItem>
               columns={columns}
-              dataSource={filteredBookings}
-              rowKey="bookingReference"
+              dataSource={bookings}
+              rowKey="bookingId"
               pagination={false}
               size="middle"
-              scroll={{ x: 950 }}
+              scroll={{ x: 900 }}
               rowClassName={(_, index) =>
                 index % 2 === 1
                   ? styles.alternateRow
@@ -411,43 +410,165 @@ export default function BookingSearchPage() {
   );
 }
 
+/*
+ * Apply the selected Search By filter.
+ *
+ * The backend currently performs the general search,
+ * while this function narrows the returned records
+ * to the selected field.
+ */
+function filterBookingsByField(
+  bookings: BookingSearchItem[],
+  query: string,
+  field: BookingSearchField,
+) {
+  if (field === "all") {
+    return bookings;
+  }
+
+  const normalizedQuery =
+    query.toLowerCase();
+
+  return bookings.filter((booking) => {
+    switch (field) {
+      case "guest":
+        return booking.guestName
+          .toLowerCase()
+          .includes(normalizedQuery);
+
+      case "booking":
+        return booking.bookingReference
+          .toLowerCase()
+          .includes(normalizedQuery);
+
+      case "email":
+        return booking.email
+          .toLowerCase()
+          .includes(normalizedQuery);
+
+      case "phone":
+        return booking.phone
+          .toLowerCase()
+          .includes(normalizedQuery);
+
+      default:
+        return true;
+    }
+  });
+}
+
+/*
+ * Convert backend ISO date values such as:
+ * 2026-09-10
+ *
+ * into:
+ * 10 Sept 2026
+ */
+function formatBookingDate(
+  value: string,
+) {
+  const date = new Date(
+    `${value}T00:00:00`,
+  );
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat(
+    "en-GB",
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    },
+  ).format(date);
+}
+
+/*
+ * Booking status presentation.
+ */
 function BookingStatusTag({
   status,
 }: {
-  status: BookingStatus;
+  status: string;
 }) {
-  if (status === "PENDING") {
+  const normalizedStatus =
+    status.toUpperCase();
+
+  if (
+    normalizedStatus === "CONFIRMED" ||
+    normalizedStatus === "PENDING"
+  ) {
     return (
-      <Tag className={styles.pendingTag}>
-        Pending
+      <Tag
+        className={
+          styles.confirmedTag
+        }
+      >
+        {normalizedStatus === "CONFIRMED"
+          ? "Confirmed"
+          : "Pending"}
       </Tag>
     );
   }
 
-  if (status === "CHECKED_IN") {
+  if (
+    normalizedStatus === "CHECKED_IN"
+  ) {
     return (
-      <Tag className={styles.checkedInTag}>
+      <Tag
+        className={
+          styles.checkedInTag
+        }
+      >
         Checked In
       </Tag>
     );
   }
 
-  return (
-    <Tag className={styles.checkedOutTag}>
-      Checked Out
-    </Tag>
-  );
+  if (
+    normalizedStatus === "CHECKED_OUT"
+  ) {
+    return (
+      <Tag
+        className={
+          styles.checkedOutTag
+        }
+      >
+        Checked Out
+      </Tag>
+    );
+  }
+
+  return <Tag>{status}</Tag>;
 }
 
+/*
+ * Actions shown according to booking status.
+ *
+ * These buttons are currently UI-only.
+ * Their business flows are handled by
+ * their respective FDS development tasks.
+ */
 function BookingActions({
   status,
 }: {
-  status: BookingStatus;
+  status: string;
 }) {
-  if (status === "PENDING") {
+  const normalizedStatus =
+    status.toUpperCase();
+
+  if (
+    normalizedStatus === "CONFIRMED" ||
+    normalizedStatus === "PENDING"
+  ) {
     return (
       <div className={styles.actionGroup}>
-        <Button type="primary" size="small">
+        <Button
+          type="primary"
+          size="small"
+        >
           Check-In
         </Button>
 
@@ -458,10 +579,15 @@ function BookingActions({
     );
   }
 
-  if (status === "CHECKED_IN") {
+  if (
+    normalizedStatus === "CHECKED_IN"
+  ) {
     return (
       <div className={styles.actionGroup}>
-        <Button type="primary" size="small">
+        <Button
+          type="primary"
+          size="small"
+        >
           Check-Out
         </Button>
 
@@ -472,11 +598,17 @@ function BookingActions({
     );
   }
 
-  return (
-    <div className={styles.actionGroup}>
-      <Button size="small">
-        Receipt
-      </Button>
-    </div>
-  );
+  if (
+    normalizedStatus === "CHECKED_OUT"
+  ) {
+    return (
+      <div className={styles.actionGroup}>
+        <Button size="small">
+          Receipt
+        </Button>
+      </div>
+    );
+  }
+
+  return null;
 }

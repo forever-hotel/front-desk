@@ -58,7 +58,9 @@ export class InMemoryBookingRepository extends BookingRepository {
     ) ?? null
   );
 }
-
+async findRecent(limit: number) {
+  return this.bookings.slice(0, limit);
+}
 async markCheckedIn(bookingReference: string): Promise<void> {
   const booking = await this.findByReference(bookingReference);
 
