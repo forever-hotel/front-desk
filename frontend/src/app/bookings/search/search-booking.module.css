@@ -1,0 +1,326 @@
+.page {
+  width: 100%;
+}
+
+/* ========================================
+   PAGE HEADER
+   ======================================== */
+
+.pageHeader {
+  margin-bottom: 14px;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.titleRow svg {
+  color: var(--gold);
+}
+
+.titleRow h1 {
+  margin: 0;
+
+  color: var(--navy);
+
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.pageHeader p {
+  margin: 5px 0 0;
+
+  color: var(--muted);
+
+  font-size: 12px;
+}
+
+/* ========================================
+   SEARCH CARD
+   ======================================== */
+
+.searchCard {
+  overflow: hidden;
+
+  border: 1px solid var(--border);
+  border-radius: 6px;
+
+  background: var(--card-surface);
+
+  box-shadow:
+    0 1px 2px rgba(18, 38, 58, 0.04);
+}
+
+.searchForm {
+  padding: 18px 17px 15px;
+}
+
+.fields {
+  display: grid;
+
+  grid-template-columns:
+    minmax(0, 2fr)
+    minmax(240px, 1fr);
+
+  gap: 10px;
+}
+
+.field {
+  min-width: 0;
+}
+
+.field label {
+  display: block;
+
+  margin-bottom: 7px;
+
+  color: #4f4c47;
+
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.7px;
+}
+
+.select {
+  width: 100%;
+}
+
+/* ========================================
+   FORM ACTIONS
+   ======================================== */
+
+.formActions {
+  display: flex;
+  gap: 8px;
+
+  margin-top: 11px;
+}
+
+/* ========================================
+   RESULTS
+   ======================================== */
+
+.results {
+  width: 100%;
+
+  border-top: 1px solid var(--border);
+}
+
+/*
+ * Ant Design controls table layout and behaviour.
+ * Only project-specific visual adjustments stay here.
+ */
+
+.results :global(.ant-table-wrapper) {
+  width: 100%;
+}
+
+.results :global(.ant-table) {
+  font-size: 11px;
+}
+
+.results :global(.ant-table-thead > tr > th) {
+  color: #4d5358;
+
+  font-size: 9px;
+  font-weight: 600;
+
+  letter-spacing: 0.65px;
+
+  text-transform: uppercase;
+}
+
+.results :global(.ant-table-tbody > tr > td) {
+  font-size: 11px;
+}
+
+.alternateRow > td {
+  background: var(--table-row-alt) !important;
+}
+
+/* ========================================
+   GUEST
+   ======================================== */
+
+.guestCell {
+  display: flex;
+
+  min-width: 155px;
+
+  flex-direction: column;
+
+  gap: 3px;
+}
+
+.guestName {
+  color: var(--text);
+
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.guestEmail {
+  color: var(--muted);
+
+  font-size: 9px;
+}
+
+/* ========================================
+   BOOKING REFERENCE
+   ======================================== */
+
+.bookingReference {
+  white-space: nowrap;
+
+  font-family:
+    "SFMono-Regular",
+    Consolas,
+    "Liberation Mono",
+    monospace;
+
+  font-size: 10px;
+}
+
+/* ========================================
+   TAGS
+   ======================================== */
+
+.sourceTag {
+  margin: 0;
+
+  border-color: #cdd9e3 !important;
+
+  border-radius: 999px;
+
+  background: var(--navy-light) !important;
+
+  color: var(--navy) !important;
+
+  font-family:
+    "SFMono-Regular",
+    Consolas,
+    "Liberation Mono",
+    monospace;
+
+  font-size: 9px;
+}
+
+.pendingTag,
+.checkedInTag,
+.checkedOutTag {
+  margin: 0;
+
+  border-radius: 999px;
+
+  font-size: 9px;
+}
+
+.pendingTag {
+  border-color: #e7c777 !important;
+
+  background: var(--warning-bg) !important;
+
+  color: var(--warning) !important;
+}
+
+.checkedInTag {
+  border-color: #a9d8ba !important;
+
+  background: var(--success-bg) !important;
+
+  color: var(--success) !important;
+}
+
+.checkedOutTag {
+  border-color: #d2d4d1 !important;
+
+  background: #f1f2f0 !important;
+
+  color: #66645f !important;
+}
+
+/* ========================================
+   ROW ACTIONS
+   ======================================== */
+
+.actionGroup {
+  display: flex;
+  align-items: center;
+
+  gap: 7px;
+
+  white-space: nowrap;
+}
+
+/* ========================================
+   STATES
+   ======================================== */
+
+.loadingState,
+.emptyState,
+.stateContainer {
+  min-height: 140px;
+
+  padding: 24px;
+}
+
+.loadingState {
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 10px;
+
+  color: var(--muted);
+
+  font-size: 12px;
+}
+
+.emptyState {
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+}
+
+.stateContainer {
+  display: flex;
+
+  align-items: center;
+}
+
+.stateContainer :global(.ant-alert) {
+  width: 100%;
+}
+
+/* ========================================
+   RESPONSIVE
+   ======================================== */
+
+@media (max-width: 800px) {
+  .fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .titleRow h1 {
+    font-size: 20px;
+  }
+
+  .searchForm {
+    padding: 15px;
+  }
+
+  .formActions {
+    flex-wrap: wrap;
+  }
+
+  .formActions :global(.ant-btn) {
+    flex: 1;
+  }
+}

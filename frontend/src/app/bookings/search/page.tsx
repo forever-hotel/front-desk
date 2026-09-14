@@ -2,7 +2,22 @@
 
 import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
+import type { TableColumnsType } from "antd";
+
+import {
+  Alert,
+  Button,
+  Empty,
+  Input,
+  Select,
+  Spin,
+  Table,
+  Tag,
+} from "antd";
+
 import { Search } from "lucide-react";
+
+import styles from "./search-booking.module.css";
 
 type SearchField =
   | "all"
@@ -71,8 +86,36 @@ const bookings: Booking[] = [
   },
 ];
 
+const searchByOptions = [
+  {
+    value: "all",
+    label: "All Fields",
+  },
+  {
+    value: "guest",
+    label: "Guest Name",
+  },
+  {
+    value: "booking",
+    label: "Booking Reference",
+  },
+  {
+    value: "nic",
+    label: "NIC / Passport",
+  },
+  {
+    value: "email",
+    label: "Email",
+  },
+  {
+    value: "phone",
+    label: "Phone",
+  },
+];
+
 export default function BookingSearchPage() {
   const [query, setQuery] = useState("");
+
   const [searchBy, setSearchBy] =
     useState<SearchField>("all");
 
@@ -140,17 +183,16 @@ export default function BookingSearchPage() {
 
     try {
       /*
-       * Temporary delay used only to demonstrate the
-       * loading state before real backend integration.
+       * Temporary delay used to demonstrate the loading
+       * state before real backend integration.
        */
       await new Promise<void>((resolve) => {
         window.setTimeout(resolve, 500);
       });
 
       /*
-       * Temporary error trigger for DDP-16 UI testing.
-       * This will be removed when the real Booking
-       * Search API is connected.
+       * Temporary mock error trigger.
+       * Remove this when the real API is integrated.
        */
       if (query.trim().toLowerCase() === "error") {
         throw new Error("Mock booking search failure");
@@ -178,12 +220,80 @@ export default function BookingSearchPage() {
     setIsLoading(false);
   };
 
+  const columns: TableColumnsType<Booking> = [
+    {
+      title: "Guest Name",
+      key: "guestName",
+      render: (_, booking) => (
+        <div className={styles.guestCell}>
+          <span className={styles.guestName}>
+            {booking.guestName}
+          </span>
+
+          <span className={styles.guestEmail}>
+            {booking.email}
+          </span>
+        </div>
+      ),
+    },
+    {
+      title: "Booking Ref",
+      dataIndex: "bookingReference",
+      key: "bookingReference",
+      render: (reference: string) => (
+        <span className={styles.bookingReference}>
+          {reference}
+        </span>
+      ),
+    },
+    {
+      title: "Room",
+      dataIndex: "room",
+      key: "room",
+    },
+    {
+      title: "Check-In",
+      dataIndex: "checkIn",
+      key: "checkIn",
+    },
+    {
+      title: "Check-Out",
+      dataIndex: "checkOut",
+      key: "checkOut",
+    },
+    {
+      title: "Source",
+      dataIndex: "source",
+      key: "source",
+      render: (source: BookingSource) => (
+        <Tag className={styles.sourceTag}>
+          {source}
+        </Tag>
+      ),
+    },
+    {
+      title: "Status",
+      dataIndex: "status",
+      key: "status",
+      render: (status: BookingStatus) => (
+        <BookingStatusTag status={status} />
+      ),
+    },
+    {
+      title: "Actions",
+      key: "actions",
+      render: (_, booking) => (
+        <BookingActions status={booking.status} />
+      ),
+    },
+  ];
+
   return (
-    <section className="search-booking-page">
-      <header className="search-booking-title">
-        <div className="search-booking-title-line">
+    <section className={styles.page}>
+      <header className={styles.pageHeader}>
+        <div className={styles.titleRow}>
           <Search
-            size={15}
+            size={16}
             strokeWidth={2}
             aria-hidden="true"
           />
@@ -197,176 +307,103 @@ export default function BookingSearchPage() {
         </p>
       </header>
 
-      <div className="search-booking-card">
+      <div className={styles.searchCard}>
         <form
-          className="search-booking-form"
+          className={styles.searchForm}
           onSubmit={handleSearch}
         >
-          <div className="search-booking-fields">
-            <div className="search-field search-query-field">
-              <label htmlFor="search-query">
+          <div className={styles.fields}>
+            <div className={styles.field}>
+              <label htmlFor="booking-search-query">
                 SEARCH QUERY
               </label>
 
-              <input
-                id="search-query"
-                type="search"
+              <Input
+                id="booking-search-query"
                 value={query}
                 onChange={(event) =>
                   setQuery(event.target.value)
                 }
                 placeholder="Guest name, booking ref, NIC/passport, email or phone..."
                 disabled={isLoading}
+                allowClear
               />
             </div>
 
-            <div className="search-field search-by-field">
-              <label htmlFor="search-by">
+            <div className={styles.field}>
+              <label htmlFor="booking-search-by">
                 SEARCH BY
               </label>
 
-              <select
-                id="search-by"
+              <Select
+                id="booking-search-by"
                 value={searchBy}
-                onChange={(event) =>
-                  setSearchBy(
-                    event.target.value as SearchField,
-                  )
+                options={searchByOptions}
+                onChange={(value: SearchField) =>
+                  setSearchBy(value)
                 }
                 disabled={isLoading}
-              >
-                <option value="all">
-                  All Fields
-                </option>
-
-                <option value="guest">
-                  Guest Name
-                </option>
-
-                <option value="booking">
-                  Booking Reference
-                </option>
-
-                <option value="nic">
-                  NIC / Passport
-                </option>
-
-                <option value="email">
-                  Email
-                </option>
-
-                <option value="phone">
-                  Phone
-                </option>
-              </select>
+                className={styles.select}
+              />
             </div>
           </div>
 
-          <div className="search-booking-actions">
-            <button
-              type="submit"
-              className="search-primary-button"
-              disabled={isLoading}
+          <div className={styles.formActions}>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={isLoading}
             >
-              {isLoading ? "Searching..." : "Search"}
-            </button>
+              Search
+            </Button>
 
-            <button
-              type="button"
-              className="search-clear-button"
+            <Button
+              htmlType="button"
               onClick={handleClear}
               disabled={isLoading}
             >
               Clear
-            </button>
+            </Button>
           </div>
         </form>
 
-        <div className="search-results-wrapper">
-          {isLoading ? (
-            <div
-              className="search-feedback-state"
-              role="status"
-            >
-              <span
-                className="search-loading-spinner"
-                aria-hidden="true"
+        <div className={styles.results}>
+          {error ? (
+            <div className={styles.stateContainer}>
+              <Alert
+                type="error"
+                showIcon
+                message="Booking search failed"
+                description={error}
               />
+            </div>
+          ) : isLoading ? (
+            <div className={styles.loadingState}>
+              <Spin size="default" />
 
               <span>Searching bookings...</span>
             </div>
-          ) : error ? (
-            <div
-              className="search-feedback-state search-error-state"
-              role="alert"
-            >
-              {error}
+          ) : filteredBookings.length === 0 ? (
+            <div className={styles.emptyState}>
+              <Empty
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description="No bookings found."
+              />
             </div>
-          ) : filteredBookings.length > 0 ? (
-            <table className="search-results-table">
-              <thead>
-                <tr>
-                  <th>Guest Name</th>
-                  <th>Booking Ref</th>
-                  <th>Room</th>
-                  <th>Check-In</th>
-                  <th>Check-Out</th>
-                  <th>Source</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {filteredBookings.map((booking) => (
-                  <tr key={booking.bookingReference}>
-                    <td>
-                      <div className="guest-cell">
-                        <span className="guest-name">
-                          {booking.guestName}
-                        </span>
-
-                        <span className="guest-email">
-                          {booking.email}
-                        </span>
-                      </div>
-                    </td>
-
-                    <td className="booking-ref-cell">
-                      {booking.bookingReference}
-                    </td>
-
-                    <td>{booking.room}</td>
-
-                    <td>{booking.checkIn}</td>
-
-                    <td>{booking.checkOut}</td>
-
-                    <td>
-                      <span className="source-badge">
-                        {booking.source}
-                      </span>
-                    </td>
-
-                    <td>
-                      <StatusBadge
-                        status={booking.status}
-                      />
-                    </td>
-
-                    <td>
-                      <BookingActions
-                        status={booking.status}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           ) : (
-            <div className="search-empty-state">
-              No bookings found.
-            </div>
+            <Table<Booking>
+              columns={columns}
+              dataSource={filteredBookings}
+              rowKey="bookingReference"
+              pagination={false}
+              size="middle"
+              scroll={{ x: 950 }}
+              rowClassName={(_, index) =>
+                index % 2 === 1
+                  ? styles.alternateRow
+                  : ""
+              }
+            />
           )}
         </div>
       </div>
@@ -374,34 +411,31 @@ export default function BookingSearchPage() {
   );
 }
 
-function StatusBadge({
+function BookingStatusTag({
   status,
 }: {
   status: BookingStatus;
 }) {
   if (status === "PENDING") {
     return (
-      <span className="status-pill status-pending">
-        <span className="status-dot" />
+      <Tag className={styles.pendingTag}>
         Pending
-      </span>
+      </Tag>
     );
   }
 
   if (status === "CHECKED_IN") {
     return (
-      <span className="status-pill status-checked-in">
-        <span className="status-dot" />
+      <Tag className={styles.checkedInTag}>
         Checked In
-      </span>
+      </Tag>
     );
   }
 
   return (
-    <span className="status-pill status-checked-out">
-      <span className="status-dot" />
+    <Tag className={styles.checkedOutTag}>
       Checked Out
-    </span>
+    </Tag>
   );
 }
 
@@ -412,52 +446,37 @@ function BookingActions({
 }) {
   if (status === "PENDING") {
     return (
-      <div className="booking-action-group">
-        <button
-          type="button"
-          className="table-primary-button"
-        >
+      <div className={styles.actionGroup}>
+        <Button type="primary" size="small">
           Check-In
-        </button>
+        </Button>
 
-        <button
-          type="button"
-          className="table-secondary-button"
-        >
+        <Button size="small">
           Folio
-        </button>
+        </Button>
       </div>
     );
   }
 
   if (status === "CHECKED_IN") {
     return (
-      <div className="booking-action-group">
-        <button
-          type="button"
-          className="table-primary-button"
-        >
+      <div className={styles.actionGroup}>
+        <Button type="primary" size="small">
           Check-Out
-        </button>
+        </Button>
 
-        <button
-          type="button"
-          className="table-secondary-button"
-        >
+        <Button size="small">
           Folio
-        </button>
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="booking-action-group">
-      <button
-        type="button"
-        className="table-secondary-button"
-      >
+    <div className={styles.actionGroup}>
+      <Button size="small">
         Receipt
-      </button>
+      </Button>
     </div>
   );
 }
