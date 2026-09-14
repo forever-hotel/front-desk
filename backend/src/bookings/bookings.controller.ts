@@ -12,4 +12,27 @@ export class BookingsController {
   ): Promise<BookingSearchResult[]> {
     return this.bookingsService.search(query);
   }
+
+  @Get("recent")
+async findRecent(
+  @Query("limit") limit?: string,
+) {
+  const parsedLimit = Number(limit);
+
+  const safeLimit =
+    Number.isInteger(parsedLimit) &&
+    parsedLimit > 0
+      ? parsedLimit
+      : 5;
+
+  const value =
+    await this.bookingsService.findRecent(
+      safeLimit,
+    );
+
+  return {
+    value,
+    count: value.length,
+  };
+}
 }

@@ -208,14 +208,22 @@
   font-size: 9px;
 }
 
+.confirmedTag,
 .pendingTag,
 .checkedInTag,
 .checkedOutTag {
   margin: 0;
-
   border-radius: 999px;
-
   font-size: 9px;
+}
+
+.confirmedTag,
+.pendingTag {
+  border-color: #e7c777 !important;
+
+  background: var(--warning-bg) !important;
+
+  color: var(--warning) !important;
 }
 
 .pendingTag {
