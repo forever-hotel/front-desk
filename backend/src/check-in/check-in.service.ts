@@ -52,9 +52,7 @@ export class CheckInService {
       roomNumber,
     });
 
-    await this.bookingRepository.markCheckedIn(
-      booking.bookingReference,
-    );
+    await this.bookingRepository.markCheckedIn(booking.bookingReference);
 
     return {
       status: 'checked_in',

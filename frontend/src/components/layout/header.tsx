@@ -7,24 +7,22 @@ type HeaderProps = {
   onMenuToggle: () => void;
 };
 
-export default function Header({
-  onMenuToggle,
-}: HeaderProps) {
+export default function Header({ onMenuToggle }: HeaderProps) {
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
 
-useEffect(() => {
-  const updateTime = () => {
-    setCurrentTime(new Date());
-  };
+  useEffect(() => {
+    const updateTime = () => {
+      setCurrentTime(new Date());
+    };
 
-  const initialTimer = window.setTimeout(updateTime, 0);
-  const intervalTimer = window.setInterval(updateTime, 1000);
+    const initialTimer = window.setTimeout(updateTime, 0);
+    const intervalTimer = window.setInterval(updateTime, 1000);
 
-  return () => {
-    window.clearTimeout(initialTimer);
-    window.clearInterval(intervalTimer);
-  };
-}, []);
+    return () => {
+      window.clearTimeout(initialTimer);
+      window.clearInterval(intervalTimer);
+    };
+  }, []);
 
   const formatDateTime = (date: Date) => {
     const weekday = date
@@ -63,11 +61,7 @@ useEffect(() => {
         </button>
 
         <div className="fds-brand">
-          <Diamond
-            size={15}
-            className="fds-brand-mark"
-            fill="currentColor"
-          />
+          <Diamond size={15} className="fds-brand-mark" fill="currentColor" />
 
           <span className="fds-brand-forever">FOREVER</span>
           <span className="fds-brand-hotel">HOTEL</span>

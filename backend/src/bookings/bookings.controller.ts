@@ -7,32 +7,22 @@ export class BookingsController {
   constructor(private readonly bookingsService: BookingsService) {}
 
   @Get('search')
-  search(
-    @Query('query') query = '',
-  ): Promise<BookingSearchResult[]> {
+  search(@Query('query') query = ''): Promise<BookingSearchResult[]> {
     return this.bookingsService.search(query);
   }
 
-  @Get("recent")
-async findRecent(
-  @Query("limit") limit?: string,
-) {
-  const parsedLimit = Number(limit);
+  @Get('recent')
+  async findRecent(@Query('limit') limit?: string) {
+    const parsedLimit = Number(limit);
 
-  const safeLimit =
-    Number.isInteger(parsedLimit) &&
-    parsedLimit > 0
-      ? parsedLimit
-      : 5;
+    const safeLimit =
+      Number.isInteger(parsedLimit) && parsedLimit > 0 ? parsedLimit : 5;
 
-  const value =
-    await this.bookingsService.findRecent(
-      safeLimit,
-    );
+    const value = await this.bookingsService.findRecent(safeLimit);
 
-  return {
-    value,
-    count: value.length,
-  };
-}
+    return {
+      value,
+      count: value.length,
+    };
+  }
 }

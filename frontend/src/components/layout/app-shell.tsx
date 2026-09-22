@@ -8,29 +8,18 @@ type AppShellProps = {
   children: React.ReactNode;
 };
 
-export default function AppShell({
-  children,
-}: AppShellProps) {
+export default function AppShell({ children }: AppShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
     <div className="fds-shell">
-      <Sidebar
-        isOpen={sidebarOpen}
-        onNavigate={() => setSidebarOpen(false)}
-      />
+      <Sidebar isOpen={sidebarOpen} onNavigate={() => setSidebarOpen(false)} />
 
       <div className="fds-main-area">
-        <Header
-          onMenuToggle={() =>
-            setSidebarOpen((current) => !current)
-          }
-        />
+        <Header onMenuToggle={() => setSidebarOpen((current) => !current)} />
 
         <main className="fds-main">
-          <div className="fds-content">
-            {children}
-          </div>
+          <div className="fds-content">{children}</div>
         </main>
       </div>
 
