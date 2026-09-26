@@ -65,16 +65,14 @@ const antdTheme: ThemeConfig = {
       activeBorderColor: "#2E5F8A",
       hoverBorderColor: "#2E5F8A",
 
-      activeShadow:
-        "0 0 0 2px rgba(46, 95, 138, 0.10)",
+      activeShadow: "0 0 0 2px rgba(46, 95, 138, 0.10)",
     },
 
     Select: {
       activeBorderColor: "#2E5F8A",
       hoverBorderColor: "#2E5F8A",
 
-      activeOutlineColor:
-        "rgba(46, 95, 138, 0.10)",
+      activeOutlineColor: "rgba(46, 95, 138, 0.10)",
     },
 
     Table: {

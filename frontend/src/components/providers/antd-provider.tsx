@@ -8,12 +8,6 @@ type AntdProviderProps = {
   children: ReactNode;
 };
 
-export default function AntdProvider({
-  children,
-}: AntdProviderProps) {
-  return (
-    <ConfigProvider theme={antdTheme}>
-      {children}
-    </ConfigProvider>
-  );
+export default function AntdProvider({ children }: AntdProviderProps) {
+  return <ConfigProvider theme={antdTheme}>{children}</ConfigProvider>;
 }

@@ -8,9 +8,7 @@ export class CheckInController {
   constructor(private readonly checkInService: CheckInService) {}
 
   @Post()
-  checkIn(
-    @Body() dto: CheckInRequestDto,
-  ): Promise<CheckInResult> {
+  checkIn(@Body() dto: CheckInRequestDto): Promise<CheckInResult> {
     return this.checkInService.checkIn(dto);
   }
 }

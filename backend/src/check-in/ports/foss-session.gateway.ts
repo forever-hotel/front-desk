@@ -4,7 +4,5 @@ export interface ActivateFossSessionInput {
 }
 
 export abstract class FossSessionGateway {
-  abstract activateGuestSession(
-    input: ActivateFossSessionInput,
-  ): Promise<void>;
+  abstract activateGuestSession(input: ActivateFossSessionInput): Promise<void>;
 }

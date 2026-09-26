@@ -10,11 +10,8 @@ export class BookingsService {
     return this.bookingRepository.search(query);
   }
   async findRecent(limit = 5) {
-  const safeLimit = Math.min(
-    Math.max(limit, 1),
-    20,
-  );
+    const safeLimit = Math.min(Math.max(limit, 1), 20);
 
-  return this.bookingRepository.findRecent(safeLimit);
-}
+    return this.bookingRepository.findRecent(safeLimit);
+  }
 }

@@ -47,25 +47,25 @@ export class InMemoryBookingRepository extends BookingRepository {
   }
 
   async findByReference(
-  bookingReference: string,
-): Promise<BookingSearchResult | null> {
-  const normalizedReference = bookingReference.trim().toLowerCase();
+    bookingReference: string,
+  ): Promise<BookingSearchResult | null> {
+    const normalizedReference = bookingReference.trim().toLowerCase();
 
-  return (
-    this.bookings.find(
-      (booking) =>
-        booking.bookingReference.toLowerCase() === normalizedReference,
-    ) ?? null
-  );
-}
-async findRecent(limit: number) {
-  return this.bookings.slice(0, limit);
-}
-async markCheckedIn(bookingReference: string): Promise<void> {
-  const booking = await this.findByReference(bookingReference);
-
-  if (booking) {
-    booking.status = 'CHECKED_IN';
+    return (
+      this.bookings.find(
+        (booking) =>
+          booking.bookingReference.toLowerCase() === normalizedReference,
+      ) ?? null
+    );
   }
-}
+  async findRecent(limit: number) {
+    return this.bookings.slice(0, limit);
+  }
+  async markCheckedIn(bookingReference: string): Promise<void> {
+    const booking = await this.findByReference(bookingReference);
+
+    if (booking) {
+      booking.status = 'CHECKED_IN';
+    }
+  }
 }

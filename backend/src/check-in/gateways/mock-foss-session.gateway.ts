@@ -6,9 +6,7 @@ import {
 
 @Injectable()
 export class MockFossSessionGateway extends FossSessionGateway {
-  activateGuestSession(
-    _input: ActivateFossSessionInput,
-  ): Promise<void> {
+  activateGuestSession(_input: ActivateFossSessionInput): Promise<void> {
     return Promise.resolve();
   }
 }

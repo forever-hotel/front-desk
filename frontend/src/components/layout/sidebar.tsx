@@ -105,10 +105,7 @@ const navigationSections: NavigationSection[] = [
   },
 ];
 
-export default function Sidebar({
-  isOpen,
-  onNavigate,
-}: SidebarProps) {
+export default function Sidebar({ isOpen, onNavigate }: SidebarProps) {
   const pathname = usePathname();
 
   const isActive = (href: string) => {
@@ -126,13 +123,8 @@ export default function Sidebar({
     >
       <div className="fds-sidebar-content">
         {navigationSections.map((section) => (
-          <section
-            key={section.label}
-            className="fds-nav-section"
-          >
-            <p className="fds-nav-section-label">
-              {section.label}
-            </p>
+          <section key={section.label} className="fds-nav-section">
+            <p className="fds-nav-section-label">{section.label}</p>
 
             <nav className="fds-navigation">
               {section.items.map((item) => {
@@ -144,12 +136,8 @@ export default function Sidebar({
                     key={item.href}
                     href={item.href}
                     onClick={onNavigate}
-                    className={`fds-nav-link ${
-                      active ? "active" : ""
-                    }`}
-                    aria-current={
-                      active ? "page" : undefined
-                    }
+                    className={`fds-nav-link ${active ? "active" : ""}`}
+                    aria-current={active ? "page" : undefined}
                   >
                     <span className="fds-nav-link-main">
                       <Icon
@@ -162,9 +150,7 @@ export default function Sidebar({
                     </span>
 
                     {item.badge !== undefined && (
-                      <span className="fds-nav-badge">
-                        {item.badge}
-                      </span>
+                      <span className="fds-nav-badge">{item.badge}</span>
                     )}
                   </Link>
                 );
@@ -180,9 +166,7 @@ export default function Sidebar({
           <span>SESSION ACTIVE</span>
         </div>
 
-        <span className="fds-session-time">
-          SHIFT STARTED 08:00
-        </span>
+        <span className="fds-session-time">SHIFT STARTED 08:00</span>
       </div>
     </aside>
   );

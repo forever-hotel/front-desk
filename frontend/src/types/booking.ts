@@ -19,8 +19,4 @@ export type BookingSearchResponse =
     };
 
 export type BookingSearchField =
-  | "all"
-  | "guest"
-  | "booking"
-  | "email"
-  | "phone";
+  "all" | "guest" | "booking" | "email" | "phone";
