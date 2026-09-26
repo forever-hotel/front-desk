@@ -13,6 +13,10 @@ All notable changes to the Front Desk System will be documented in this file.
 - Added provisional Front Desk booking-search backend functionality using an in-memory repository.
 - Added provisional Front Desk guest check-in business logic and validations.
 - Added mock FOSS session activation for the Check-In workflow.
+- Added automated backend Jest coverage reporting.
+- Added an 80% global coverage quality gate for statements, branches, functions, and lines.
+- Added backend CI coverage artifact upload for development evidence.
+- Added unit tests for Front Desk booking and check-in controllers and missing validation paths.
 
 
 ### Fixed

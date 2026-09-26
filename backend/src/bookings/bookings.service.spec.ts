@@ -52,4 +52,21 @@ describe('BookingsService', () => {
 
     expect(result).toEqual([]);
   });
+  it('should return recent bookings', async () => {
+    const result = await service.findRecent(2);
+
+    expect(result).toHaveLength(2);
+  });
+
+  it('should clamp recent booking limit to a minimum of 1', async () => {
+    const result = await service.findRecent(0);
+
+    expect(result).toHaveLength(1);
+  });
+
+  it('should clamp recent booking limit to a maximum of 20', async () => {
+    const result = await service.findRecent(100);
+
+    expect(result.length).toBeLessThanOrEqual(20);
+  });
 });

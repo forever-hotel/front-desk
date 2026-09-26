@@ -13,3 +13,7 @@ dist/
 .env
 .env.*
 !.env.example
+
+# Test coverage reports
+coverage/
+**/coverage/

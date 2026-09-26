@@ -75,7 +75,15 @@ describe('CheckInService', () => {
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
-
+  it('should reject check-in when booking reference is missing', async () => {
+    await expect(
+      service.checkIn({
+        bookingReference: '',
+        roomNumber: '205',
+        idVerified: true,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
   it('should reject a second check-in for the same booking', async () => {
     await service.checkIn({
       bookingReference: 'FH-1001',
