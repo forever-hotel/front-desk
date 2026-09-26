@@ -13,3 +13,11 @@ All notable changes to the Front Desk System will be documented in this file.
 - Added provisional Front Desk booking-search backend functionality using an in-memory repository.
 - Added provisional Front Desk guest check-in business logic and validations.
 - Added mock FOSS session activation for the Check-In workflow.
+
+
+### Fixed
+
+- Stabilized Front Desk frontend and backend CI pipelines.
+- Fixed backend Jest E2E ESM configuration.
+- Replaced CI dependency installation with `npm ci`.
+- Resolved backend dependency vulnerabilities and verified 0 audit vulnerabilities.
