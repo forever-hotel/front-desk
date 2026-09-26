@@ -61,8 +61,11 @@ export default function BookingSearchPage() {
    * - when Clear is clicked
    * - when an empty search is submitted
    */
-  const loadRecentBookings = useCallback(async () => {
-    setIsLoading(true);
+  const loadRecentBookings = useCallback(async (showLoading = true) => {
+    if (showLoading) {
+      setIsLoading(true);
+    }
+
     setError(null);
 
     try {
@@ -85,7 +88,13 @@ export default function BookingSearchPage() {
    * Load recent bookings when the page first opens.
    */
   useEffect(() => {
-    void loadRecentBookings();
+    // isLoading already starts as true. Defer the fetch to avoid a
+    // synchronous state update in the effect body.
+    const timeoutId = window.setTimeout(() => {
+      void loadRecentBookings(false);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [loadRecentBookings]);
 
   /*
