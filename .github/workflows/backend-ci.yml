@@ -60,8 +60,17 @@ jobs:
       - name: Build NestJS backend
         run: npm run build
 
-      - name: Run unit tests
-        run: npm run test
+      - name: Run unit tests with coverage
+        run: npm run test:cov -- --runInBand
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: front-desk-backend-coverage-${{ github.run_number }}
+          path: backend/coverage/
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Run end-to-end tests
         run: npm run test:e2e
