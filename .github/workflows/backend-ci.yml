@@ -33,6 +33,31 @@ jobs:
     name: Format, Lint, Build, Test, and Audit
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: front_desk_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: front_desk_test
+      DB_SSL: "false"
+      DB_SYNCHRONIZE: "false"
+      DB_LOGGING: "false"
+
     defaults:
       run:
         working-directory: backend
@@ -50,6 +75,27 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Prepare integration test database
+        run: psql -f test/database/shared-schema.sql
+        env:
+          PGPASSWORD: postgres
+          PGHOST: localhost
+          PGPORT: "5432"
+          PGUSER: postgres
+          PGDATABASE: front_desk_test
+
+      - name: Run database migrations
+        run: npm run migration:run
+
+      - name: Seed integration test database
+        run: psql -f test/database/seed.sql
+        env:
+          PGPASSWORD: postgres
+          PGHOST: localhost
+          PGPORT: "5432"
+          PGUSER: postgres
+          PGDATABASE: front_desk_test
 
       - name: Check formatting
         run: npm run format:check

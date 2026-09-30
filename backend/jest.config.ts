@@ -14,34 +14,36 @@ const config: Config = {
   moduleFileExtensions: ['js', 'json', 'ts'],
   rootDir: '.',
   testRegex: '.*\\.spec\\.ts$',
- transform: {
-  '^.+\\.(t|j)s$': [
-    'ts-jest',
-    {
-      tsconfig: 'tsconfig.spec.json',
-    },
-  ],
-},
+  transform: {
+    '^.+\\.(t|j)s$': [
+      'ts-jest',
+      {
+        tsconfig: 'tsconfig.spec.json',
+      },
+    ],
+  },
   moduleNameMapper: pathsToModuleNameMapper(paths, { prefix: '<rootDir>/' }),
- collectCoverageFrom: [
-  'src/**/*.(t|j)s',
-  'libs/**/*.(t|j)s',
-  'apps/**/*.(t|j)s',
+  collectCoverageFrom: [
+    'src/**/*.(t|j)s',
+    'libs/**/*.(t|j)s',
+    'apps/**/*.(t|j)s',
 
-  // NestJS bootstrap and module wiring are validated through
-  // integration/E2E testing rather than unit coverage.
-  '!src/main.ts',
-  '!src/**/*.module.ts',
-],
+    // NestJS bootstrap and module wiring are validated through
+    // integration/E2E testing rather than unit coverage.
+    '!src/main.ts',
+    '!src/**/*.module.ts',
+    '!src/database/data-source.ts',
+    '!src/database/migrations/**',
+  ],
   coverageDirectory: './coverage',
   coverageThreshold: {
-  global: {
-    branches: 80,
-    functions: 80,
-    lines: 80,
-    statements: 80,
+    global: {
+      branches: 80,
+      functions: 80,
+      lines: 80,
+      statements: 80,
+    },
   },
-},
   testEnvironment: 'node',
 };
 
