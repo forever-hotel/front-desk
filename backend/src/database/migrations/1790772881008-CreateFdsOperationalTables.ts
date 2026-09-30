@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class CreateFdsOperationalTables1790772881008 implements MigrationInterface {
   name = 'CreateFdsOperationalTables1790772881008';
