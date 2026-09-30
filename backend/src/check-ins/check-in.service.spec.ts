@@ -4,8 +4,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { BookingRepository } from '../bookings/repositories/booking.repository';
-import { InMemoryBookingRepository } from '../bookings/repositories/in-memory-booking.repository';
+import { BookingRepository } from '../reservations/repositories/booking.repository';
+import { InMemoryBookingRepository } from '../reservations/repositories/in-memory-booking.repository';
 import { CheckInService } from './check-in.service';
 import { MockFossSessionGateway } from './gateways/mock-foss-session.gateway';
 import { FossSessionGateway } from './ports/foss-session.gateway';

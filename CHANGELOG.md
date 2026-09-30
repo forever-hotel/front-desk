@@ -17,6 +17,10 @@ All notable changes to the Front Desk System will be documented in this file.
 - Added an 80% global coverage quality gate for statements, branches, functions, and lines.
 - Added backend CI coverage artifact upload for development evidence.
 - Added unit tests for Front Desk booking and check-in controllers and missing validation paths.
+- Aligned the Front Desk backend folder structure with the agreed team-wide domain structure.
+- Renamed the existing backend feature folders from `bookings/` to `reservations/` and from `check-in/` to `check-ins/` without changing API behaviour.
+- Added structural placeholders for `config`, `database`, `common`, `check-outs`, `guests`, `rooms`, `billing`, `messaging`, and `realtime`.
+- Updated the root README to match the actual repository and backend structure.
 
 
 ### Fixed

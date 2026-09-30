@@ -1,69 +1,29 @@
 # Forever Hotel - Front Desk System
 
-This repository contains the Front Desk System for the Forever Hotel Management System.
+This repository contains the Front Desk System (FDS) for the Forever Hotel
+Management System.
 
-The Front Desk System is used by receptionists to manage:
+The Front Desk System is used by receptionists to support:
 
-- Daily arrivals and departures
-- Guest check-in
-- Guest check-out
-- Walk-in bookings
-- Room status management
-- Room changes
-- Maintenance blocking
-- Service requests
-- Escalated worker tasks
-- Guest folio
-- Audit logs
+- daily arrivals and departures;
+- booking search;
+- guest check-in and check-out;
+- walk-in bookings;
+- room assignment and room-status management;
+- room changes;
+- maintenance blocking;
+- guest folio viewing;
+- service requests;
+- escalated worker-task monitoring;
+- audit logging.
 
-## Folder Structure
+## Repository Structure
 
+```text
 front-desk/
+├── .github/
 ├── frontend/
 ├── backend/
-├── docs/
 ├── README.md
-├── .gitignore
-└── .env.example
-
-## Development Branches
-
-- main: production-ready branch
-- develop: development/integration branch
-- feature branches: used for each GitHub issue
-
-## Front Desk Backend
-
-The Front Desk System backend is implemented using NestJS and TypeScript.
-
-### Prerequisites
-
-- Node.js 24 LTS
-- npm 11 or later
-
-### Install Dependencies
-
-```bash
-cd backend
-npm install
-
-### Health Check
-
-The Front Desk backend exposes a lightweight health endpoint:
-
-```http
-GET /health
-
-### Booking Search
-
-The Front Desk backend currently exposes a provisional booking-search endpoint:
-
-```http
-GET /bookings/search?query=<search-value>
-
-### Check-In
-
-The Front Desk backend currently exposes a provisional Check-In endpoint:
-
-```http
-POST /check-in
+├── CHANGELOG.md
+└── .gitignore

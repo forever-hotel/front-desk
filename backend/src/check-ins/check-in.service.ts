@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { BookingRepository } from '../bookings/repositories/booking.repository';
+import { BookingRepository } from '../reservations/repositories/booking.repository';
 import { CheckInRequestDto } from './dto/check-in-request.dto';
 import { CheckInResult } from './models/check-in-result';
 import { FossSessionGateway } from './ports/foss-session.gateway';

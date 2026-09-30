@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { BookingsModule } from '../bookings/bookings.module';
+import { BookingsModule } from '../reservations/bookings.module';
 import { CheckInController } from './check-in.controller';
 import { CheckInService } from './check-in.service';
 import { MockFossSessionGateway } from './gateways/mock-foss-session.gateway';
