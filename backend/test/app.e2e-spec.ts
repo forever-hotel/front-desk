@@ -47,10 +47,13 @@ describe('AppController (e2e)', () => {
   });
 
   it('/health/ready (GET)', () => {
-    return request(app.getHttpServer()).get('/health/ready').expect(200).expect({
-      status: 'ready',
-      database: 'up',
-    });
+    return request(app.getHttpServer())
+      .get('/health/ready')
+      .expect(200)
+      .expect({
+        status: 'ready',
+        database: 'up',
+      });
   });
 
   afterAll(async () => {
