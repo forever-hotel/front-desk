@@ -21,6 +21,12 @@ All notable changes to the Front Desk System will be documented in this file.
 - Renamed the existing backend feature folders from `bookings/` to `reservations/` and from `check-in/` to `check-ins/` without changing API behaviour.
 - Added structural placeholders for `config`, `database`, `common`, `check-outs`, `guests`, `rooms`, `billing`, `messaging`, and `realtime`.
 - Updated the root README to match the actual repository and backend structure.
+- Added NestJS environment configuration and validation for Front Desk database settings.
+- Added TypeORM PostgreSQL database connection support using `DATABASE_URL` or individual `DB_*` environment variables.
+- Added secure local/development and hosted/staging database configuration separation.
+- Added `GET /health/ready` database readiness endpoint using a lightweight PostgreSQL connectivity check.
+- Added unit and E2E tests for environment validation and database readiness success/failure behaviour.
+- Added `backend/.env.example` with safe database configuration placeholders.
 
 
 ### Fixed

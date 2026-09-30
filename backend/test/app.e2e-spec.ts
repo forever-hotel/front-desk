@@ -1,16 +1,37 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing';
+import { jest } from '@jest/globals';
 import request from 'supertest';
 import { App } from 'supertest/types';
+import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
 
-  beforeEach(async () => {
+  beforeAll(async () => {
+    // Safe test-only configuration.
+    // No real database credentials are required for this E2E suite.
+    process.env.NODE_ENV = 'test';
+    process.env.DB_HOST = 'localhost';
+    process.env.DB_PORT = '5432';
+    process.env.DB_USERNAME = 'test';
+    process.env.DB_PASSWORD = 'test';
+    process.env.DB_NAME = 'test';
+    process.env.DB_SSL = 'false';
+    process.env.DB_SYNCHRONIZE = 'false';
+    process.env.DB_LOGGING = 'false';
+
+    const dataSourceMock = {
+      query: jest.fn(async () => []),
+    };
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(DataSource)
+      .useValue(dataSourceMock)
+      .compile();
 
     app = moduleFixture.createNestApplication();
     await app.init();
@@ -23,7 +44,19 @@ describe('AppController (e2e)', () => {
       .expect('Hello World!');
   });
 
-  afterEach(async () => {
-    await app.close();
+  it('/health/ready (GET)', () => {
+    return request(app.getHttpServer())
+      .get('/health/ready')
+      .expect(200)
+      .expect({
+        status: 'ready',
+        database: 'up',
+      });
+  });
+
+  afterAll(async () => {
+    if (app) {
+      await app.close();
+    }
   });
 });
