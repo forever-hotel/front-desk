@@ -4,14 +4,13 @@ import { jest } from '@jest/globals';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
-import { AppModule } from './../src/app.module';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeAll(async () => {
-    // Safe test-only configuration.
-    // No real database credentials are required for this E2E suite.
+    // Safe test-only database configuration.
+    // These values are placeholders and contain no real credentials.
     process.env.NODE_ENV = 'test';
     process.env.DB_HOST = 'localhost';
     process.env.DB_PORT = '5432';
@@ -21,6 +20,9 @@ describe('AppController (e2e)', () => {
     process.env.DB_SSL = 'false';
     process.env.DB_SYNCHRONIZE = 'false';
     process.env.DB_LOGGING = 'false';
+
+    // Import AppModule only after test environment variables exist.
+    const { AppModule } = await import('./../src/app.module.js');
 
     const dataSourceMock = {
       query: jest.fn(async () => []),
@@ -45,13 +47,10 @@ describe('AppController (e2e)', () => {
   });
 
   it('/health/ready (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/health/ready')
-      .expect(200)
-      .expect({
-        status: 'ready',
-        database: 'up',
-      });
+    return request(app.getHttpServer()).get('/health/ready').expect(200).expect({
+      status: 'ready',
+      database: 'up',
+    });
   });
 
   afterAll(async () => {
