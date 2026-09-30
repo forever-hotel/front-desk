@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { config } from 'dotenv';
-import { DataSource, DataSourceOptions } from 'typeorm';
+import { DataSource } from 'typeorm';
+import type { DataSourceOptions } from 'typeorm';
 
 config();
 
