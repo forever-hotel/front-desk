@@ -39,6 +39,19 @@ CREATE TYPE promotion_status AS ENUM (
   'INACTIVE'
 );
 
+CREATE TYPE payment_method AS ENUM (
+  'STRIPE',
+  'CASH',
+  'CARD_ON_SITE'
+);
+
+CREATE TYPE payment_status AS ENUM (
+  'PENDING',
+  'COMPLETED',
+  'REFUNDED',
+  'FAILED'
+);
+
 CREATE TABLE guests (
   guest_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   full_name VARCHAR(255) NOT NULL,
@@ -53,8 +66,10 @@ CREATE TABLE guests (
 CREATE TABLE room_types (
   room_type_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   type_name VARCHAR(100) NOT NULL UNIQUE,
-  price_per_night INTEGER NOT NULL CHECK (price_per_night > 0),
-  max_guests INTEGER NOT NULL CHECK (max_guests > 0),
+  price_per_night INTEGER NOT NULL
+    CHECK (price_per_night > 0),
+  max_guests INTEGER NOT NULL
+    CHECK (max_guests > 0),
   description TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -62,46 +77,77 @@ CREATE TABLE room_types (
 
 CREATE TABLE rooms (
   room_number VARCHAR(10) PRIMARY KEY,
+
   room_type_id UUID NOT NULL
     REFERENCES room_types(room_type_id)
     ON DELETE RESTRICT,
+
   floor INTEGER NOT NULL,
+
   status room_status NOT NULL DEFAULT 'VACANT',
+
   last_cleared_at TIMESTAMPTZ,
+
   notes TEXT,
+
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE staff_users (
   worker_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+
   full_name VARCHAR(255) NOT NULL,
+
   vocation VARCHAR(100) NOT NULL,
+
   email VARCHAR(320) NOT NULL UNIQUE,
+
   phone VARCHAR(20),
-  age INTEGER CHECK (age IS NULL OR age > 0),
+
+  age INTEGER
+    CHECK (age IS NULL OR age > 0),
+
   nic VARCHAR(50),
+
   username VARCHAR(100) NOT NULL UNIQUE,
+
   password_hash VARCHAR(255) NOT NULL,
+
   role staff_role NOT NULL,
+
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
+
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE mad_promotion_codes (
   promo_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+
   code_string VARCHAR(50) NOT NULL UNIQUE,
+
   discount_type promotion_discount_type NOT NULL,
-  discount_value INTEGER NOT NULL CHECK (discount_value > 0),
+
+  discount_value INTEGER NOT NULL
+    CHECK (discount_value > 0),
+
   valid_from TIMESTAMPTZ NOT NULL,
+
   valid_until TIMESTAMPTZ NOT NULL,
+
   max_redemptions INTEGER NOT NULL DEFAULT 100
     CHECK (max_redemptions > 0),
+
   current_redemptions INTEGER NOT NULL DEFAULT 0
     CHECK (current_redemptions >= 0),
+
   status promotion_status NOT NULL DEFAULT 'ACTIVE',
+
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
   CONSTRAINT chk_promotion_dates
@@ -137,6 +183,7 @@ CREATE TABLE bookings (
     ON DELETE SET NULL,
 
   check_in_date DATE NOT NULL,
+
   check_out_date DATE NOT NULL,
 
   status booking_status NOT NULL DEFAULT 'PENDING',
@@ -152,10 +199,34 @@ CREATE TABLE bookings (
     CHECK (num_guests > 0),
 
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
   CONSTRAINT chk_booking_dates
     CHECK (check_out_date > check_in_date)
+);
+
+CREATE TABLE payments (
+  payment_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+
+  booking_id UUID NOT NULL
+    REFERENCES bookings(booking_id)
+    ON DELETE RESTRICT,
+
+  payment_method payment_method NOT NULL,
+
+  amount INTEGER NOT NULL
+    CHECK (amount > 0),
+
+  payment_status payment_status NOT NULL DEFAULT 'PENDING',
+
+  stripe_ref VARCHAR(255) UNIQUE,
+
+  paid_at TIMESTAMPTZ,
+
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE OR REPLACE FUNCTION trigger_set_updated_at()
