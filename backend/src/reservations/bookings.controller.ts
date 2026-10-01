@@ -1,6 +1,8 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { BookingsService } from './bookings.service';
+import { CreateWalkInBookingDto } from './dto/create-walk-in-booking.dto';
 import { BookingSearchResult } from './models/booking-search-result';
+import { WalkInBookingResult } from './models/walk-in-booking-result';
 
 @Controller('bookings')
 export class BookingsController {
@@ -25,6 +27,7 @@ export class BookingsController {
       count: value.length,
     };
   }
+
   @Get('arrivals')
   findArrivals(@Query('date') date?: string): Promise<BookingSearchResult[]> {
     const targetDate = date ?? new Date().toISOString().slice(0, 10);
@@ -37,5 +40,12 @@ export class BookingsController {
     const targetDate = date ?? new Date().toISOString().slice(0, 10);
 
     return this.bookingsService.findDepartures(targetDate);
+  }
+
+  @Post('walk-in')
+  createWalkInBooking(
+    @Body() request: CreateWalkInBookingDto,
+  ): Promise<WalkInBookingResult> {
+    return this.bookingsService.createWalkInBooking(request);
   }
 }
