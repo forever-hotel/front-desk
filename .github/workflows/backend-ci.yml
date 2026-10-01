@@ -97,6 +97,9 @@ jobs:
           PGUSER: postgres
           PGDATABASE: front_desk_test
 
+      - name: Run PostgreSQL integration tests
+        run: npm run test:integration
+
       - name: Check formatting
         run: npm run format:check
 

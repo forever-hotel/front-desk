@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { BookingRepository } from '../reservations/repositories/booking.repository';
+import { CheckInBookingRepository } from './ports/check-in-booking.repository';
 import { InMemoryBookingRepository } from '../reservations/repositories/in-memory-booking.repository';
 import { CheckInService } from './check-in.service';
 import { MockFossSessionGateway } from './gateways/mock-foss-session.gateway';
@@ -18,7 +18,7 @@ describe('CheckInService', () => {
       providers: [
         CheckInService,
         {
-          provide: BookingRepository,
+          provide: CheckInBookingRepository,
           useClass: InMemoryBookingRepository,
         },
         {

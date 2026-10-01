@@ -9,8 +9,6 @@ describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeAll(async () => {
-    // Safe test-only database configuration.
-    // These values are placeholders and contain no real credentials.
     process.env.NODE_ENV = 'test';
     process.env.DB_HOST = 'localhost';
     process.env.DB_PORT = '5432';
@@ -21,11 +19,60 @@ describe('AppController (e2e)', () => {
     process.env.DB_SYNCHRONIZE = 'false';
     process.env.DB_LOGGING = 'false';
 
-    // Import AppModule only after test environment variables exist.
     const { AppModule } = await import('./../src/app.module.js');
 
     const dataSourceMock = {
-      query: jest.fn(async () => []),
+      query: jest.fn(async (sql: string, parameters?: unknown[]) => {
+        if (sql.includes("b.status = 'CONFIRMED'")) {
+          return [
+            {
+              bookingId: 'arrival-001',
+              bookingReference: 'arrival-001',
+              guestName: 'Arrival Guest',
+              email: 'arrival@example.invalid',
+              phone: '+94000000001',
+              roomType: 'Standard',
+              checkInDate: String(parameters?.[0]),
+              checkOutDate: '2030-01-12',
+              status: 'CONFIRMED',
+            },
+          ];
+        }
+
+        if (sql.includes("b.status = 'CHECKED_IN'")) {
+          return [
+            {
+              bookingId: 'departure-001',
+              bookingReference: 'departure-001',
+              guestName: 'Departure Guest',
+              email: 'departure@example.invalid',
+              phone: '+94000000002',
+              roomType: 'Standard',
+              checkInDate: '2030-01-08',
+              checkOutDate: String(parameters?.[0]),
+              status: 'CHECKED_IN',
+            },
+          ];
+        }
+
+        if (sql.includes('FROM bookings b')) {
+          return [
+            {
+              bookingId: '33333333-3333-4333-8333-333333333333',
+              bookingReference: '33333333-3333-4333-8333-333333333333',
+              guestName: 'CI Test Guest',
+              email: 'ci-test-guest@example.invalid',
+              phone: '+94000000000',
+              roomType: 'CI Standard Room',
+              checkInDate: '2030-01-10',
+              checkOutDate: '2030-01-12',
+              status: 'CONFIRMED',
+            },
+          ];
+        }
+
+        return [];
+      }),
     };
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -53,6 +100,41 @@ describe('AppController (e2e)', () => {
       .expect({
         status: 'ready',
         database: 'up',
+      });
+  });
+
+  it('/bookings/search (GET)', () => {
+    return request(app.getHttpServer())
+      .get('/bookings/search')
+      .query({ query: 'CI Test Guest' })
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toHaveLength(1);
+        expect(response.body[0].guestName).toBe('CI Test Guest');
+      });
+  });
+
+  it('/bookings/arrivals (GET)', () => {
+    return request(app.getHttpServer())
+      .get('/bookings/arrivals')
+      .query({ date: '2030-01-10' })
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toHaveLength(1);
+        expect(response.body[0].status).toBe('CONFIRMED');
+        expect(response.body[0].checkInDate).toBe('2030-01-10');
+      });
+  });
+
+  it('/bookings/departures (GET)', () => {
+    return request(app.getHttpServer())
+      .get('/bookings/departures')
+      .query({ date: '2030-01-12' })
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toHaveLength(1);
+        expect(response.body[0].status).toBe('CHECKED_IN');
+        expect(response.body[0].checkOutDate).toBe('2030-01-12');
       });
   });
 

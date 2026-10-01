@@ -57,7 +57,82 @@ $ npm run test:e2e
 $ npm run test:cov
 ```
 
-## Deployment
+## Deployment 
+## Reservation Search API
+
+The Front Desk reservation endpoints use PostgreSQL persistence through the
+`PostgresBookingRepository`.
+
+### Search bookings
+
+```http
+GET /bookings/search?query=<search-term>
+```
+
+Searches bookings using:
+
+- Booking reference
+- Guest name
+- NIC or passport number
+- Email address
+- Phone number
+
+### Daily arrivals
+
+```http
+GET /bookings/arrivals
+```
+
+Returns confirmed bookings expected to arrive on the current UTC date.
+
+An explicit date can be supplied for testing:
+
+```http
+GET /bookings/arrivals?date=2030-01-10
+```
+
+### Daily departures
+
+```http
+GET /bookings/departures
+```
+
+Returns checked-in bookings expected to depart on the current UTC date.
+
+An explicit date can be supplied for testing:
+
+```http
+GET /bookings/departures?date=2030-01-12
+```
+
+### Recent bookings
+
+```http
+GET /bookings/recent?limit=5
+```
+
+Returns recent persisted bookings. The limit is constrained to a minimum of
+`1` and a maximum of `20`.
+
+### Reservation response
+
+Reservation endpoints return:
+
+- Booking ID
+- Booking reference
+- Guest name
+- Guest email
+- Guest phone
+- Room type
+- Check-in date
+- Check-out date
+- Booking status
+
+### Integration tests
+
+```bash
+npm run test:integration
+```
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
 

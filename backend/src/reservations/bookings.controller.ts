@@ -25,4 +25,17 @@ export class BookingsController {
       count: value.length,
     };
   }
+  @Get('arrivals')
+  findArrivals(@Query('date') date?: string): Promise<BookingSearchResult[]> {
+    const targetDate = date ?? new Date().toISOString().slice(0, 10);
+
+    return this.bookingsService.findArrivals(targetDate);
+  }
+
+  @Get('departures')
+  findDepartures(@Query('date') date?: string): Promise<BookingSearchResult[]> {
+    const targetDate = date ?? new Date().toISOString().slice(0, 10);
+
+    return this.bookingsService.findDepartures(targetDate);
+  }
 }

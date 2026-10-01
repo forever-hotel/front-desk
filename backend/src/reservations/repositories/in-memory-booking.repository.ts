@@ -39,7 +39,7 @@ export class InMemoryBookingRepository extends BookingRepository {
     return this.bookings.filter((booking) => {
       return (
         booking.bookingReference.toLowerCase().includes(normalizedQuery) ||
-        booking.guestName.toLowerCase().includes(normalizedQuery) ||
+        booking.guestName?.toLowerCase().includes(normalizedQuery) ||
         booking.email?.toLowerCase().includes(normalizedQuery) ||
         booking.phone?.includes(normalizedQuery)
       );
@@ -60,6 +60,19 @@ export class InMemoryBookingRepository extends BookingRepository {
   }
   async findRecent(limit: number) {
     return this.bookings.slice(0, limit);
+  }
+  async findArrivals(date: string): Promise<BookingSearchResult[]> {
+    return this.bookings.filter(
+      (booking) =>
+        booking.checkInDate === date && booking.status === 'CONFIRMED',
+    );
+  }
+
+  async findDepartures(date: string): Promise<BookingSearchResult[]> {
+    return this.bookings.filter(
+      (booking) =>
+        booking.checkOutDate === date && booking.status === 'CHECKED_IN',
+    );
   }
   async markCheckedIn(bookingReference: string): Promise<void> {
     const booking = await this.findByReference(bookingReference);
