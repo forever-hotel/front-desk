@@ -10,6 +10,8 @@ describe('BookingsController', () => {
     const serviceMock = {
       search: jest.fn(),
       findRecent: jest.fn(),
+      findArrivals: jest.fn(),
+      findDepartures: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -67,5 +69,29 @@ describe('BookingsController', () => {
     await controller.findRecent('invalid');
 
     expect(service.findRecent).toHaveBeenCalledWith(5);
+  });
+
+  it('should return arrivals for the provided date', async () => {
+    const bookings = [{ bookingReference: 'booking-arrival-001' }];
+
+    service.findArrivals.mockResolvedValue(bookings as never);
+
+    await expect(controller.findArrivals('2030-01-10')).resolves.toEqual(
+      bookings,
+    );
+
+    expect(service.findArrivals).toHaveBeenCalledWith('2030-01-10');
+  });
+
+  it('should return departures for the provided date', async () => {
+    const bookings = [{ bookingReference: 'booking-departure-001' }];
+
+    service.findDepartures.mockResolvedValue(bookings as never);
+
+    await expect(controller.findDepartures('2030-01-12')).resolves.toEqual(
+      bookings,
+    );
+
+    expect(service.findDepartures).toHaveBeenCalledWith('2030-01-12');
   });
 });

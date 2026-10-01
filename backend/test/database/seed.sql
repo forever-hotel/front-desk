@@ -89,3 +89,31 @@ VALUES (
   1
 )
 ON CONFLICT (booking_id) DO NOTHING;
+
+INSERT INTO bookings (
+  booking_id,
+  guest_id,
+  room_type_id,
+  room_number,
+  check_in_date,
+  check_out_date,
+  status,
+  total_amount,
+  source,
+  special_requests,
+  num_guests
+)
+VALUES (
+  '44444444-4444-4444-8444-444444444444',
+  '22222222-2222-4222-8222-222222222222',
+  '11111111-1111-4111-8111-111111111111',
+  'T102',
+  DATE '2030-01-08',
+  DATE '2030-01-12',
+  'CHECKED_IN',
+  60000,
+  'WEBSITE',
+  'CI deterministic checked-in booking',
+  1
+)
+ON CONFLICT (booking_id) DO NOTHING;

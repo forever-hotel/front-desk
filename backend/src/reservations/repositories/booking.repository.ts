@@ -1,13 +1,11 @@
-import { BookingSearchResult } from '../models/booking-search-result';
+import type { BookingSearchResult } from '../models/booking-search-result';
 
 export abstract class BookingRepository {
   abstract search(query: string): Promise<BookingSearchResult[]>;
 
   abstract findRecent(limit: number): Promise<BookingSearchResult[]>;
 
-  abstract findByReference(
-    bookingReference: string,
-  ): Promise<BookingSearchResult | null>;
+  abstract findArrivals(date: string): Promise<BookingSearchResult[]>;
 
-  abstract markCheckedIn(bookingReference: string): Promise<void>;
+  abstract findDepartures(date: string): Promise<BookingSearchResult[]>;
 }

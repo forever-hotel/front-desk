@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { BookingRepository } from '../reservations/repositories/booking.repository';
+import { CheckInBookingRepository } from './ports/check-in-booking.repository';
 import { CheckInRequestDto } from './dto/check-in-request.dto';
 import { CheckInResult } from './models/check-in-result';
 import { FossSessionGateway } from './ports/foss-session.gateway';
@@ -12,7 +12,7 @@ import { FossSessionGateway } from './ports/foss-session.gateway';
 @Injectable()
 export class CheckInService {
   constructor(
-    private readonly bookingRepository: BookingRepository,
+    private readonly bookingRepository: CheckInBookingRepository,
     private readonly fossSessionGateway: FossSessionGateway,
   ) {}
 
