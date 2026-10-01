@@ -52,26 +52,56 @@ CREATE TYPE payment_status AS ENUM (
   'FAILED'
 );
 
+CREATE TYPE audit_event_category AS ENUM (
+  'AUTHENTICATION',
+  'FRONT_DESK_OPERATION',
+  'PAYMENT',
+  'STAFF_ACCOUNT_MANAGEMENT',
+  'DATA_ACCESS',
+  'TASK_SERVICE',
+  'FOOD_ORDER'
+);
+
+CREATE TYPE audit_actor_type AS ENUM (
+  'STAFF',
+  'GUEST',
+  'SYSTEM',
+  'ANONYMOUS'
+);
+
 CREATE TABLE guests (
   guest_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+
   full_name VARCHAR(255) NOT NULL,
+
   email VARCHAR(320) NOT NULL UNIQUE,
+
   password_hash VARCHAR(255) NOT NULL,
+
   nic_or_passport VARCHAR(50),
+
   phone VARCHAR(20),
+
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE room_types (
   room_type_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+
   type_name VARCHAR(100) NOT NULL UNIQUE,
+
   price_per_night INTEGER NOT NULL
     CHECK (price_per_night > 0),
+
   max_guests INTEGER NOT NULL
     CHECK (max_guests > 0),
+
   description TEXT,
+
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -228,6 +258,111 @@ CREATE TABLE payments (
 
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE foss_sessions (
+  session_id UUID
+    PRIMARY KEY DEFAULT uuid_generate_v4(),
+
+  booking_id UUID
+    NOT NULL UNIQUE
+    REFERENCES bookings(booking_id)
+    ON DELETE RESTRICT,
+
+  room_number VARCHAR(10)
+    NOT NULL
+    REFERENCES rooms(room_number)
+    ON DELETE RESTRICT,
+
+  session_token VARCHAR(500)
+    NOT NULL UNIQUE,
+
+  is_active BOOLEAN
+    NOT NULL DEFAULT TRUE,
+
+  created_at TIMESTAMPTZ
+    NOT NULL DEFAULT NOW(),
+
+  updated_at TIMESTAMPTZ
+    NOT NULL DEFAULT NOW(),
+
+  expires_at TIMESTAMPTZ
+    NOT NULL,
+
+  CONSTRAINT chk_foss_session_expiry
+    CHECK (expires_at > created_at)
+);
+
+CREATE TABLE audit_logs (
+  log_id UUID
+    PRIMARY KEY DEFAULT uuid_generate_v4(),
+
+  event_category audit_event_category
+    NOT NULL,
+
+  actor_type audit_actor_type
+    NOT NULL,
+
+  staff_user_id UUID
+    REFERENCES staff_users(worker_id)
+    ON DELETE RESTRICT,
+
+  guest_id UUID
+    REFERENCES guests(guest_id)
+    ON DELETE RESTRICT,
+
+  foss_session_id UUID
+    REFERENCES foss_sessions(session_id)
+    ON DELETE RESTRICT,
+
+  action VARCHAR(100)
+    NOT NULL,
+
+  entity_type VARCHAR(100)
+    NOT NULL,
+
+  entity_id VARCHAR(255),
+
+  details JSONB,
+
+  ip_address VARCHAR(45),
+
+  created_at TIMESTAMPTZ
+    NOT NULL DEFAULT NOW(),
+
+  updated_at TIMESTAMPTZ
+    NOT NULL DEFAULT NOW(),
+
+  CONSTRAINT chk_audit_staff_actor
+    CHECK (
+      actor_type <> 'STAFF'
+      OR staff_user_id IS NOT NULL
+    ),
+
+  CONSTRAINT chk_audit_guest_actor
+    CHECK (
+      actor_type <> 'GUEST'
+      OR guest_id IS NOT NULL
+      OR foss_session_id IS NOT NULL
+    )
+);
+
+CREATE INDEX idx_audit_logs_category
+  ON audit_logs(event_category);
+
+CREATE INDEX idx_audit_logs_staff
+  ON audit_logs(staff_user_id);
+
+CREATE INDEX idx_audit_logs_guest
+  ON audit_logs(guest_id);
+
+CREATE INDEX idx_audit_logs_session
+  ON audit_logs(foss_session_id);
+
+CREATE INDEX idx_audit_logs_entity
+  ON audit_logs(entity_type, entity_id);
+
+CREATE INDEX idx_audit_logs_created_at
+  ON audit_logs(created_at);
 
 CREATE OR REPLACE FUNCTION trigger_set_updated_at()
 RETURNS TRIGGER AS $$

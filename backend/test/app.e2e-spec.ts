@@ -8,6 +8,10 @@ import { DataSource } from 'typeorm';
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
 
+  const checkInBookingId = '55555555-5555-4555-8555-555555555551';
+
+  const receptionistId = '66666666-6666-4666-8666-666666666666';
+
   beforeAll(async () => {
     process.env.NODE_ENV = 'test';
     process.env.DB_HOST = 'localhost';
@@ -28,6 +32,67 @@ describe('AppController (e2e)', () => {
       query: jest.fn(async (sql: string, parameters?: unknown[]) => {
         if (sql.includes('FROM guests')) {
           return [];
+        }
+
+        if (sql.includes('FROM staff_users')) {
+          return [
+            {
+              workerId: receptionistId,
+              role: 'RECEPTIONIST',
+              isActive: true,
+            },
+          ];
+        }
+
+        if (
+          sql.includes('FROM bookings') &&
+          sql.includes("status IN ('PENDING', 'CONFIRMED', 'CHECKED_IN')")
+        ) {
+          return [];
+        }
+
+        if (sql.includes('FROM bookings') && sql.includes('FOR UPDATE')) {
+          return [
+            {
+              bookingId: checkInBookingId,
+              roomTypeId: '11111111-1111-4111-8111-111111111111',
+              roomNumber: null,
+              status: 'CONFIRMED',
+              checkInDate: '2032-01-10',
+              checkOutDate: '2032-01-12',
+            },
+          ];
+        }
+
+        if (sql.includes('FROM rooms') && sql.includes('FOR UPDATE')) {
+          return [
+            {
+              roomNumber: String(parameters?.[0]),
+              roomTypeId: '11111111-1111-4111-8111-111111111111',
+              status: 'VACANT',
+            },
+          ];
+        }
+
+        if (sql.includes('FROM fds_id_verifications')) {
+          return [];
+        }
+
+        if (sql.includes('INSERT INTO fds_id_verifications')) {
+          return [
+            {
+              verificationId: '77777777-7777-4777-8777-777777777777',
+              verifiedAt: '2032-01-10T10:00:00.000Z',
+            },
+          ];
+        }
+
+        if (sql.includes('INSERT INTO audit_logs')) {
+          return [
+            {
+              logId: '88888888-8888-4888-8888-888888888888',
+            },
+          ];
         }
 
         if (sql.includes('INSERT INTO bookings')) {
@@ -179,7 +244,6 @@ describe('AppController (e2e)', () => {
       .expect(200)
       .expect((response) => {
         expect(response.body).toHaveLength(1);
-
         expect(response.body[0].guestName).toBe('CI Test Guest');
       });
   });
@@ -193,9 +257,7 @@ describe('AppController (e2e)', () => {
       .expect(200)
       .expect((response) => {
         expect(response.body).toHaveLength(1);
-
         expect(response.body[0].status).toBe('CONFIRMED');
-
         expect(response.body[0].checkInDate).toBe('2030-01-10');
       });
   });
@@ -209,9 +271,7 @@ describe('AppController (e2e)', () => {
       .expect(200)
       .expect((response) => {
         expect(response.body).toHaveLength(1);
-
         expect(response.body[0].status).toBe('CHECKED_IN');
-
         expect(response.body[0].checkOutDate).toBe('2030-01-12');
       });
   });
@@ -404,6 +464,113 @@ describe('AppController (e2e)', () => {
         },
         payment: {
           paymentMethod: 'CASH',
+        },
+      })
+      .expect(400);
+  });
+
+  it('/check-in completes physical-document check-in (POST)', () => {
+    return request(app.getHttpServer())
+      .post('/check-in')
+      .send({
+        bookingReference: checkInBookingId,
+        roomNumber: 't103',
+        verification: {
+          documentType: 'NIC',
+          verificationMethod: 'PHYSICAL_DOCUMENT',
+          verifiedBy: receptionistId,
+          notes: 'Physical NIC verified',
+        },
+      })
+      .expect(201)
+      .expect((response) => {
+        expect(response.body).toEqual({
+          status: 'checked_in',
+          bookingReference: checkInBookingId,
+          roomNumber: 'T103',
+          bookingStatus: 'CHECKED_IN',
+          roomStatus: 'OCCUPIED',
+          verification: {
+            verificationId: '77777777-7777-4777-8777-777777777777',
+            documentType: 'NIC',
+            verificationMethod: 'PHYSICAL_DOCUMENT',
+            verifiedBy: receptionistId,
+            verifiedAt: '2032-01-10T10:00:00.000Z',
+          },
+          auditLogId: '88888888-8888-4888-8888-888888888888',
+        });
+      });
+  });
+
+  it('/check-in accepts scanned-copy verification metadata (POST)', () => {
+    return request(app.getHttpServer())
+      .post('/check-in')
+      .send({
+        bookingReference: checkInBookingId,
+        roomNumber: 'T103',
+        verification: {
+          documentType: 'PASSPORT',
+          verificationMethod: 'SCANNED_COPY',
+          verifiedBy: receptionistId,
+          documentStorageKey: 'guest-id/opaque-passport-object-key',
+          documentSha256:
+            '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+        },
+      })
+      .expect(201)
+      .expect((response) => {
+        expect(response.body.status).toBe('checked_in');
+
+        expect(response.body.verification.verificationMethod).toBe(
+          'SCANNED_COPY',
+        );
+
+        expect(response.body).not.toHaveProperty('documentStorageKey');
+
+        expect(response.body.verification).not.toHaveProperty(
+          'documentStorageKey',
+        );
+
+        expect(response.body.verification).not.toHaveProperty('documentSha256');
+      });
+  });
+
+  it('/check-in rejects scanned-copy verification without a storage key (POST)', () => {
+    return request(app.getHttpServer())
+      .post('/check-in')
+      .send({
+        bookingReference: checkInBookingId,
+        roomNumber: 'T103',
+        verification: {
+          documentType: 'NIC',
+          verificationMethod: 'SCANNED_COPY',
+          verifiedBy: receptionistId,
+        },
+      })
+      .expect(400);
+  });
+
+  it('/check-in rejects old idVerified boolean contract (POST)', () => {
+    return request(app.getHttpServer())
+      .post('/check-in')
+      .send({
+        bookingReference: checkInBookingId,
+        roomNumber: 'T103',
+        idVerified: true,
+      })
+      .expect(400);
+  });
+
+  it('/check-in rejects invalid verifying staff UUID (POST)', () => {
+    return request(app.getHttpServer())
+      .post('/check-in')
+      .send({
+        bookingReference: checkInBookingId,
+        roomNumber: 'T103',
+        verification: {
+          documentType: 'NIC',
+          verificationMethod: 'PHYSICAL_DOCUMENT',
+          verifiedBy: 'not-a-uuid',
         },
       })
       .expect(400);
