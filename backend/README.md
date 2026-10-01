@@ -17,7 +17,7 @@
 <a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
 <a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
 <a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-<a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
+<a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us" /></a>
 <a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
 <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us"></a>
 </p>
@@ -340,6 +340,371 @@ A successful request returns information including:
 
 No raw card information is returned.
 
+## Transactional Check-In API
+
+The Front Desk transactional check-in workflow implements the current backend
+scope for:
+
+- FD-05 — guest identity verification
+- FD-06 — room assignment and room occupancy
+- FD-16 — Front Desk audit logging
+
+The workflow replaces the previous provisional in-memory check-in persistence
+with a PostgreSQL-backed domain transaction.
+
+### Check in a guest
+
+```http
+POST /check-in
+Content-Type: application/json
+```
+
+The `bookingReference` is the persisted booking UUID.
+
+Example physical-document verification request:
+
+```json
+{
+  "bookingReference": "55555555-5555-4555-8555-555555555551",
+  "roomNumber": "T103",
+  "verification": {
+    "documentType": "NIC",
+    "verificationMethod": "PHYSICAL_DOCUMENT",
+    "verifiedBy": "66666666-6666-4666-8666-666666666666",
+    "notes": "Physical NIC verified at reception"
+  }
+}
+```
+
+Example scanned-copy verification request:
+
+```json
+{
+  "bookingReference": "55555555-5555-4555-8555-555555555552",
+  "verification": {
+    "documentType": "PASSPORT",
+    "verificationMethod": "SCANNED_COPY",
+    "verifiedBy": "66666666-6666-4666-8666-666666666666",
+    "documentStorageKey": "guest-id/opaque-passport-object-key",
+    "documentSha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  }
+}
+```
+
+### Identity document types
+
+Supported values are:
+
+```text
+NIC
+PASSPORT
+OTHER
+```
+
+### Verification methods
+
+Supported values are:
+
+```text
+PHYSICAL_DOCUMENT
+SCANNED_COPY
+```
+
+### Physical-document verification
+
+For physical-document verification:
+
+```text
+verificationMethod = PHYSICAL_DOCUMENT
+documentStorageKey = not supplied
+documentSha256      = not supplied
+```
+
+The receptionist confirms the identity document that is physically presented at
+reception.
+
+No scanned-document storage information is required.
+
+### Scanned-copy verification
+
+For scanned-copy verification:
+
+```text
+verificationMethod = SCANNED_COPY
+documentStorageKey = required
+documentSha256      = optional
+```
+
+The actual NIC/passport image or file is not stored in PostgreSQL.
+
+PostgreSQL stores only approved metadata such as:
+
+- Opaque object-storage key
+- Optional SHA-256 integrity hash
+- Document type
+- Verification method
+- Verifying receptionist
+- Verification timestamp
+- Optional verification notes
+
+The actual scanned document is intended to be stored separately in encrypted
+object storage.
+
+Object-storage upload implementation is outside the current transactional
+check-in scope.
+
+### Verifying receptionist
+
+The current development contract accepts:
+
+```text
+verifiedBy
+```
+
+as a staff UUID.
+
+Before the transaction proceeds, the PostgreSQL repository verifies that the
+staff record exists and satisfies:
+
+```text
+role      = RECEPTIONIST
+is_active = TRUE
+```
+
+This is a transitional contract while centralized authentication and JWT/RBAC
+integration remain outside the current Front Desk implementation.
+
+When authentication integration is introduced, the verifying staff identity
+should be obtained from the authenticated JWT identity instead of being trusted
+directly from request input.
+
+### Booking eligibility
+
+The booking must:
+
+- Exist
+- Be in `CONFIRMED` status
+
+A normal check-in is rejected if the booking is in another state such as:
+
+```text
+PENDING
+CHECKED_IN
+CHECKED_OUT
+CANCELLED
+```
+
+### Room assignment
+
+If the booking already contains a room assignment, that room is used.
+
+If the booking does not yet contain a room assignment, `roomNumber` must be
+provided in the request.
+
+The selected room must:
+
+- Exist
+- Belong to the same `room_type_id` as the booking
+- Have status `VACANT`
+- Have no overlapping active booking for the requested stay period
+
+If the booking already has a room assigned and the request supplies a different
+room number, the check-in is rejected.
+
+The booking and room rows are locked while the check-in transaction is being
+performed.
+
+### Room availability re-check
+
+Room availability is checked inside the PostgreSQL transaction.
+
+The repository checks for overlapping bookings using active booking states:
+
+```text
+PENDING
+CONFIRMED
+CHECKED_IN
+```
+
+The booking being checked in is excluded from the conflict query.
+
+This protects the check-in workflow from committing against stale room
+availability information.
+
+### Identity-verification persistence
+
+A successful check-in creates one record in:
+
+```text
+fds_id_verifications
+```
+
+The record contains approved verification metadata.
+
+For physical verification, no scanned-file storage key is stored.
+
+For scanned-copy verification, an opaque object-storage key is required.
+
+A booking cannot create a second identity-verification record because the
+current schema defines one verification record per booking.
+
+### Booking state transition
+
+On successful check-in:
+
+```text
+bookings.room_number = assigned room number
+bookings.status      = CHECKED_IN
+```
+
+### Room state transition
+
+On successful check-in:
+
+```text
+rooms.status = OCCUPIED
+```
+
+### Audit logging
+
+A successful check-in appends a Front Desk audit event to `audit_logs`.
+
+The event uses:
+
+```text
+event_category = FRONT_DESK_OPERATION
+actor_type     = STAFF
+action         = CHECK_IN
+entity_type    = BOOKING
+entity_id      = booking UUID
+```
+
+The current check-in audit details contain operational metadata such as:
+
+- Room number
+- Verification ID
+- Verification method
+- Document type
+
+The audit details do not include guest name, email, phone number,
+NIC/passport number, document contents, or storage credentials.
+
+The application check-in flow inserts audit records and does not modify or
+delete previous audit entries.
+
+### Atomic PostgreSQL transaction
+
+The complete check-in persistence operation runs inside one PostgreSQL
+transaction.
+
+Conceptually:
+
+```text
+BEGIN
+
+validate active receptionist
+lock booking
+validate booking status
+determine assigned room
+lock room
+validate room type
+validate VACANT room status
+re-check overlapping active bookings
+check for existing ID verification
+insert identity-verification record
+update booking room number
+update booking status to CHECKED_IN
+update room status to OCCUPIED
+insert audit-log record
+
+COMMIT
+```
+
+If any persistence operation fails:
+
+```text
+ROLLBACK
+```
+
+The transaction therefore prevents partial check-in state.
+
+For example:
+
+```text
+identity verification insert  -> success
+booking update                 -> success
+room update                    -> success
+audit insert                   -> failure
+
+ROLLBACK
+```
+
+After the rollback:
+
+```text
+identity-verification insert -> undone
+booking update               -> undone
+room update                  -> undone
+audit insert                 -> absent
+```
+
+### Row locking
+
+The transaction locks the booking row before changing its state and locks the
+room row before assigning or occupying it.
+
+This prevents concurrent check-in operations from independently proceeding
+against the same stale booking or room state.
+
+### Successful response
+
+Example response:
+
+```json
+{
+  "status": "checked_in",
+  "bookingReference": "55555555-5555-4555-8555-555555555551",
+  "roomNumber": "T103",
+  "bookingStatus": "CHECKED_IN",
+  "roomStatus": "OCCUPIED",
+  "verification": {
+    "verificationId": "77777777-7777-4777-8777-777777777777",
+    "documentType": "NIC",
+    "verificationMethod": "PHYSICAL_DOCUMENT",
+    "verifiedBy": "66666666-6666-4666-8666-666666666666",
+    "verifiedAt": "2032-01-10T10:00:00.000Z"
+  },
+  "auditLogId": "88888888-8888-4888-8888-888888888888"
+}
+```
+
+The response does not expose:
+
+- Scanned-document contents
+- Document-storage key
+- Document SHA-256 value
+- Guest PII
+
+### FOSS integration scope
+
+The codebase retains the existing FOSS session gateway abstraction for future
+integration.
+
+Real FOSS session activation is not part of this transactional PostgreSQL
+check-in workflow.
+
+FOSS activation remains a separate cross-service integration concern rather
+than a direct write from the Front Desk service to FOSS-owned persistence.
+
+### Current authentication limitation
+
+Final centralized JWT/RBAC integration is outside this check-in implementation.
+
+Therefore, the current `verifiedBy` staff UUID is a temporary development
+contract.
+
+It must not be treated as the final authentication or authorization mechanism.
+
 ## Integration tests
 
 ```bash
@@ -353,6 +718,30 @@ The GitHub Actions backend pipeline provides this disposable PostgreSQL
 environment automatically.
 
 Do not run integration tests against a shared or production database.
+
+The transactional check-in PostgreSQL integration tests cover:
+
+- Confirmed booking check-in
+- Physical-document verification
+- Scanned-copy verification metadata
+- Pre-assigned room handling
+- Booking transition to `CHECKED_IN`
+- Room transition to `OCCUPIED`
+- Audit-log persistence
+- Invalid booking state rejection
+- Occupied-room rejection
+- Room-type mismatch rejection
+- Overlapping active-booking rejection
+- Non-receptionist staff rejection
+- Inactive receptionist rejection
+- Transaction rollback when audit persistence fails
+
+The rollback integration test verifies that a failed transaction does not leave:
+
+- A partially created identity-verification record
+- A changed booking state
+- An occupied room
+- A partial check-in audit entry
 
 ## Deployment
 
@@ -378,8 +767,7 @@ your system behaves, detecting issues early, and maintaining reliable
 performance.
 
 [NestJS Observe](https://observe.nestjs.com) automatically instruments your
-NestJS application, giving you deep visibility into your system with minimal
-setup:
+application, giving you deep visibility into your system with minimal setup:
 
 - **Distributed tracing:** Follow requests across services and understand how
   they flow through your system.
@@ -424,7 +812,7 @@ and support by the amazing backers. If you'd like to join them, please
 
 ## Stay in touch
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
+- Author - [Kamil Myśliwiec](https://twitter.com/kamilmysliwiec)
 - Website - [https://nestjs.com](https://nestjs.com/)
 - Twitter - [@nestframework](https://twitter.com/nestframework)
 

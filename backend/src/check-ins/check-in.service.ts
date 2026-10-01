@@ -1,64 +1,47 @@
-import {
-  BadRequestException,
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import { CheckInBookingRepository } from './ports/check-in-booking.repository';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { CheckInRequestDto } from './dto/check-in-request.dto';
+import { IdVerificationMethod } from './dto/check-in-verification.dto';
 import { CheckInResult } from './models/check-in-result';
-import { FossSessionGateway } from './ports/foss-session.gateway';
+import { CheckInRepository } from './ports/check-in.repository';
 
 @Injectable()
 export class CheckInService {
-  constructor(
-    private readonly bookingRepository: CheckInBookingRepository,
-    private readonly fossSessionGateway: FossSessionGateway,
-  ) {}
+  constructor(private readonly checkInRepository: CheckInRepository) {}
 
   async checkIn(dto: CheckInRequestDto): Promise<CheckInResult> {
-    const bookingReference = dto.bookingReference?.trim();
-    const roomNumber = dto.roomNumber?.trim();
+    const verification = dto.verification;
 
-    if (!bookingReference) {
-      throw new BadRequestException('Booking reference is required');
+    if (verification.verificationMethod === IdVerificationMethod.SCANNED_COPY) {
+      if (!verification.documentStorageKey?.trim()) {
+        throw new BadRequestException(
+          'documentStorageKey is required for scanned-copy verification',
+        );
+      }
     }
 
-    if (!roomNumber) {
-      throw new BadRequestException('Room number is required');
+    if (
+      verification.verificationMethod === IdVerificationMethod.PHYSICAL_DOCUMENT
+    ) {
+      if (verification.documentStorageKey || verification.documentSha256) {
+        throw new BadRequestException(
+          'Physical-document verification must not include scanned-document metadata',
+        );
+      }
     }
 
-    if (dto.idVerified !== true) {
-      throw new BadRequestException(
-        'Guest identity must be verified before check-in',
-      );
-    }
-
-    const booking =
-      await this.bookingRepository.findByReference(bookingReference);
-
-    if (!booking) {
-      throw new NotFoundException('Booking not found');
-    }
-
-    if (booking.status !== 'CONFIRMED') {
-      throw new ConflictException(
-        `Booking cannot be checked in from status ${booking.status}`,
-      );
-    }
-
-    await this.fossSessionGateway.activateGuestSession({
-      bookingReference: booking.bookingReference,
-      roomNumber,
+    return await this.checkInRepository.checkIn({
+      bookingReference: dto.bookingReference,
+      roomNumber: dto.roomNumber,
+      verification: {
+        documentType: verification.documentType,
+        verificationMethod: verification.verificationMethod,
+        verifiedBy: verification.verifiedBy,
+        documentStorageKey:
+          verification.documentStorageKey?.trim() || undefined,
+        documentSha256:
+          verification.documentSha256?.trim().toLowerCase() || undefined,
+        notes: verification.notes?.trim() || undefined,
+      },
     });
-
-    await this.bookingRepository.markCheckedIn(booking.bookingReference);
-
-    return {
-      status: 'checked_in',
-      bookingReference: booking.bookingReference,
-      roomNumber,
-      fossSessionActivated: true,
-    };
   }
 }
