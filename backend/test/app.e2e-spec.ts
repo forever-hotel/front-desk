@@ -74,11 +74,57 @@ describe('AppController (e2e)', () => {
         }
 
         if (sql.includes('FROM rooms') && sql.includes('FOR UPDATE')) {
+          const roomNumber = String(parameters?.[0]);
+
+          if (roomNumber === 'T999') {
+            return [];
+          }
+
+          if (roomNumber === 'T104') {
+            return [
+              {
+                roomNumber,
+                roomTypeId: '11111111-1111-4111-8111-111111111111',
+                status: 'OCCUPIED',
+              },
+            ];
+          }
+
           return [
             {
-              roomNumber: String(parameters?.[0]),
+              roomNumber,
               roomTypeId: '11111111-1111-4111-8111-111111111111',
               status: 'VACANT',
+            },
+          ];
+        }
+
+        /*
+         * Plan 09 room-status transition.
+         *
+         * Keep this matcher specific so it does
+         * not intercept the Plan 07 check-in room
+         * update query.
+         */
+        if (
+          sql.includes('UPDATE rooms') &&
+          sql.includes('last_cleared_at') &&
+          sql.includes('RETURNING') &&
+          sql.includes('AS "lastClearedAt"')
+        ) {
+          const targetStatus = String(parameters?.[0]);
+
+          const roomNumber = String(parameters?.[1]);
+
+          return [
+            {
+              roomNumber,
+              status: targetStatus,
+              lastClearedAt:
+                targetStatus === 'VACANT'
+                  ? '2032-01-10T12:00:00.000Z'
+                  : '2032-01-09T08:00:00.000Z',
+              updatedAt: '2032-01-10T12:00:00.000Z',
             },
           ];
         }
@@ -146,10 +192,6 @@ describe('AppController (e2e)', () => {
       query: jest.fn(async (sql: string, parameters?: unknown[]) => {
         /*
          * Plan 08 print-context query.
-         *
-         * This matcher must remain specific so it does not
-         * accidentally match the reservation-search queries,
-         * which also select bookingReference.
          */
         if (
           sql.includes('room_number AS "roomNumber"') &&
@@ -164,6 +206,54 @@ describe('AppController (e2e)', () => {
               status: 'CHECKED_IN',
               checkInDate: '2030-01-08',
               checkOutDate: '2030-01-12',
+            },
+          ];
+        }
+
+        /*
+         * Plan 09 room-status board.
+         */
+        if (
+          sql.includes('FROM rooms r') &&
+          sql.includes('INNER JOIN room_types rt') &&
+          sql.includes('last_cleared_at AS "lastClearedAt"')
+        ) {
+          return [
+            {
+              roomNumber: 'T101',
+              roomTypeId: '11111111-1111-4111-8111-111111111111',
+              roomTypeName: 'CI Standard Room',
+              floor: 1,
+              status: 'VACANT',
+              lastClearedAt: '2032-01-09T08:00:00.000Z',
+              updatedAt: '2032-01-10T08:00:00.000Z',
+            },
+            {
+              roomNumber: 'T102',
+              roomTypeId: '11111111-1111-4111-8111-111111111111',
+              roomTypeName: 'CI Standard Room',
+              floor: 1,
+              status: 'OCCUPIED',
+              lastClearedAt: '2032-01-08T08:00:00.000Z',
+              updatedAt: '2032-01-10T09:00:00.000Z',
+            },
+            {
+              roomNumber: 'T103',
+              roomTypeId: '11111111-1111-4111-8111-111111111111',
+              roomTypeName: 'CI Standard Room',
+              floor: 1,
+              status: 'REQUIRES_CLEANING',
+              lastClearedAt: null,
+              updatedAt: '2032-01-10T10:00:00.000Z',
+            },
+            {
+              roomNumber: 'T104',
+              roomTypeId: '11111111-1111-4111-8111-111111111111',
+              roomTypeName: 'CI Standard Room',
+              floor: 1,
+              status: 'UNDER_MAINTENANCE',
+              lastClearedAt: '2032-01-07T08:00:00.000Z',
+              updatedAt: '2032-01-10T11:00:00.000Z',
             },
           ];
         }
@@ -316,6 +406,107 @@ describe('AppController (e2e)', () => {
         status: 'ready',
         database: 'up',
       });
+  });
+
+  it('/rooms/status returns the FD-12 room status board (GET)', () => {
+    return request(app.getHttpServer())
+      .get('/rooms/status')
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toHaveLength(4);
+
+        expect(response.body).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              roomNumber: 'T101',
+              roomTypeName: 'CI Standard Room',
+              floor: 1,
+              status: 'VACANT',
+            }),
+            expect.objectContaining({
+              roomNumber: 'T102',
+              status: 'OCCUPIED',
+            }),
+            expect.objectContaining({
+              roomNumber: 'T103',
+              status: 'REQUIRES_CLEANING',
+            }),
+            expect.objectContaining({
+              roomNumber: 'T104',
+              status: 'UNDER_MAINTENANCE',
+            }),
+          ]),
+        );
+
+        for (const room of response.body) {
+          expect(room).not.toHaveProperty('guestName');
+
+          expect(room).not.toHaveProperty('email');
+
+          expect(room).not.toHaveProperty('nicOrPassport');
+        }
+      });
+  });
+
+  it('/rooms/:roomNumber/status allows VACANT to UNDER_MAINTENANCE (PATCH)', () => {
+    return request(app.getHttpServer())
+      .patch('/rooms/t103/status')
+      .send({
+        targetStatus: 'under_maintenance',
+      })
+      .expect(200)
+      .expect({
+        roomNumber: 'T103',
+        previousStatus: 'VACANT',
+        status: 'UNDER_MAINTENANCE',
+        lastClearedAt: '2032-01-09T08:00:00.000Z',
+        updatedAt: '2032-01-10T12:00:00.000Z',
+      });
+  });
+
+  it('/rooms/:roomNumber/status rejects a same-state transition (PATCH)', () => {
+    return request(app.getHttpServer())
+      .patch('/rooms/T103/status')
+      .send({
+        targetStatus: 'VACANT',
+      })
+      .expect(409);
+  });
+
+  it('/rooms/:roomNumber/status blocks check-in-owned OCCUPIED transition (PATCH)', () => {
+    return request(app.getHttpServer())
+      .patch('/rooms/T103/status')
+      .send({
+        targetStatus: 'OCCUPIED',
+      })
+      .expect(409);
+  });
+
+  it('/rooms/:roomNumber/status blocks checkout-owned REQUIRES_CLEANING transition (PATCH)', () => {
+    return request(app.getHttpServer())
+      .patch('/rooms/T104/status')
+      .send({
+        targetStatus: 'REQUIRES_CLEANING',
+      })
+      .expect(409);
+  });
+
+  it('/rooms/:roomNumber/status rejects unsupported CLEAN state (PATCH)', () => {
+    return request(app.getHttpServer())
+      .patch('/rooms/T103/status')
+      .send({
+        targetStatus: 'CLEAN',
+      })
+      .expect(400);
+  });
+
+  it('/rooms/:roomNumber/status returns 404 for an unknown room (PATCH)', () => {
+    return request(app.getHttpServer())
+      .patch('/rooms/T999/status')
+      .send({
+        targetStatus: 'UNDER_MAINTENANCE',
+      })
+      .expect(404);
   });
 
   it('/bookings/search (GET)', () => {
