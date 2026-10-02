@@ -4,15 +4,16 @@ NestJS backend for the **Forever Hotel Front Desk System (FDS)**.
 
 The Front Desk backend currently provides reservation lookup, walk-in booking,
 transactional guest check-in, guest identity verification, room assignment,
-Front Desk audit logging, FOSS guest-session activation contracts, and
-check-in document printing contracts.
+Front Desk audit logging, FOSS guest-session activation contracts, check-in
+document printing contracts, and room-status management for the Front Desk room
+board.
 
 The service uses PostgreSQL for Front Desk-owned persistence and communicates
 with other subsystem responsibilities through explicit integration contracts.
 
 ---
 
-## Current Backend Scope
+# Current Backend Scope
 
 Implemented backend capabilities include:
 
@@ -35,6 +36,11 @@ Implemented backend capabilities include:
 - Registration-card printing contract
 - Payment-receipt printing contract
 - Mock check-in printing adapter
+- FD-12 room-status board API
+- Guarded room-status transitions
+- Maintenance-state management contract
+- Room transition concurrency protection
+- Real-time-ready room-status results
 - Unit tests
 - PostgreSQL integration tests
 - End-to-end tests
@@ -125,7 +131,7 @@ feature instead of unnecessarily reformatting unrelated files.
 Example:
 
 ```bash
-npx prettier --write src/check-ins test/app.e2e-spec.ts
+npx prettier --write src/rooms test/app.e2e-spec.ts
 ```
 
 ---
@@ -182,6 +188,47 @@ Lines      >= 80%
 ```
 
 A pull request must continue to satisfy these coverage gates.
+
+---
+
+# Current Local Test Evidence
+
+Current Plan 09 local verification:
+
+```text
+Lint
+PASS
+0 warnings
+0 errors
+
+Build
+PASS
+
+Unit tests
+21 suites passed
+138 tests passed
+0 failed
+
+Coverage
+Statements  99.34%
+Branches    86.47%
+Functions   96.29%
+Lines       99.27%
+
+Rooms
+Statements  100%
+Branches    82.14%
+Functions   100%
+Lines       100%
+
+E2E
+1 suite passed
+31 tests passed
+0 failed
+```
+
+The PostgreSQL integration suite is intended to run in the disposable
+PostgreSQL environment provided by GitHub Actions.
 
 ---
 
@@ -743,7 +790,7 @@ the check-in is rejected.
 
 ---
 
-# Concurrency Protection
+# Check-In Concurrency Protection
 
 The check-in transaction locks important rows before making state changes.
 
@@ -798,6 +845,9 @@ On successful check-in:
 ```text
 rooms.status = OCCUPIED
 ```
+
+The generic Plan 09 room-status endpoint does not replace this check-in-owned
+transition.
 
 ---
 
@@ -1368,6 +1418,543 @@ A later adapter can replace the mock without changing
 
 ---
 
+# FD-12 — Room Status Board
+
+Plan 09 introduces the dedicated Front Desk room-status API.
+
+The room status board is intended to show the current operational state of each
+hotel room.
+
+The backend persists the following room states:
+
+```text
+VACANT
+OCCUPIED
+REQUIRES_CLEANING
+UNDER_MAINTENANCE
+```
+
+The Front Desk UI may display:
+
+```text
+VACANT = Clean/Vacant
+```
+
+There is no separate persisted `CLEAN` room status.
+
+---
+
+# Room Status Board Endpoint
+
+```http
+GET /rooms/status
+```
+
+The endpoint returns the current persisted room-state information required for
+the Front Desk room board.
+
+Example response:
+
+```json
+[
+  {
+    "roomNumber": "T101",
+    "roomTypeId": "11111111-1111-4111-8111-111111111111",
+    "roomTypeName": "CI Standard Room",
+    "floor": 1,
+    "status": "VACANT",
+    "lastClearedAt": "2032-01-09T08:00:00.000Z",
+    "updatedAt": "2032-01-10T08:00:00.000Z"
+  },
+  {
+    "roomNumber": "T102",
+    "roomTypeId": "11111111-1111-4111-8111-111111111111",
+    "roomTypeName": "CI Standard Room",
+    "floor": 1,
+    "status": "OCCUPIED",
+    "lastClearedAt": "2032-01-08T08:00:00.000Z",
+    "updatedAt": "2032-01-10T09:00:00.000Z"
+  }
+]
+```
+
+The room-status board response intentionally does not require guest PII.
+
+It does not expose:
+
+```text
+guestName
+guestEmail
+guestPhone
+NIC/passport number
+payment details
+```
+
+---
+
+# Supported Room Statuses
+
+The backend room-status enum contains:
+
+```text
+VACANT
+OCCUPIED
+REQUIRES_CLEANING
+UNDER_MAINTENANCE
+```
+
+`CLEAN` is not a valid persisted status.
+
+A clean room that is ready for use is represented by:
+
+```text
+VACANT
+```
+
+---
+
+# Room Status Update Endpoint
+
+```http
+PATCH /rooms/:roomNumber/status
+Content-Type: application/json
+```
+
+Example:
+
+```http
+PATCH /rooms/T103/status
+```
+
+Request:
+
+```json
+{
+  "targetStatus": "UNDER_MAINTENANCE"
+}
+```
+
+The DTO normalizes supported string input to uppercase.
+
+For example:
+
+```json
+{
+  "targetStatus": "under_maintenance"
+}
+```
+
+is normalized to:
+
+```text
+UNDER_MAINTENANCE
+```
+
+Unsupported values are rejected.
+
+For example:
+
+```json
+{
+  "targetStatus": "CLEAN"
+}
+```
+
+returns a validation error.
+
+---
+
+# Guarded Room Status Transitions
+
+The generic room-status endpoint is not allowed to arbitrarily mutate room
+state.
+
+The current manual transition policy is:
+
+```text
+VACANT
+  -> UNDER_MAINTENANCE
+  allowed
+
+UNDER_MAINTENANCE
+  -> VACANT
+  allowed
+
+REQUIRES_CLEANING
+  -> VACANT
+  allowed
+```
+
+All other generic transitions are blocked unless they are handled by their
+dedicated domain workflow.
+
+---
+
+# Check-In-Owned Room Transition
+
+The following transition belongs to the transactional check-in workflow:
+
+```text
+VACANT -> OCCUPIED
+```
+
+The generic room-status endpoint must not be used to bypass guest check-in.
+
+Therefore:
+
+```http
+PATCH /rooms/T103/status
+```
+
+with:
+
+```json
+{
+  "targetStatus": "OCCUPIED"
+}
+```
+
+is rejected by the guarded transition policy.
+
+---
+
+# Checkout-Owned Room Transition
+
+The following transition belongs to the guest checkout workflow:
+
+```text
+OCCUPIED -> REQUIRES_CLEANING
+```
+
+The generic room-status endpoint does not bypass the future checkout workflow.
+
+Therefore a generic request attempting to place an occupied room directly into:
+
+```text
+REQUIRES_CLEANING
+```
+
+is rejected.
+
+Checkout itself is outside Plan 09.
+
+---
+
+# Maintenance Transition
+
+An eligible clean/vacant room may be manually removed from normal operational
+use:
+
+```text
+VACANT -> UNDER_MAINTENANCE
+```
+
+Example response:
+
+```json
+{
+  "roomNumber": "T103",
+  "previousStatus": "VACANT",
+  "status": "UNDER_MAINTENANCE",
+  "lastClearedAt": "2032-01-09T08:00:00.000Z",
+  "updatedAt": "2032-01-10T12:00:00.000Z"
+}
+```
+
+A room under maintenance is not considered a normal vacant room for check-in.
+
+Full FD-13 booking-availability integration is outside the current Plan 09
+scope.
+
+---
+
+# Clearing a Maintenance Room
+
+Once a maintained room has been cleared for use, the guarded room-status
+contract supports:
+
+```text
+UNDER_MAINTENANCE -> VACANT
+```
+
+This represents the room becoming clean and available again.
+
+When the room enters `VACANT`, the backend updates:
+
+```text
+last_cleared_at
+```
+
+---
+
+# Housekeeping Completion Transition
+
+The guarded room-status contract also supports:
+
+```text
+REQUIRES_CLEANING -> VACANT
+```
+
+This represents the room becoming clean/vacant after the required cleaning has
+been completed.
+
+When this transition succeeds:
+
+```text
+status          = VACANT
+last_cleared_at = current database timestamp
+updated_at      = current database timestamp
+```
+
+Plan 09 does not implement WKMS task completion itself.
+
+It only provides the room-state transition required once the room may be
+cleared.
+
+---
+
+# Same-State Room Requests
+
+A request that does not represent a real state change is rejected.
+
+For example:
+
+```text
+VACANT -> VACANT
+```
+
+does not silently succeed.
+
+It returns a conflict response.
+
+This prevents false room-status events and misleading update timestamps.
+
+---
+
+# Unknown Rooms
+
+A status transition for an unknown room returns a Not Found response.
+
+Example:
+
+```http
+PATCH /rooms/T999/status
+```
+
+The service does not create missing rooms automatically.
+
+---
+
+# Room Status Transition Architecture
+
+The current Plan 09 structure is:
+
+```text
+RoomsController
+      |
+      v
+RoomsService
+      |
+      v
+RoomRepository
+      |
+      v
+PostgresRoomRepository
+      |
+      v
+rooms table
+```
+
+Responsibilities are separated as follows:
+
+```text
+RoomsController
+---------------
+HTTP request/response boundary
+
+RoomsService
+------------
+business transition policy
+room-number normalization
+domain error mapping
+
+RoomRepository
+--------------
+persistence abstraction
+
+PostgresRoomRepository
+----------------------
+PostgreSQL queries
+transactions
+row locking
+status persistence
+timestamp persistence
+```
+
+---
+
+# Room Status PostgreSQL Transaction
+
+A room-status transition uses a PostgreSQL transaction.
+
+Conceptually:
+
+```text
+BEGIN
+  |
+  v
+SELECT room
+FOR UPDATE
+  |
+  v
+check room exists
+  |
+  v
+check same state
+  |
+  v
+check allowed current state
+  |
+  v
+UPDATE rooms
+  |
+  v
+COMMIT
+```
+
+The room row is locked using:
+
+```sql
+FOR UPDATE
+```
+
+before the transition is evaluated.
+
+This prevents two concurrent requests from both independently acting on the same
+stale room state.
+
+---
+
+# Room Status Failure Handling
+
+If a room does not exist:
+
+```text
+ROLLBACK
+```
+
+If the requested target equals the current state:
+
+```text
+ROLLBACK
+```
+
+If the transition is not allowed:
+
+```text
+ROLLBACK
+```
+
+If an unexpected database failure occurs:
+
+```text
+ROLLBACK
+rethrow error
+```
+
+Only a valid status transition is committed.
+
+---
+
+# Room Cleared Timestamp
+
+The `rooms` table contains:
+
+```text
+last_cleared_at
+```
+
+The current Plan 09 behavior is:
+
+```text
+target status = VACANT
+    -> last_cleared_at = NOW()
+```
+
+For transitions to other states:
+
+```text
+last_cleared_at
+    -> preserved
+```
+
+For example:
+
+```text
+VACANT -> UNDER_MAINTENANCE
+```
+
+does not falsely mark the room as newly cleared.
+
+---
+
+# Real-Time-Ready Room Status Result
+
+Plan 09 is intentionally structured so the result of a successful status
+transition can later be published through the shared real-time layer.
+
+Example logical result:
+
+```json
+{
+  "roomNumber": "T103",
+  "previousStatus": "VACANT",
+  "status": "UNDER_MAINTENANCE",
+  "lastClearedAt": "2032-01-09T08:00:00.000Z",
+  "updatedAt": "2032-01-10T12:00:00.000Z"
+}
+```
+
+The room business service currently does not depend directly on Socket.IO.
+
+Future flow:
+
+```text
+RoomsService
+      |
+      v
+typed room status result
+      |
+      v
+Realtime/WebSocket adapter
+      |
+      v
+Front Desk room-status board
+```
+
+This allows WebSocket publishing to be added later without rewriting the room
+transition business rules.
+
+---
+
+# Current Real-Time Limitation
+
+Plan 09 makes the room APIs and returned models ready for future real-time
+delivery.
+
+The current implementation does **not** yet provide:
+
+- Socket.IO gateway
+- WebSocket room-status broadcast
+- Gateway WSS endpoint
+- Frontend real-time subscription
+- Automatic cache updates in the frontend
+- RabbitMQ room-status events
+
+The current source of truth remains PostgreSQL plus the REST APIs.
+
+---
+
 # Integration Ownership Boundaries
 
 Forever Hotel is designed as multiple independently owned subsystem services.
@@ -1375,11 +1962,13 @@ Forever Hotel is designed as multiple independently owned subsystem services.
 The Front Desk backend must not directly modify persistence owned by another
 subsystem for cross-service workflows.
 
-For the current check-in flow:
+Current responsibilities include:
 
 ```text
 Front Desk responsibilities
 ---------------------------
+reservation lookup
+walk-in booking orchestration
 check-in orchestration
 ID-verification metadata
 booking state transition
@@ -1387,12 +1976,20 @@ room occupancy transition
 Front Desk audit entry
 FOSS activation request
 printing request
+room-status board
+guarded room-status management
 
 FOSS responsibilities
 ---------------------
 guest session state
 guest access lifecycle
 guest application access
+
+WKMS responsibilities
+----------------------
+worker tasks
+room-cleaning tasks
+task assignment/completion
 
 Printing integration responsibilities
 -------------------------------------
@@ -1411,6 +2008,8 @@ is used instead of:
 ```text
 FDS -> direct foss_sessions database write
 ```
+
+Likewise, Plan 09 does not directly implement WKMS task behavior.
 
 ---
 
@@ -1457,9 +2056,54 @@ for printing.
 
 ---
 
+# Plan 09 PostgreSQL Room Integration Test
+
+Plan 09 adds:
+
+```text
+test/database/postgres-room.repository.integration-spec.ts
+```
+
+The integration suite uses dedicated Plan 09 test rooms and verifies actual
+PostgreSQL behavior for:
+
+- Room-board retrieval
+- All four persisted room states
+- `VACANT -> UNDER_MAINTENANCE`
+- `REQUIRES_CLEANING -> VACANT`
+- `UNDER_MAINTENANCE -> VACANT`
+- `last_cleared_at` updates
+- Non-vacant transitions preserving existing cleared timestamp
+- Same-state behavior
+- Invalid transition blocking
+- Unknown room behavior
+- Actual room-state persistence
+
+The test fixtures are created inside the disposable test database and removed
+after the suite.
+
+Plan 09 integration tests should not be run against the shared Neon development
+database.
+
+---
+
 # Unit and Contract Tests
 
-The check-in unit and contract suite includes coverage for:
+The current unit and contract suite includes coverage for:
+
+## Reservation and walk-in
+
+- Reservation lookup behavior
+- Arrival/departure queries
+- Walk-in request validation
+- Server-side stay pricing
+- Room-capacity enforcement
+- Cash workflow
+- On-site card workflow
+- Raw card-data protection
+- Walk-in transaction behavior
+
+## Check-in
 
 - Physical identity-document verification
 - Scanned-copy verification
@@ -1484,6 +2128,29 @@ The check-in unit and contract suite includes coverage for:
 - Print repository behavior
 - DTO transformation and validation
 
+## Room status
+
+- All supported room statuses
+- Lowercase-to-uppercase DTO transformation
+- Unsupported `CLEAN` rejection
+- Invalid room status rejection
+- Room-status board delegation
+- Room status service delegation
+- `VACANT -> UNDER_MAINTENANCE`
+- `UNDER_MAINTENANCE -> VACANT`
+- `REQUIRES_CLEANING -> VACANT`
+- Check-in-owned `OCCUPIED` transition protection
+- Checkout-owned `REQUIRES_CLEANING` transition protection
+- Same-state transition rejection
+- Unknown room behavior
+- Empty room-number rejection
+- PostgreSQL room-board mapping
+- PostgreSQL transaction handling
+- PostgreSQL `FOR UPDATE` locking
+- `last_cleared_at` handling
+- Rollback on invalid transition
+- Rollback on unexpected database error
+
 ---
 
 # End-to-End Tests
@@ -1492,9 +2159,32 @@ The E2E suite currently verifies HTTP behavior including:
 
 - Root endpoint
 - Health readiness
+
+## Room-status E2E
+
+- FD-12 room status board
+- `VACANT` room state
+- `OCCUPIED` room state
+- `REQUIRES_CLEANING` room state
+- `UNDER_MAINTENANCE` room state
+- No guest PII in room-board response
+- `VACANT -> UNDER_MAINTENANCE`
+- Room-number normalization
+- Lowercase target-status normalization
+- Same-state transition rejection
+- Check-in-owned `OCCUPIED` transition blocking
+- Checkout-owned `REQUIRES_CLEANING` transition blocking
+- Unsupported `CLEAN` state rejection
+- Unknown room response
+
+## Reservation E2E
+
 - Reservation search
 - Daily arrivals
 - Daily departures
+
+## Walk-in E2E
+
 - Cash walk-in booking
 - On-site card workflow
 - Raw walk-in card-data rejection
@@ -1502,6 +2192,9 @@ The E2E suite currently verifies HTTP behavior including:
 - Invalid email validation
 - Invalid date validation
 - Room-capacity validation
+
+## Check-in E2E
+
 - Physical-document guest check-in
 - FOSS activation after check-in
 - FOSS activation failure handling
@@ -1509,12 +2202,23 @@ The E2E suite currently verifies HTTP behavior including:
 - Missing scanned-copy storage-key rejection
 - Legacy `idVerified` request rejection
 - Invalid verifying-staff UUID rejection
+
+## Printing E2E
+
 - Registration-card print request
 - Payment-receipt print request
 - Unsupported print-document rejection
 - Raw-card-field rejection for printing
 - Printer failure handling
 - Invalid booking UUID rejection
+
+The current local E2E suite contains:
+
+```text
+31 tests
+31 passed
+0 failed
+```
 
 ---
 
@@ -1607,6 +2311,12 @@ This should not be treated as the final authorization solution.
 
 Later authentication integration should derive staff identity from the
 authenticated JWT.
+
+The current room-status management endpoint also does not yet contain final
+JWT/RBAC authorization.
+
+Authorization for room-status management must be enforced when centralized
+authentication integration is introduced.
 
 ---
 
@@ -1728,6 +2438,138 @@ The current Plan 08 implementation intentionally does not include:
 
 ---
 
+# Plan 09 Summary
+
+Plan 09 introduces the Front Desk room-status backend required for the room
+status board.
+
+Implemented:
+
+```text
+FD-12 room status board
+
+GET /rooms/status
+
+PATCH /rooms/:roomNumber/status
+
+RoomStatus enum
+
+VACANT
+OCCUPIED
+REQUIRES_CLEANING
+UNDER_MAINTENANCE
+
+PostgresRoomRepository
+
+explicit transition policy
+
+VACANT -> UNDER_MAINTENANCE
+
+UNDER_MAINTENANCE -> VACANT
+
+REQUIRES_CLEANING -> VACANT
+
+same-state transition blocking
+
+check-in-owned transition protection
+
+checkout-owned transition protection
+
+FOR UPDATE concurrency protection
+
+last_cleared_at handling
+
+typed real-time-ready transition result
+
+unit tests
+
+PostgreSQL integration test
+
+E2E tests
+```
+
+---
+
+# Plan 09 Transition Boundaries
+
+Plan 09 separates generic room management from booking/check-in/checkout
+workflows.
+
+## Allowed generic transitions
+
+```text
+VACANT
+  -> UNDER_MAINTENANCE
+
+UNDER_MAINTENANCE
+  -> VACANT
+
+REQUIRES_CLEANING
+  -> VACANT
+```
+
+## Check-in-owned transition
+
+```text
+VACANT
+  -> OCCUPIED
+```
+
+This transition remains owned by the transactional check-in workflow.
+
+## Checkout-owned transition
+
+```text
+OCCUPIED
+  -> REQUIRES_CLEANING
+```
+
+This transition remains owned by the checkout workflow.
+
+The generic room-status endpoint therefore cannot be used as a shortcut around
+hotel booking lifecycle rules.
+
+---
+
+# Plan 09 Real-Time Readiness
+
+Plan 09 does not directly implement WebSocket broadcasting.
+
+Instead, it returns a stable typed transition result containing:
+
+```text
+roomNumber
+previousStatus
+status
+lastClearedAt
+updatedAt
+```
+
+This result may later be published by the shared real-time layer.
+
+The business rules therefore remain independent of the delivery mechanism.
+
+---
+
+# Plan 09 Out of Scope
+
+The current Plan 09 implementation intentionally does not include:
+
+- Front Desk room-status frontend grid
+- Socket.IO gateway
+- WebSocket room-status broadcasting
+- RabbitMQ room-status events
+- Guest checkout
+- Automatic WKMS cleaning-task creation
+- WKMS cleaning-task completion consumption
+- Room-change workflow
+- Full FD-13 booking-availability integration
+- API Gateway integration
+- Final JWT/RBAC integration
+- Manager Dashboard room-status integration
+
+---
+
 # Security Notes
 
 The current Front Desk implementation follows these development rules:
@@ -1745,12 +2587,16 @@ The current Front Desk implementation follows these development rules:
 - Keep `DB_SYNCHRONIZE=false`.
 - Use migrations for schema evolution.
 - Keep cross-service state behind explicit integration contracts.
+- Do not expose guest PII through the room-status board.
+- Do not accept arbitrary room-state strings.
+- Do not allow generic room management to bypass check-in/checkout workflows.
+- Use row locking for room-status transitions.
 
 ---
 
 # Current Folder Responsibilities
 
-Relevant check-in components currently include:
+## Check-in components
 
 ```text
 src/check-ins/
@@ -1786,7 +2632,7 @@ src/check-ins/
 └── check-in.module.ts
 ```
 
-Production code depends on abstractions such as:
+Production check-in code depends on abstractions such as:
 
 ```text
 CheckInRepository
@@ -1796,6 +2642,140 @@ CheckInPrintGateway
 ```
 
 Nest dependency injection binds those contracts to the current implementations.
+
+---
+
+## Room-status components
+
+```text
+src/rooms/
+├── dto/
+│   ├── update-room-status.dto.ts
+│   └── update-room-status.dto.spec.ts
+│
+├── models/
+│   ├── room-status.ts
+│   ├── room-status-board-item.ts
+│   ├── room-status-transition-result.ts
+│   └── room-status-transition-persistence.ts
+│
+├── ports/
+│   └── room.repository.ts
+│
+├── repositories/
+│   ├── postgres-room.repository.ts
+│   └── postgres-room.repository.spec.ts
+│
+├── rooms.controller.ts
+├── rooms.controller.spec.ts
+├── rooms.service.ts
+├── rooms.service.spec.ts
+└── rooms.module.ts
+```
+
+The room module uses:
+
+```text
+RoomRepository
+```
+
+as its persistence abstraction.
+
+The current production binding is:
+
+```text
+RoomRepository
+      |
+      v
+PostgresRoomRepository
+```
+
+---
+
+# Current Backend Architecture
+
+At the current stage:
+
+```text
+AppModule
+   |
+   +--> DatabaseModule
+   |
+   +--> HealthModule
+   |
+   +--> BookingsModule
+   |
+   +--> CheckInModule
+   |
+   +--> RoomsModule
+```
+
+The feature structure keeps business domains separated.
+
+For example:
+
+```text
+reservations/
+check-ins/
+rooms/
+health/
+```
+
+Database access remains outside HTTP controllers.
+
+---
+
+# Database Room Model
+
+The current shared `rooms` persistence model includes:
+
+```text
+room_number
+room_type_id
+floor
+status
+last_cleared_at
+notes
+created_at
+updated_at
+```
+
+The persisted status type contains:
+
+```text
+VACANT
+OCCUPIED
+REQUIRES_CLEANING
+UNDER_MAINTENANCE
+```
+
+Plan 09 does not introduce a new table or a new room-status enum value.
+
+---
+
+# No CLEAN Database Status
+
+The Front Desk design describes a room-board state as:
+
+```text
+Clean/Vacant
+```
+
+The physical PostgreSQL representation remains:
+
+```text
+VACANT
+```
+
+The backend therefore does not introduce:
+
+```text
+CLEAN
+```
+
+as an additional room status.
+
+This avoids creating two database values for the same operational meaning.
 
 ---
 
@@ -1815,18 +2795,18 @@ Pull requests for development work target:
 develop
 ```
 
-Example feature branch:
+Current Plan 09 feature branch:
 
 ```text
-feature/41-foss-printing-contracts
+feature/43-room-status-board
 ```
 
 Use Conventional Commit messages.
 
-Example:
+Recommended Plan 09 commit:
 
 ```text
-feat(fds-backend): add FOSS activation and check-in printing contracts
+feat(fds-backend): add room status board and guarded transitions
 ```
 
 ---
@@ -1850,7 +2830,7 @@ Before merging a backend feature:
 
 ---
 
-# Current Plan 08 Issue
+# Completed Plan 08 Issue
 
 ```text
 Issue #41
@@ -1867,3 +2847,76 @@ FD-08
 
 The production FOSS adapter and physical printer adapter remain future
 integration work.
+
+---
+
+# Current Plan 09 Issue
+
+```text
+Issue #43
+
+[DDP-71] feat(fds-backend): add room status board and guarded status transitions
+```
+
+Plan 09 primarily covers:
+
+```text
+FD-12
+```
+
+and prepares the backend contract for related room-management behavior.
+
+Implemented Plan 09 scope:
+
+```text
+GET /rooms/status
+
+PATCH /rooms/:roomNumber/status
+
+VACANT
+OCCUPIED
+REQUIRES_CLEANING
+UNDER_MAINTENANCE
+
+guarded transitions
+
+maintenance state entry
+
+maintenance clearing
+
+cleaning completion to VACANT
+
+same-state blocking
+
+check-in/checkout workflow protection
+
+room row locking
+
+last_cleared_at updates
+
+real-time-ready result models
+
+unit tests
+
+PostgreSQL integration test
+
+E2E tests
+```
+
+Pending outside Plan 09:
+
+```text
+actual WebSocket broadcasting
+
+checkout workflow
+
+WKMS cleaning-task automation
+
+room changes
+
+full FD-13 booking-availability integration
+
+API Gateway integration
+
+final JWT/RBAC integration
+```
