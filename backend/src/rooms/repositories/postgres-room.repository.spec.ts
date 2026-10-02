@@ -129,7 +129,7 @@ describe('PostgresRoomRepository', () => {
     );
   });
 
-  it('should lock the room and update an allowed status transition', async () => {
+  it('should normalize the real TypeORM UPDATE result shape and commit an allowed transition', async () => {
     queryRunner.query
       .mockResolvedValueOnce([
         {
@@ -137,13 +137,21 @@ describe('PostgresRoomRepository', () => {
           status: RoomStatus.VACANT,
         },
       ])
+      /*
+       * PostgreSQL QueryRunner UPDATE result:
+       *
+       * [returnedRows, affectedRowCount]
+       */
       .mockResolvedValueOnce([
-        {
-          roomNumber: 'T103',
-          status: RoomStatus.UNDER_MAINTENANCE,
-          lastClearedAt: new Date('2032-01-10T08:00:00.000Z'),
-          updatedAt: new Date('2032-01-10T11:00:00.000Z'),
-        },
+        [
+          {
+            roomNumber: 'T103',
+            status: RoomStatus.UNDER_MAINTENANCE,
+            lastClearedAt: new Date('2032-01-10T08:00:00.000Z'),
+            updatedAt: new Date('2032-01-10T11:00:00.000Z'),
+          },
+        ],
+        1,
       ]);
 
     const result = await repository.transitionStatus({
@@ -338,6 +346,31 @@ describe('PostgresRoomRepository', () => {
     expect(queryRunner.rollbackTransaction).toHaveBeenCalledTimes(1);
 
     expect(queryRunner.commitTransaction).not.toHaveBeenCalled();
+  });
+
+  it('should roll back when an UPDATE unexpectedly returns no room', async () => {
+    queryRunner.query
+      .mockResolvedValueOnce([
+        {
+          roomNumber: 'T103',
+          status: RoomStatus.VACANT,
+        },
+      ])
+      .mockResolvedValueOnce([[], 0]);
+
+    await expect(
+      repository.transitionStatus({
+        roomNumber: 'T103',
+        targetStatus: RoomStatus.UNDER_MAINTENANCE,
+        allowedCurrentStatuses: [RoomStatus.VACANT],
+      }),
+    ).rejects.toThrow('Room T103 was not returned after status update');
+
+    expect(queryRunner.rollbackTransaction).toHaveBeenCalledTimes(1);
+
+    expect(queryRunner.commitTransaction).not.toHaveBeenCalled();
+
+    expect(queryRunner.release).toHaveBeenCalledTimes(1);
   });
 
   it('should roll back and rethrow an unexpected database error', async () => {

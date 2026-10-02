@@ -116,7 +116,7 @@ export class PostgresRoomRepository extends RoomRepository {
         };
       }
 
-      const updatedRows = (await queryRunner.query(
+      const rawUpdateResult = (await queryRunner.query(
         `
           UPDATE rooms
           SET
@@ -136,13 +136,41 @@ export class PostgresRoomRepository extends RoomRepository {
             updated_at AS "updatedAt"
           `,
         [input.targetStatus, input.roomNumber],
-      )) as UpdatedRoomRow[];
+      )) as unknown[];
+
+      /*
+       * TypeORM's PostgreSQL QueryRunner may return
+       * UPDATE results as:
+       *
+       *   [rows, affectedRowCount]
+       *
+       * while unit-test mocks may return:
+       *
+       *   rows
+       *
+       * Normalize both shapes before reading the
+       * returned room.
+       */
+      const updatedRows = Array.isArray(rawUpdateResult[0])
+        ? (rawUpdateResult[0] as UpdatedRoomRow[])
+        : (rawUpdateResult as UpdatedRoomRow[]);
 
       const updatedRoom = updatedRows[0];
 
-      await queryRunner.commitTransaction();
+      if (!updatedRoom) {
+        throw new Error(
+          `Room ${input.roomNumber} was not returned after status update`,
+        );
+      }
 
-      return {
+      /*
+       * Build the result before COMMIT.
+       *
+       * If timestamp conversion or result mapping
+       * unexpectedly fails, the transaction is still
+       * active and can safely be rolled back.
+       */
+      const result: RoomStatusTransitionPersistenceResult = {
         kind: 'updated',
         value: {
           roomNumber: updatedRoom.roomNumber,
@@ -152,6 +180,10 @@ export class PostgresRoomRepository extends RoomRepository {
           updatedAt: this.toIso(updatedRoom.updatedAt),
         },
       };
+
+      await queryRunner.commitTransaction();
+
+      return result;
     } catch (error) {
       await queryRunner.rollbackTransaction();
       throw error;
