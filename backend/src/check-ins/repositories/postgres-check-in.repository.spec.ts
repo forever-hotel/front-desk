@@ -82,7 +82,8 @@ describe('PostgresCheckInRepository', () => {
 
       if (
         sql.includes('FROM bookings') &&
-        sql.includes("status IN ('PENDING', 'CONFIRMED', 'CHECKED_IN')")
+        sql.includes('booking_id <> $2') &&
+        sql.includes('status IN')
       ) {
         return state.conflictingBookingRows;
       }
@@ -176,6 +177,7 @@ describe('PostgresCheckInRepository', () => {
     const result = await repository.checkIn(createInput());
 
     expect(queryRunner.connect).toHaveBeenCalledTimes(1);
+
     expect(queryRunner.startTransaction).toHaveBeenCalledTimes(1);
 
     expect(queryRunner.query).toHaveBeenCalledWith(
@@ -233,6 +235,7 @@ describe('PostgresCheckInRepository', () => {
       roomNumber: 'T103',
       bookingStatus: 'CHECKED_IN',
       roomStatus: 'OCCUPIED',
+      checkOutDate: '2032-01-12',
       verification: {
         verificationId,
         documentType: IdentityDocumentType.NIC,
@@ -281,6 +284,8 @@ describe('PostgresCheckInRepository', () => {
     );
 
     expect(result.roomNumber).toBe('T105');
+
+    expect(result.checkOutDate).toBe('2032-02-12');
 
     expect(queryRunner.query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO fds_id_verifications'),

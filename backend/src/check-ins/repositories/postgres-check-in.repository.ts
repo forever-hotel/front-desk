@@ -9,7 +9,7 @@ import {
   IdentityDocumentType,
   IdVerificationMethod,
 } from '../dto/check-in-verification.dto';
-import type { CheckInResult } from '../models/check-in-result';
+import type { CheckInPersistenceResult } from '../models/check-in-persistence-result';
 import type { CheckInTransactionInput } from '../models/check-in-transaction';
 import { CheckInRepository } from '../ports/check-in.repository';
 
@@ -39,7 +39,9 @@ export class PostgresCheckInRepository extends CheckInRepository {
     super();
   }
 
-  async checkIn(input: CheckInTransactionInput): Promise<CheckInResult> {
+  async checkIn(
+    input: CheckInTransactionInput,
+  ): Promise<CheckInPersistenceResult> {
     const queryRunner = this.dataSource.createQueryRunner();
 
     await queryRunner.connect();
@@ -149,17 +151,21 @@ export class PostgresCheckInRepository extends CheckInRepository {
 
       const conflictingBookings = await queryRunner.query(
         `
-        SELECT
-          booking_id::text AS "bookingId"
-        FROM bookings
-        WHERE
-          room_number = $1
-          AND booking_id <> $2
-          AND status IN ('PENDING', 'CONFIRMED', 'CHECKED_IN')
-          AND check_in_date < $4::date
-          AND check_out_date > $3::date
-        LIMIT 1
-        `,
+          SELECT
+            booking_id::text AS "bookingId"
+          FROM bookings
+          WHERE
+            room_number = $1
+            AND booking_id <> $2
+            AND status IN (
+              'PENDING',
+              'CONFIRMED',
+              'CHECKED_IN'
+            )
+            AND check_in_date < $4::date
+            AND check_out_date > $3::date
+          LIMIT 1
+          `,
         [
           assignedRoomNumber,
           booking.bookingId,
@@ -176,13 +182,13 @@ export class PostgresCheckInRepository extends CheckInRepository {
 
       const existingVerifications = await queryRunner.query(
         `
-        SELECT
-          verification_id::text AS "verificationId"
-        FROM fds_id_verifications
-        WHERE booking_id = $1
-        LIMIT 1
-        FOR UPDATE
-        `,
+          SELECT
+            verification_id::text AS "verificationId"
+          FROM fds_id_verifications
+          WHERE booking_id = $1
+          LIMIT 1
+          FOR UPDATE
+          `,
         [booking.bookingId],
       );
 
@@ -194,28 +200,28 @@ export class PostgresCheckInRepository extends CheckInRepository {
 
       const verificationRows = await queryRunner.query(
         `
-        INSERT INTO fds_id_verifications (
-          booking_id,
-          document_type,
-          verification_method,
-          document_storage_key,
-          document_sha256,
-          verified_by,
-          notes
-        )
-        VALUES (
-          $1,
-          $2,
-          $3,
-          $4,
-          $5,
-          $6,
-          $7
-        )
-        RETURNING
-          verification_id::text AS "verificationId",
-          verified_at::text AS "verifiedAt"
-        `,
+          INSERT INTO fds_id_verifications (
+            booking_id,
+            document_type,
+            verification_method,
+            document_storage_key,
+            document_sha256,
+            verified_by,
+            notes
+          )
+          VALUES (
+            $1,
+            $2,
+            $3,
+            $4,
+            $5,
+            $6,
+            $7
+          )
+          RETURNING
+            verification_id::text AS "verificationId",
+            verified_at::text AS "verifiedAt"
+          `,
         [
           booking.bookingId,
           input.verification.documentType,
@@ -297,6 +303,7 @@ export class PostgresCheckInRepository extends CheckInRepository {
         roomNumber: assignedRoomNumber,
         bookingStatus: 'CHECKED_IN',
         roomStatus: 'OCCUPIED',
+        checkOutDate: booking.checkOutDate,
         verification: {
           verificationId: verification.verificationId,
           documentType: input.verification.documentType as IdentityDocumentType,

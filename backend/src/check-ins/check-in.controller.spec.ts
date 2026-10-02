@@ -1,6 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { CheckInController } from './check-in.controller';
+import { CheckInPrintService } from './check-in-print.service';
 import { CheckInService } from './check-in.service';
+import { CheckInDocumentType } from './dto/check-in-print-request.dto';
 import {
   IdentityDocumentType,
   IdVerificationMethod,
@@ -8,11 +10,16 @@ import {
 
 describe('CheckInController', () => {
   let controller: CheckInController;
-  let service: jest.Mocked<CheckInService>;
+  let checkInService: jest.Mocked<CheckInService>;
+  let printService: jest.Mocked<CheckInPrintService>;
 
   beforeEach(async () => {
-    const serviceMock = {
+    const checkInServiceMock = {
       checkIn: jest.fn(),
+    };
+
+    const printServiceMock = {
+      requestPrint: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -20,13 +27,20 @@ describe('CheckInController', () => {
       providers: [
         {
           provide: CheckInService,
-          useValue: serviceMock,
+          useValue: checkInServiceMock,
+        },
+        {
+          provide: CheckInPrintService,
+          useValue: printServiceMock,
         },
       ],
     }).compile();
 
     controller = module.get(CheckInController);
-    service = module.get(CheckInService);
+
+    checkInService = module.get(CheckInService);
+
+    printService = module.get(CheckInPrintService);
   });
 
   it('should pass the transactional check-in request to the service', async () => {
@@ -54,13 +68,73 @@ describe('CheckInController', () => {
         verifiedAt: '2030-01-10T10:00:00.000Z',
       },
       auditLogId: '88888888-8888-4888-8888-888888888888',
+      fossSession: {
+        status: 'ACTIVATED' as const,
+        sessionReference: 'mock-foss-session-test',
+        validUntilDate: '2030-01-12',
+      },
     };
 
-    service.checkIn.mockResolvedValue(result);
+    checkInService.checkIn.mockResolvedValue(result);
 
     await expect(controller.checkIn(dto)).resolves.toEqual(result);
 
-    expect(service.checkIn).toHaveBeenCalledWith(dto);
-    expect(service.checkIn).toHaveBeenCalledTimes(1);
+    expect(checkInService.checkIn).toHaveBeenCalledWith(dto);
+
+    expect(checkInService.checkIn).toHaveBeenCalledTimes(1);
+  });
+
+  it('should pass registration-card printing to the print service', async () => {
+    const bookingReference = '33333333-3333-4333-8333-333333333333';
+
+    const dto = {
+      documentType: CheckInDocumentType.REGISTRATION_CARD,
+    };
+
+    const result = {
+      status: 'accepted' as const,
+      documentType: CheckInDocumentType.REGISTRATION_CARD,
+      bookingReference,
+      roomNumber: 'T103',
+      printJobReference: 'mock-print-registration-card',
+    };
+
+    printService.requestPrint.mockResolvedValue(result);
+
+    await expect(
+      controller.printDocument(bookingReference, dto),
+    ).resolves.toEqual(result);
+
+    expect(printService.requestPrint).toHaveBeenCalledWith(
+      bookingReference,
+      dto,
+    );
+  });
+
+  it('should pass payment-receipt printing to the print service', async () => {
+    const bookingReference = '33333333-3333-4333-8333-333333333333';
+
+    const dto = {
+      documentType: CheckInDocumentType.PAYMENT_RECEIPT,
+    };
+
+    const result = {
+      status: 'accepted' as const,
+      documentType: CheckInDocumentType.PAYMENT_RECEIPT,
+      bookingReference,
+      roomNumber: 'T103',
+      printJobReference: 'mock-print-payment-receipt',
+    };
+
+    printService.requestPrint.mockResolvedValue(result);
+
+    await expect(
+      controller.printDocument(bookingReference, dto),
+    ).resolves.toEqual(result);
+
+    expect(printService.requestPrint).toHaveBeenCalledWith(
+      bookingReference,
+      dto,
+    );
   });
 });
