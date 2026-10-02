@@ -1,86 +1,272 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Forever Hotel — Front Desk Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+NestJS backend for the **Forever Hotel Front Desk System (FDS)**.
 
-<p align="center">
-  A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.
-</p>
+The Front Desk backend currently provides reservation lookup, walk-in booking,
+transactional guest check-in, guest identity verification, room assignment,
+Front Desk audit logging, FOSS guest-session activation contracts, and
+check-in document printing contracts.
 
-<p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-<a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-<a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us"></a>
-</p>
+The service uses PostgreSQL for Front Desk-owned persistence and communicates
+with other subsystem responsibilities through explicit integration contracts.
 
-## Description
+---
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Current Backend Scope
 
-## Project setup
+Implemented backend capabilities include:
+
+- Health and readiness checks
+- Reservation search
+- Daily arrivals
+- Daily departures
+- Recent booking lookup
+- Walk-in booking creation
+- Cash payment recording
+- On-site card-payment workflow skeleton
+- Transactional guest check-in
+- Physical identity-document verification
+- Scanned identity-document metadata handling
+- Room assignment during check-in
+- Room transition to `OCCUPIED`
+- Front Desk audit logging
+- FOSS guest-session activation contract
+- Mock FOSS activation adapter
+- Registration-card printing contract
+- Payment-receipt printing contract
+- Mock check-in printing adapter
+- Unit tests
+- PostgreSQL integration tests
+- End-to-end tests
+- Global Jest coverage enforcement
+
+---
+
+# Technology Stack
+
+The backend currently uses:
+
+- Node.js 24
+- TypeScript
+- NestJS
+- PostgreSQL
+- TypeORM `DataSource`
+- Jest
+- Supertest
+- class-validator
+- class-transformer
+- Oxlint
+- Prettier
+- GitHub Actions
+
+---
+
+# Project Setup
+
+Install dependencies:
 
 ```bash
-$ npm install
+npm install
 ```
 
-## Compile and run the project
+---
+
+# Compile and Run
+
+Development:
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm run start
 ```
 
-## Run tests
+Watch mode:
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
-
-# PostgreSQL integration tests
-$ npm run test:integration
+npm run start:dev
 ```
 
-## Reservation Search API
+Production mode:
 
-The Front Desk reservation endpoints use PostgreSQL persistence through the
+```bash
+npm run start:prod
+```
+
+Build:
+
+```bash
+npm run build
+```
+
+---
+
+# Code Quality
+
+Run linting:
+
+```bash
+npm run lint
+```
+
+Check formatting:
+
+```bash
+npm run format:check
+```
+
+Format files:
+
+```bash
+npm run format
+```
+
+When working on a feature, prefer formatting only the files changed by that
+feature instead of unnecessarily reformatting unrelated files.
+
+Example:
+
+```bash
+npx prettier --write src/check-ins test/app.e2e-spec.ts
+```
+
+---
+
+# Testing
+
+## Unit tests
+
+```bash
+npm run test
+```
+
+## Unit tests with coverage
+
+```bash
+npm run test:cov
+```
+
+## End-to-end tests
+
+```bash
+npm run test:e2e
+```
+
+## PostgreSQL integration tests
+
+```bash
+npm run test:integration
+```
+
+The integration test suite requires a prepared PostgreSQL test database.
+
+The GitHub Actions backend pipeline creates a disposable PostgreSQL 16 database,
+applies the test schema and migrations, loads deterministic seed data, and then
+runs the integration suite.
+
+Do **not** run destructive integration tests against:
+
+- the shared development Neon database;
+- staging data that must be preserved;
+- production databases.
+
+---
+
+# Coverage Requirement
+
+The Jest configuration enforces global minimum coverage thresholds of:
+
+```text
+Statements >= 80%
+Branches   >= 80%
+Functions  >= 80%
+Lines      >= 80%
+```
+
+A pull request must continue to satisfy these coverage gates.
+
+---
+
+# Environment Configuration
+
+The backend reads database configuration from environment variables.
+
+Expected variables include:
+
+```text
+DB_HOST
+DB_PORT
+DB_USERNAME
+DB_PASSWORD
+DB_NAME
+DB_SSL
+DB_SYNCHRONIZE
+DB_LOGGING
+```
+
+For development and production environments:
+
+```text
+DB_SYNCHRONIZE=false
+```
+
+Schema changes must be handled through migrations instead of TypeORM automatic
+schema synchronization.
+
+Never commit real `.env` credentials to Git.
+
+---
+
+# Health API
+
+## Readiness
+
+```http
+GET /health/ready
+```
+
+The readiness endpoint confirms that the backend and configured database
+connection are available.
+
+Example response:
+
+```json
+{
+  "status": "ready",
+  "database": "up"
+}
+```
+
+---
+
+# Reservation APIs
+
+Reservation persistence is implemented through
 `PostgresBookingRepository`.
 
-### Search bookings
+---
+
+## Search bookings
 
 ```http
 GET /bookings/search?query=<search-term>
 ```
 
-Searches bookings using:
+The reservation search supports matching against:
 
 - Booking reference
 - Guest name
-- NIC or passport number
+- NIC/passport number
 - Email address
 - Phone number
 
-### Daily arrivals
+Example:
+
+```http
+GET /bookings/search?query=Kamal
+```
+
+---
+
+## Daily arrivals
 
 ```http
 GET /bookings/arrivals
@@ -88,13 +274,21 @@ GET /bookings/arrivals
 
 Returns confirmed bookings expected to arrive on the current UTC date.
 
-An explicit date can be supplied for deterministic testing:
+For deterministic testing, a specific date may be supplied:
 
 ```http
 GET /bookings/arrivals?date=2030-01-10
 ```
 
-### Daily departures
+Eligible booking state:
+
+```text
+CONFIRMED
+```
+
+---
+
+## Daily departures
 
 ```http
 GET /bookings/departures
@@ -102,24 +296,37 @@ GET /bookings/departures
 
 Returns checked-in bookings expected to depart on the current UTC date.
 
-An explicit date can be supplied for deterministic testing:
+For deterministic testing:
 
 ```http
 GET /bookings/departures?date=2030-01-12
 ```
 
-### Recent bookings
+Eligible booking state:
+
+```text
+CHECKED_IN
+```
+
+---
+
+## Recent bookings
 
 ```http
 GET /bookings/recent?limit=5
 ```
 
-Returns recent persisted bookings. The limit is constrained to a minimum of
-`1` and a maximum of `20`.
+The supported limit is constrained between:
 
-### Reservation response
+```text
+1 and 20
+```
 
-Reservation endpoints return:
+---
+
+## Reservation response
+
+Reservation query responses may include:
 
 - Booking ID
 - Booking reference
@@ -131,14 +338,18 @@ Reservation endpoints return:
 - Check-out date
 - Booking status
 
-## Walk-In Booking API
+---
 
-The Front Desk walk-in workflow implements FD-04.
+# Walk-In Booking API
 
-A receptionist can enter guest details, select a room type and stay dates, and
-record either cash payment or an on-site card payment workflow.
+The current walk-in workflow implements the backend scope for **FD-04**.
 
-### Create walk-in booking
+A receptionist can create a booking by entering guest information, selecting a
+room type and stay dates, and choosing either a cash or on-site card workflow.
+
+---
+
+## Create walk-in booking
 
 ```http
 POST /bookings/walk-in
@@ -168,16 +379,20 @@ Example cash request:
 }
 ```
 
-Supported payment methods:
+---
+
+## Supported Front Desk payment methods
 
 ```text
 CASH
 CARD_ON_SITE
 ```
 
-`STRIPE` is not accepted by the Front Desk walk-in endpoint.
+`STRIPE` is not accepted by the current Front Desk walk-in endpoint.
 
-### Walk-in validation
+---
+
+## Walk-in validation
 
 The backend validates:
 
@@ -189,32 +404,34 @@ The backend validates:
 - Check-in date
 - Check-out date
 - Number of guests
-- Selected room type capacity
+- Room capacity
 - Supported payment method
 
 The check-out date must be later than the check-in date.
 
 The selected room type must exist.
 
-The guest count must not exceed the selected room type's maximum capacity.
+The guest count must not exceed the room type's configured capacity.
 
-### Server-side pricing
+---
+
+## Server-side pricing
 
 The client does not provide the authoritative booking total.
 
-The backend loads `price_per_night` from the persisted room type and calculates:
+The backend loads the persisted room price and calculates:
 
 ```text
 total amount = price per night × number of nights
 ```
 
-This prevents a client from supplying an arbitrary booking price.
+Currency amounts are persisted using integer smallest-unit values.
 
-Currency values are represented as integer LKR smallest-unit values.
+---
 
-### Cash workflow
+## Cash walk-in
 
-For a successful cash walk-in:
+A successful cash workflow persists:
 
 ```text
 booking source  = WALK_IN
@@ -225,11 +442,14 @@ payment status  = COMPLETED
 
 The payment completion timestamp is persisted.
 
-### On-site card workflow
+---
 
-`CARD_ON_SITE` represents the Front Desk card-payment workflow skeleton.
+## On-site card workflow
 
-Until a future physical POS/payment integration confirms the payment:
+`CARD_ON_SITE` currently represents the Front Desk physical card-payment
+workflow skeleton.
+
+Until a later POS/payment integration confirms payment:
 
 ```text
 booking source  = WALK_IN
@@ -239,13 +459,16 @@ payment status  = PENDING
 paidAt          = null
 ```
 
-The backend does not process or persist raw card credentials.
+The backend does not process raw card credentials.
 
-### Raw card data
+---
 
-The API must not receive or persist raw card information.
+## Raw card-data protection
 
-The following fields are not part of the payment DTO and are rejected:
+Raw payment-card information must not be submitted to the Front Desk walk-in
+API.
+
+Unsupported fields include values such as:
 
 ```text
 cardNumber
@@ -257,7 +480,7 @@ pin
 trackData
 ```
 
-For example, this request is invalid:
+For example, the following request is invalid:
 
 ```json
 {
@@ -270,28 +493,38 @@ For example, this request is invalid:
 }
 ```
 
-The global NestJS validation pipe uses a whitelist and rejects unknown
-properties.
+The global NestJS validation pipe uses:
 
-### Guest account linking
+```text
+whitelist = true
+forbidNonWhitelisted = true
+transform = true
+```
 
-If the supplied email belongs to an existing registered guest, the walk-in
-booking is linked to that guest account.
+Therefore unknown request properties are rejected.
 
-If no registered guest account exists, the booking may remain an anonymous
-walk-in with `guest_id = NULL`.
+---
 
-The current shared Guest schema requires a password hash for registered guest
-accounts. The Front Desk workflow therefore does not generate fake passwords or
-silently create guest accounts.
+## Guest account linking
 
-Permanent anonymous walk-in guest-detail persistence requires an agreed shared
-schema/architecture decision.
+If the supplied email already belongs to a registered guest, the walk-in booking
+may be linked to that guest account.
 
-### Database transaction
+If no registered account exists, the current schema permits the walk-in booking
+to remain unlinked:
 
-Walk-in booking and payment creation are performed within a PostgreSQL
-transaction.
+```text
+guest_id = NULL
+```
+
+The Front Desk backend does not generate fake guest passwords or silently
+create registered guest accounts.
+
+---
+
+## Walk-in database transaction
+
+Booking and payment persistence execute inside one PostgreSQL transaction.
 
 Conceptually:
 
@@ -304,7 +537,7 @@ create payment
 COMMIT
 ```
 
-If payment persistence fails after the booking insert:
+If payment persistence fails:
 
 ```text
 create booking  -> success
@@ -313,55 +546,37 @@ create payment  -> failure
 ROLLBACK
 ```
 
-The transaction prevents a partially persisted walk-in workflow.
+This prevents partially persisted walk-in workflows.
 
-### Walk-in response
+---
 
-A successful request returns information including:
+# Transactional Guest Check-In
 
-- Booking ID
-- Booking reference
-- Guest account link state
-- Guest input details
-- Room type
-- Check-in date
-- Check-out date
-- Number of guests
-- Special requests
-- Server-calculated total
-- Currency
-- Booking status
-- Booking source
-- Payment ID
-- Payment method
-- Payment status
-- Payment amount
-- Payment completion time
+The transactional check-in workflow implements the current backend scope for:
 
-No raw card information is returned.
+- **FD-05** — Guest identity verification
+- **FD-06** — Room assignment and occupancy
+- **FD-16** — Front Desk audit entry
 
-## Transactional Check-In API
+Plan 08 extends the completed check-in with:
 
-The Front Desk transactional check-in workflow implements the current backend
-scope for:
+- **FD-07** — FOSS guest-session activation contract
+- **FD-08** — Registration-card and payment-receipt printing contracts
 
-- FD-05 — guest identity verification
-- FD-06 — room assignment and room occupancy
-- FD-16 — Front Desk audit logging
+---
 
-The workflow replaces the previous provisional in-memory check-in persistence
-with a PostgreSQL-backed domain transaction.
-
-### Check in a guest
+## Check-in endpoint
 
 ```http
 POST /check-in
 Content-Type: application/json
 ```
 
-The `bookingReference` is the persisted booking UUID.
+`bookingReference` is the persisted booking UUID.
 
-Example physical-document verification request:
+---
+
+## Physical-document verification example
 
 ```json
 {
@@ -376,7 +591,9 @@ Example physical-document verification request:
 }
 ```
 
-Example scanned-copy verification request:
+---
+
+## Scanned-copy verification example
 
 ```json
 {
@@ -391,9 +608,9 @@ Example scanned-copy verification request:
 }
 ```
 
-### Identity document types
+---
 
-Supported values are:
+## Supported identity document types
 
 ```text
 NIC
@@ -401,18 +618,20 @@ PASSPORT
 OTHER
 ```
 
-### Verification methods
+---
 
-Supported values are:
+## Supported identity verification methods
 
 ```text
 PHYSICAL_DOCUMENT
 SCANNED_COPY
 ```
 
-### Physical-document verification
+---
 
-For physical-document verification:
+## Physical-document verification
+
+For physical verification:
 
 ```text
 verificationMethod = PHYSICAL_DOCUMENT
@@ -420,14 +639,16 @@ documentStorageKey = not supplied
 documentSha256      = not supplied
 ```
 
-The receptionist confirms the identity document that is physically presented at
-reception.
+The receptionist confirms that the guest physically presented an identity
+document.
 
-No scanned-document storage information is required.
+No scanned-file metadata is required.
 
-### Scanned-copy verification
+---
 
-For scanned-copy verification:
+## Scanned-copy verification
+
+For scanned verification:
 
 ```text
 verificationMethod = SCANNED_COPY
@@ -435,25 +656,26 @@ documentStorageKey = required
 documentSha256      = optional
 ```
 
-The actual NIC/passport image or file is not stored in PostgreSQL.
+The actual NIC/passport image or document is **not stored in PostgreSQL**.
 
-PostgreSQL stores only approved metadata such as:
+PostgreSQL stores only approved metadata, including:
 
-- Opaque object-storage key
-- Optional SHA-256 integrity hash
 - Document type
 - Verification method
+- Opaque storage key
+- Optional SHA-256 integrity hash
 - Verifying receptionist
 - Verification timestamp
-- Optional verification notes
+- Optional notes
 
-The actual scanned document is intended to be stored separately in encrypted
+The scanned file itself is intended to live in separately controlled encrypted
 object storage.
 
-Object-storage upload implementation is outside the current transactional
-check-in scope.
+Actual object-storage upload is outside the current implementation.
 
-### Verifying receptionist
+---
+
+# Verifying Receptionist
 
 The current development contract accepts:
 
@@ -463,29 +685,32 @@ verifiedBy
 
 as a staff UUID.
 
-Before the transaction proceeds, the PostgreSQL repository verifies that the
-staff record exists and satisfies:
+Before check-in continues, the PostgreSQL repository verifies that the supplied
+staff record satisfies:
 
 ```text
 role      = RECEPTIONIST
 is_active = TRUE
 ```
 
-This is a transitional contract while centralized authentication and JWT/RBAC
-integration remain outside the current Front Desk implementation.
+This is a transitional development contract.
 
-When authentication integration is introduced, the verifying staff identity
-should be obtained from the authenticated JWT identity instead of being trusted
-directly from request input.
+When centralized authentication is integrated, staff identity should come from
+the authenticated JWT identity instead of being trusted directly from request
+input.
 
-### Booking eligibility
+---
 
-The booking must:
+# Booking Check-In Eligibility
 
-- Exist
-- Be in `CONFIRMED` status
+A normal check-in requires:
 
-A normal check-in is rejected if the booking is in another state such as:
+```text
+booking exists
+booking status = CONFIRMED
+```
+
+Check-in is rejected from states such as:
 
 ```text
 PENDING
@@ -494,31 +719,41 @@ CHECKED_OUT
 CANCELLED
 ```
 
-### Room assignment
+---
 
-If the booking already contains a room assignment, that room is used.
+# Room Assignment
 
-If the booking does not yet contain a room assignment, `roomNumber` must be
-provided in the request.
+If a booking already contains a room assignment, that room is used.
+
+If the booking does not contain a room assignment, the request must provide:
+
+```text
+roomNumber
+```
 
 The selected room must:
 
 - Exist
-- Belong to the same `room_type_id` as the booking
+- Match the booking's room type
 - Have status `VACANT`
-- Have no overlapping active booking for the requested stay period
+- Have no conflicting active booking for the requested stay period
 
-If the booking already has a room assigned and the request supplies a different
-room number, the check-in is rejected.
+If the booking already has a room and the request provides a different room,
+the check-in is rejected.
 
-The booking and room rows are locked while the check-in transaction is being
-performed.
+---
 
-### Room availability re-check
+# Concurrency Protection
 
-Room availability is checked inside the PostgreSQL transaction.
+The check-in transaction locks important rows before making state changes.
 
-The repository checks for overlapping bookings using active booking states:
+The booking is loaded using a row lock before its status changes.
+
+The assigned room is also row-locked before occupancy is changed.
+
+Room availability is re-checked inside the transaction.
+
+Conflicting booking states considered by the overlap query are:
 
 ```text
 PENDING
@@ -526,38 +761,37 @@ CONFIRMED
 CHECKED_IN
 ```
 
-The booking being checked in is excluded from the conflict query.
+The booking currently being checked in is excluded from its own conflict
+search.
 
-This protects the check-in workflow from committing against stale room
-availability information.
+---
 
-### Identity-verification persistence
+# Identity-Verification Persistence
 
-A successful check-in creates one record in:
+Successful verification creates one record in:
 
 ```text
 fds_id_verifications
 ```
 
-The record contains approved verification metadata.
+The current schema supports one verification record per booking.
 
-For physical verification, no scanned-file storage key is stored.
+A duplicate verification attempt is rejected.
 
-For scanned-copy verification, an opaque object-storage key is required.
+---
 
-A booking cannot create a second identity-verification record because the
-current schema defines one verification record per booking.
-
-### Booking state transition
+# Check-In Booking Transition
 
 On successful check-in:
 
 ```text
-bookings.room_number = assigned room number
+bookings.room_number = assigned room
 bookings.status      = CHECKED_IN
 ```
 
-### Room state transition
+---
+
+# Check-In Room Transition
 
 On successful check-in:
 
@@ -565,11 +799,13 @@ On successful check-in:
 rooms.status = OCCUPIED
 ```
 
-### Audit logging
+---
 
-A successful check-in appends a Front Desk audit event to `audit_logs`.
+# Front Desk Audit Entry
 
-The event uses:
+A successful check-in inserts a Front Desk audit record.
+
+The current event uses:
 
 ```text
 event_category = FRONT_DESK_OPERATION
@@ -579,22 +815,30 @@ entity_type    = BOOKING
 entity_id      = booking UUID
 ```
 
-The current check-in audit details contain operational metadata such as:
+The current audit details include operational metadata such as:
 
 - Room number
 - Verification ID
 - Verification method
 - Document type
 
-The audit details do not include guest name, email, phone number,
-NIC/passport number, document contents, or storage credentials.
+The check-in audit details intentionally do not include:
 
-The application check-in flow inserts audit records and does not modify or
-delete previous audit entries.
+- Guest name
+- Guest email
+- Guest phone number
+- NIC/passport number
+- Scanned identity-document contents
+- Object-storage credentials
 
-### Atomic PostgreSQL transaction
+The application check-in workflow inserts new audit events and does not update
+or delete previous audit events.
 
-The complete check-in persistence operation runs inside one PostgreSQL
+---
+
+# Atomic PostgreSQL Check-In Transaction
+
+The persisted check-in domain operation executes inside one PostgreSQL
 transaction.
 
 Conceptually:
@@ -603,30 +847,34 @@ Conceptually:
 BEGIN
 
 validate active receptionist
+
 lock booking
 validate booking status
+
 determine assigned room
+
 lock room
 validate room type
-validate VACANT room status
-re-check overlapping active bookings
-check for existing ID verification
-insert identity-verification record
-update booking room number
-update booking status to CHECKED_IN
-update room status to OCCUPIED
-insert audit-log record
+validate room status
+re-check overlapping bookings
+
+check existing identity verification
+
+insert identity verification
+
+update booking -> CHECKED_IN
+update room -> OCCUPIED
+
+insert Front Desk audit record
 
 COMMIT
 ```
 
-If any persistence operation fails:
+If any database operation fails:
 
 ```text
 ROLLBACK
 ```
-
-The transaction therefore prevents partial check-in state.
 
 For example:
 
@@ -639,26 +887,139 @@ audit insert                   -> failure
 ROLLBACK
 ```
 
-After the rollback:
+After rollback:
 
 ```text
-identity-verification insert -> undone
-booking update               -> undone
-room update                  -> undone
-audit insert                 -> absent
+identity verification -> not persisted
+booking               -> unchanged
+room                  -> unchanged
+audit event           -> absent
 ```
 
-### Row locking
+This prevents a partially persisted hotel check-in.
 
-The transaction locks the booking row before changing its state and locks the
-room row before assigning or occupying it.
+---
 
-This prevents concurrent check-in operations from independently proceeding
-against the same stale booking or room state.
+# Check-In Persistence Result
 
-### Successful response
+Internally, the PostgreSQL check-in repository also returns the booking's
+check-out date.
 
-Example response:
+This value is used by the post-commit FOSS activation contract to determine the
+guest-session stay expiry.
+
+It is not added to the public check-in response as a separate top-level
+property.
+
+---
+
+# FD-07 — FOSS Guest-Session Activation
+
+Plan 08 introduces the FOSS guest-session activation contract.
+
+The Front Desk service does **not** directly create or update FOSS-owned
+database records.
+
+FOSS activation occurs through:
+
+```text
+FossSessionGateway
+```
+
+---
+
+## FOSS activation flow
+
+```text
+POST /check-in
+      |
+      v
+CheckInService
+      |
+      v
+PostgreSQL CheckInRepository
+      |
+      v
+BEGIN transaction
+      |
+      v
+ID verification
+booking -> CHECKED_IN
+room -> OCCUPIED
+audit insert
+      |
+      v
+COMMIT
+      |
+      v
+FossSessionGateway
+      |
+      v
+MockFossSessionGateway
+```
+
+The important boundary is:
+
+```text
+database check-in transaction
+        |
+        v
+      COMMIT
+        |
+        v
+external FOSS activation
+```
+
+FOSS activation is **not** executed inside the PostgreSQL transaction.
+
+---
+
+# FOSS Activation Request Contract
+
+The current activation request contains:
+
+```text
+bookingReference
+roomNumber
+checkOutDate
+```
+
+Example logical payload:
+
+```json
+{
+  "bookingReference": "55555555-5555-4555-8555-555555555551",
+  "roomNumber": "T103",
+  "checkOutDate": "2032-01-12"
+}
+```
+
+Guest PII such as guest name, email, phone, or identity-document number is not
+required by this contract.
+
+---
+
+# FOSS Activation Result
+
+The current mock adapter returns:
+
+```json
+{
+  "status": "ACTIVATED",
+  "sessionReference": "mock-foss-session-55555555-5555-4555-8555-555555555551",
+  "validUntilDate": "2032-01-12"
+}
+```
+
+The mock session reference is test/development integration metadata.
+
+It is not a production guest credential.
+
+---
+
+# Successful Check-In Response
+
+A successful check-in with successful mocked FOSS activation may return:
 
 ```json
 {
@@ -674,148 +1035,835 @@ Example response:
     "verifiedBy": "66666666-6666-4666-8666-666666666666",
     "verifiedAt": "2032-01-10T10:00:00.000Z"
   },
-  "auditLogId": "88888888-8888-4888-8888-888888888888"
+  "auditLogId": "88888888-8888-4888-8888-888888888888",
+  "fossSession": {
+    "status": "ACTIVATED",
+    "sessionReference": "mock-foss-session-55555555-5555-4555-8555-555555555551",
+    "validUntilDate": "2032-01-12"
+  }
 }
 ```
 
-The response does not expose:
+The public response does not expose:
 
-- Scanned-document contents
-- Document-storage key
+- Scanned-document binary contents
+- Document storage key
 - Document SHA-256 value
-- Guest PII
+- Raw payment-card data
 
-### FOSS integration scope
+---
 
-The codebase retains the existing FOSS session gateway abstraction for future
-integration.
+# FOSS Failure Handling
 
-Real FOSS session activation is not part of this transactional PostgreSQL
-check-in workflow.
+FOSS is an external integration boundary.
 
-FOSS activation remains a separate cross-service integration concern rather
-than a direct write from the Front Desk service to FOSS-owned persistence.
+A successful hotel check-in is not undone merely because external FOSS
+activation fails after database commit.
 
-### Current authentication limitation
+Expected sequence:
 
-Final centralized JWT/RBAC integration is outside this check-in implementation.
-
-Therefore, the current `verifiedBy` staff UUID is a temporary development
-contract.
-
-It must not be treated as the final authentication or authorization mechanism.
-
-## Integration tests
-
-```bash
-npm run test:integration
+```text
+PostgreSQL check-in transaction
+        |
+        v
+      COMMIT
+        |
+        v
+FOSS activation request
+        |
+        X
+      FAILED
 ```
 
-The integration suite requires a disposable PostgreSQL database prepared with
-the test schema and deterministic seed data.
+Resulting domain state:
 
-The GitHub Actions backend pipeline provides this disposable PostgreSQL
-environment automatically.
+```text
+booking = CHECKED_IN
+room    = OCCUPIED
+FOSS    = FAILED
+```
 
-Do not run integration tests against a shared or production database.
+The response reports the integration failure separately:
 
-The transactional check-in PostgreSQL integration tests cover:
+```json
+{
+  "fossSession": {
+    "status": "FAILED",
+    "sessionReference": null,
+    "validUntilDate": "2032-01-12",
+    "failureCode": "FOSS_ACTIVATION_FAILED"
+  }
+}
+```
 
-- Confirmed booking check-in
+If the PostgreSQL check-in itself fails, FOSS activation is not attempted.
+
+---
+
+# Current FOSS Adapter
+
+The current implementation uses:
+
+```text
+MockFossSessionGateway
+```
+
+This mock validates the Front Desk/FOSS contract and orchestration boundary.
+
+It does not currently provide:
+
+- Production FOSS HTTP connectivity
+- RabbitMQ FOSS connectivity
+- Production session-token generation
+- Production guest QR credentials
+- External retry infrastructure
+- Production FOSS deployment integration
+
+A future production FOSS adapter can replace the mock without changing
+`CheckInService` business orchestration.
+
+---
+
+# FD-08 — Check-In Printing
+
+Plan 08 also introduces backend contracts for:
+
+```text
+REGISTRATION_CARD
+PAYMENT_RECEIPT
+```
+
+Printing happens as a separate request after check-in.
+
+---
+
+# Check-In Printing Endpoint
+
+```http
+POST /check-in/:bookingReference/print
+Content-Type: application/json
+```
+
+`bookingReference` must be a valid UUID.
+
+---
+
+# Registration Card Print Request
+
+```json
+{
+  "documentType": "REGISTRATION_CARD"
+}
+```
+
+Example response:
+
+```json
+{
+  "status": "accepted",
+  "documentType": "REGISTRATION_CARD",
+  "bookingReference": "44444444-4444-4444-8444-444444444444",
+  "roomNumber": "T102",
+  "printJobReference": "mock-print-registration_card-44444444-4444-4444-8444-444444444444"
+}
+```
+
+---
+
+# Payment Receipt Print Request
+
+```json
+{
+  "documentType": "PAYMENT_RECEIPT"
+}
+```
+
+Example response:
+
+```json
+{
+  "status": "accepted",
+  "documentType": "PAYMENT_RECEIPT",
+  "bookingReference": "44444444-4444-4444-8444-444444444444",
+  "roomNumber": "T102",
+  "printJobReference": "mock-print-payment_receipt-44444444-4444-4444-8444-444444444444"
+}
+```
+
+---
+
+# Supported Check-In Document Types
+
+```text
+REGISTRATION_CARD
+PAYMENT_RECEIPT
+```
+
+Unsupported values are rejected by DTO validation.
+
+For example:
+
+```json
+{
+  "documentType": "BOARDING_PASS"
+}
+```
+
+is invalid.
+
+---
+
+# Print Eligibility
+
+Before forwarding a print request to the printing adapter, the backend loads the
+booking context from PostgreSQL.
+
+Printing requires:
+
+```text
+booking exists
+booking status = CHECKED_IN
+room_number is assigned
+```
+
+A request is rejected when:
+
+- The booking does not exist
+- The booking is not checked in
+- The booking has no assigned room
+- The document type is unsupported
+- The booking reference is not a valid UUID
+
+---
+
+# Printing Architecture
+
+The current printing flow is:
+
+```text
+POST /check-in/:bookingReference/print
+            |
+            v
+     CheckInController
+            |
+            v
+     CheckInPrintService
+            |
+            +---------------------------+
+            |                           |
+            v                           v
+PostgresCheckInPrintRepository   CheckInPrintGateway
+                                        |
+                                        v
+                             MockCheckInPrintGateway
+```
+
+`PostgresCheckInPrintRepository` performs a read-only booking lookup.
+
+The printing adapter is responsible for the external printing boundary.
+
+---
+
+# Printing Contract Payload
+
+The current print gateway receives operational stay information:
+
+```text
+documentType
+bookingReference
+roomNumber
+checkInDate
+checkOutDate
+```
+
+The printing gateway contract does not contain raw card credentials.
+
+---
+
+# Payment Receipt Security
+
+The payment-receipt request must not accept values such as:
+
+```text
+cardNumber
+PAN
+cvv
+cvc
+pin
+trackData
+```
+
+For example:
+
+```json
+{
+  "documentType": "PAYMENT_RECEIPT",
+  "cardNumber": "4111111111111111",
+  "cvv": "123",
+  "pin": "9999"
+}
+```
+
+is rejected by global request validation.
+
+The printing contract is intentionally based on booking/stay identifiers rather
+than raw payment-card information.
+
+---
+
+# Printing Failure Handling
+
+Printing is an external operation.
+
+If the printer adapter fails:
+
+```text
+booking = CHECKED_IN
+room    = OCCUPIED
+
+print request -> FAILED
+```
+
+The previous hotel check-in is not reversed.
+
+The current service returns a service-unavailable error for printing gateway
+failure.
+
+The printing failure does not:
+
+- Change the booking back to `CONFIRMED`
+- Change the room back to `VACANT`
+- Modify the FOSS result
+- Reverse the completed check-in transaction
+
+---
+
+# Current Printing Adapter
+
+The current implementation uses:
+
+```text
+MockCheckInPrintGateway
+```
+
+It validates the backend integration contract only.
+
+It does not currently communicate with:
+
+- USB receipt printers
+- LPD printers
+- RAW network printers
+- Printer queues
+- Printer discovery services
+- Real printer IP addresses
+
+It also does not currently implement:
+
+- Physical printer acknowledgement
+- Production retry queues
+- Printer configuration UI
+
+A later adapter can replace the mock without changing
+`CheckInPrintService`.
+
+---
+
+# Integration Ownership Boundaries
+
+Forever Hotel is designed as multiple independently owned subsystem services.
+
+The Front Desk backend must not directly modify persistence owned by another
+subsystem for cross-service workflows.
+
+For the current check-in flow:
+
+```text
+Front Desk responsibilities
+---------------------------
+check-in orchestration
+ID-verification metadata
+booking state transition
+room occupancy transition
+Front Desk audit entry
+FOSS activation request
+printing request
+
+FOSS responsibilities
+---------------------
+guest session state
+guest access lifecycle
+guest application access
+
+Printing integration responsibilities
+-------------------------------------
+physical registration-card delivery
+physical payment-receipt delivery
+```
+
+Therefore:
+
+```text
+FDS -> FossSessionGateway -> FOSS adapter
+```
+
+is used instead of:
+
+```text
+FDS -> direct foss_sessions database write
+```
+
+---
+
+# PostgreSQL Integration Tests
+
+The integration test suite is designed to run against a disposable PostgreSQL
+database.
+
+Existing transactional check-in integration coverage includes:
+
+- Successful confirmed-booking check-in
 - Physical-document verification
 - Scanned-copy verification metadata
 - Pre-assigned room handling
 - Booking transition to `CHECKED_IN`
 - Room transition to `OCCUPIED`
-- Audit-log persistence
-- Invalid booking state rejection
+- Audit-event persistence
+- Invalid booking-state rejection
 - Occupied-room rejection
 - Room-type mismatch rejection
 - Overlapping active-booking rejection
-- Non-receptionist staff rejection
+- Non-receptionist rejection
 - Inactive receptionist rejection
 - Transaction rollback when audit persistence fails
 
-The rollback integration test verifies that a failed transaction does not leave:
+---
 
-- A partially created identity-verification record
-- A changed booking state
-- An occupied room
-- A partial check-in audit entry
+# Plan 08 PostgreSQL Printing Integration Test
 
-## Deployment
+Plan 08 adds:
 
-When you're ready to deploy your NestJS application to production, there are
-some key steps you can take to ensure it runs as efficiently as possible.
-Check out the
-[deployment documentation](https://docs.nestjs.com/deployment)
-for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application,
-check out [Mau](https://mau.nestjs.com), our official platform for deploying
-NestJS applications on AWS.
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+```text
+test/database/postgres-check-in-print.repository.integration-spec.ts
 ```
 
-## Observability
+The integration test verifies actual PostgreSQL read behavior for:
 
-In production applications, observability is essential for understanding how
-your system behaves, detecting issues early, and maintaining reliable
-performance.
+- A checked-in booking with assigned room
+- A confirmed booking
+- An unknown booking
 
-[NestJS Observe](https://observe.nestjs.com) automatically instruments your
-application, giving you deep visibility into your system with minimal setup:
+The service layer separately verifies whether that retrieved context is eligible
+for printing.
 
-- **Distributed tracing:** Follow requests across services and understand how
-  they flow through your system.
-- **Waterfall analysis:** Visualize request execution and identify slow
-  operations, bottlenecks, and unexpected delays.
-- **Performance analysis:** Analyze application performance in real time and
-  quickly pinpoint areas that need optimization.
-- **Metrics:** Track key application and infrastructure metrics to understand
-  system health and performance trends.
-- **Logging:** Centralize and correlate logs with traces and other telemetry to
-  make debugging easier.
-- **Error tracking:** Detect errors quickly and investigate their root causes
-  with the surrounding context.
-- **SLA monitoring:** Track service-level objectives and identify when your
-  application is approaching or exceeding defined thresholds.
-- **Alarms and alerts:** Set up alerts for critical errors, performance
-  degradation, SLA violations, and other anomalies so your team can react
-  quickly.
+---
 
-## Resources
+# Unit and Contract Tests
 
-Check out a few resources that may come in handy when working with NestJS:
+The check-in unit and contract suite includes coverage for:
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about
-  the framework.
-- For questions and support, please visit the
-  [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out the official video
-  [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with
-  [NestJS Mau](https://mau.nestjs.com).
-- Auto-instrument your application with
-  [NestJS Observer](https://observer.nestjs.com).
-- Visualize your application graph using
-  [NestJS Devtools](https://devtools.nestjs.com).
+- Physical identity-document verification
+- Scanned-copy verification
+- Storage-key validation
+- SHA-256 normalization
+- Room assignment handling
+- Transaction repository behavior
+- FOSS activation after successful database check-in
+- FOSS activation ordering
+- FOSS activation success
+- FOSS activation failure
+- No FOSS activation when database check-in fails
+- FOSS mock contract
+- Registration-card printing
+- Payment-receipt printing
+- Print booking eligibility
+- Missing booking handling
+- Missing room handling
+- Printer gateway failure
+- Raw-card-field protection
+- Mock print gateway
+- Print repository behavior
+- DTO transformation and validation
 
-## Support
+---
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors
-and support by the amazing backers. If you'd like to join them, please
-[read more here](https://docs.nestjs.com/support).
+# End-to-End Tests
 
-## Stay in touch
+The E2E suite currently verifies HTTP behavior including:
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kamilmysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+- Root endpoint
+- Health readiness
+- Reservation search
+- Daily arrivals
+- Daily departures
+- Cash walk-in booking
+- On-site card workflow
+- Raw walk-in card-data rejection
+- Unsupported payment method
+- Invalid email validation
+- Invalid date validation
+- Room-capacity validation
+- Physical-document guest check-in
+- FOSS activation after check-in
+- FOSS activation failure handling
+- Scanned-copy verification
+- Missing scanned-copy storage-key rejection
+- Legacy `idVerified` request rejection
+- Invalid verifying-staff UUID rejection
+- Registration-card print request
+- Payment-receipt print request
+- Unsupported print-document rejection
+- Raw-card-field rejection for printing
+- Printer failure handling
+- Invalid booking UUID rejection
 
-## License
+---
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+# GitHub Actions Backend CI
+
+The backend CI workflow runs for relevant:
+
+- `develop` pushes
+- `main` pushes
+- `feature/**` pushes
+- `fix/**` pushes
+- Pull requests targeting `develop`
+- Pull requests targeting `main`
+
+The pipeline provisions:
+
+```text
+PostgreSQL 16
+Node.js 24
+```
+
+The CI sequence is:
+
+```text
+Checkout repository
+        |
+        v
+Install dependencies
+        |
+        v
+Prepare disposable PostgreSQL schema
+        |
+        v
+Run TypeORM migrations
+        |
+        v
+Load deterministic seed data
+        |
+        v
+Run PostgreSQL integration tests
+        |
+        v
+Check formatting
+        |
+        v
+Run lint
+        |
+        v
+Build NestJS backend
+        |
+        v
+Run Jest coverage
+        |
+        v
+Upload coverage artifact
+        |
+        v
+Run E2E tests
+        |
+        v
+Run dependency security scan
+```
+
+This allows PostgreSQL integration tests to run without modifying the shared
+Neon development database.
+
+---
+
+# Current Authentication Limitation
+
+Final centralized authentication and JWT/RBAC integration are not part of the
+current Front Desk implementation.
+
+For check-in, the current request still accepts:
+
+```text
+verifiedBy
+```
+
+as a receptionist UUID.
+
+The repository verifies that this staff record is:
+
+```text
+RECEPTIONIST
+ACTIVE
+```
+
+This should not be treated as the final authorization solution.
+
+Later authentication integration should derive staff identity from the
+authenticated JWT.
+
+---
+
+# Plan 07 Summary
+
+Plan 07 introduced the production-style PostgreSQL check-in domain transaction.
+
+It implemented:
+
+```text
+FD-05
+guest ID verification
+
+FD-06
+room assignment
+booking -> CHECKED_IN
+room -> OCCUPIED
+
+FD-16
+Front Desk audit entry
+```
+
+The Plan 07 transaction also introduced row locking, room availability re-check,
+rollback handling, and database integration tests.
+
+---
+
+# Plan 08 Summary
+
+Plan 08 extends the completed check-in workflow with cross-service and external
+operation contracts.
+
+Implemented:
+
+```text
+FD-07
+FOSS activation contract
+MockFossSessionGateway
+post-commit FOSS activation
+room-linked activation request
+stay-expiry information
+FOSS success response
+FOSS failure response
+no FOSS call after failed DB check-in
+no direct FOSS database persistence
+
+FD-08
+registration-card print contract
+payment-receipt print contract
+print eligibility validation
+PostgresCheckInPrintRepository
+CheckInPrintGateway
+MockCheckInPrintGateway
+printing failure handling
+raw payment-card-field rejection
+```
+
+---
+
+# Plan 08 Failure Boundaries
+
+The persisted check-in and external operations deliberately have different
+failure boundaries.
+
+## Database failure
+
+```text
+PostgreSQL transaction -> FAILED
+
+booking changes -> rolled back
+room changes    -> rolled back
+verification    -> rolled back
+audit entry     -> rolled back
+FOSS activation -> not attempted
+```
+
+## FOSS failure after commit
+
+```text
+PostgreSQL transaction -> COMMITTED
+booking                -> CHECKED_IN
+room                   -> OCCUPIED
+FOSS activation        -> FAILED
+```
+
+The database check-in remains successful.
+
+## Printing failure
+
+```text
+booking       -> CHECKED_IN
+room          -> OCCUPIED
+print request -> FAILED
+```
+
+Printing failure does not reverse check-in state.
+
+---
+
+# Plan 08 Out of Scope
+
+The current Plan 08 implementation intentionally does not include:
+
+- Production FOSS HTTP adapter
+- Production RabbitMQ FOSS wiring
+- Production guest session-token generation
+- Production QR credential generation
+- Direct writes to `foss_sessions`
+- USB printer-driver implementation
+- LPD printer integration
+- RAW network printer integration
+- Printer discovery
+- Printer configuration UI
+- Front Desk frontend printing UI
+- Checkout printing
+- API Gateway integration
+- Final JWT/RBAC integration
+- Production retry queues for FOSS or printers
+
+---
+
+# Security Notes
+
+The current Front Desk implementation follows these development rules:
+
+- Never commit `.env` files containing real credentials.
+- Never store raw NIC/passport image data directly in PostgreSQL.
+- Store only approved scanned-document metadata in PostgreSQL.
+- Never send unnecessary guest PII through the FOSS activation contract.
+- Never accept raw card credentials in the printing contract.
+- Never log raw payment-card data.
+- Never hard-code printer credentials.
+- Never hard-code production FOSS credentials.
+- Never expose production secrets in mock adapters.
+- Keep database access parameterized.
+- Keep `DB_SYNCHRONIZE=false`.
+- Use migrations for schema evolution.
+- Keep cross-service state behind explicit integration contracts.
+
+---
+
+# Current Folder Responsibilities
+
+Relevant check-in components currently include:
+
+```text
+src/check-ins/
+├── dto/
+│   ├── check-in-request.dto.ts
+│   ├── check-in-verification.dto.ts
+│   └── check-in-print-request.dto.ts
+│
+├── gateways/
+│   ├── mock-foss-session.gateway.ts
+│   └── mock-check-in-print.gateway.ts
+│
+├── models/
+│   ├── check-in-transaction.ts
+│   ├── check-in-persistence-result.ts
+│   ├── check-in-result.ts
+│   ├── check-in-print-context.ts
+│   └── check-in-print-result.ts
+│
+├── ports/
+│   ├── check-in.repository.ts
+│   ├── foss-session.gateway.ts
+│   ├── check-in-print.repository.ts
+│   └── check-in-print.gateway.ts
+│
+├── repositories/
+│   ├── postgres-check-in.repository.ts
+│   └── postgres-check-in-print.repository.ts
+│
+├── check-in.controller.ts
+├── check-in.service.ts
+├── check-in-print.service.ts
+└── check-in.module.ts
+```
+
+Production code depends on abstractions such as:
+
+```text
+CheckInRepository
+FossSessionGateway
+CheckInPrintRepository
+CheckInPrintGateway
+```
+
+Nest dependency injection binds those contracts to the current implementations.
+
+---
+
+# Git Workflow
+
+Feature development uses:
+
+```text
+main
+develop
+feature/<issue-number>-<slug>
+```
+
+Pull requests for development work target:
+
+```text
+develop
+```
+
+Example feature branch:
+
+```text
+feature/41-foss-printing-contracts
+```
+
+Use Conventional Commit messages.
+
+Example:
+
+```text
+feat(fds-backend): add FOSS activation and check-in printing contracts
+```
+
+---
+
+# Definition of Done
+
+Before merging a backend feature:
+
+- Acceptance criteria are implemented
+- Lint passes
+- Build passes
+- Unit tests pass
+- Global coverage remains at least 80%
+- E2E tests pass
+- PostgreSQL integration tests pass in CI where required
+- No secrets are committed
+- Documentation is updated
+- Pull request targets `develop`
+- CI passes
+- The related GitHub issue is linked
+
+---
+
+# Current Plan 08 Issue
+
+```text
+Issue #41
+
+[DDP-69] feat(fds-backend): add FOSS activation and check-in printing contracts
+```
+
+Plan 08 covers:
+
+```text
+FD-07
+FD-08
+```
+
+The production FOSS adapter and physical printer adapter remain future
+integration work.

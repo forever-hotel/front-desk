@@ -4,11 +4,18 @@ import { jest } from '@jest/globals';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
+import { CheckInPrintGateway } from '../src/check-ins/ports/check-in-print.gateway';
+import { FossSessionGateway } from '../src/check-ins/ports/foss-session.gateway';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
 
+  let failFossActivation = false;
+  let failPrinting = false;
+
   const checkInBookingId = '55555555-5555-4555-8555-555555555551';
+
+  const checkedInBookingId = '44444444-4444-4444-8444-444444444444';
 
   const receptionistId = '66666666-6666-4666-8666-666666666666';
 
@@ -27,6 +34,7 @@ describe('AppController (e2e)', () => {
 
     const queryRunnerMock = {
       connect: jest.fn(async () => undefined),
+
       startTransaction: jest.fn(async () => undefined),
 
       query: jest.fn(async (sql: string, parameters?: unknown[]) => {
@@ -46,7 +54,8 @@ describe('AppController (e2e)', () => {
 
         if (
           sql.includes('FROM bookings') &&
-          sql.includes("status IN ('PENDING', 'CONFIRMED', 'CHECKED_IN')")
+          sql.includes('booking_id <> $2') &&
+          sql.includes('status IN')
         ) {
           return [];
         }
@@ -127,12 +136,38 @@ describe('AppController (e2e)', () => {
       }),
 
       commitTransaction: jest.fn(async () => undefined),
+
       rollbackTransaction: jest.fn(async () => undefined),
+
       release: jest.fn(async () => undefined),
     };
 
     const dataSourceMock = {
       query: jest.fn(async (sql: string, parameters?: unknown[]) => {
+        /*
+         * Plan 08 print-context query.
+         *
+         * This matcher must remain specific so it does not
+         * accidentally match the reservation-search queries,
+         * which also select bookingReference.
+         */
+        if (
+          sql.includes('room_number AS "roomNumber"') &&
+          sql.includes('booking_id::text AS "bookingReference"') &&
+          sql.includes('WHERE booking_id = $1') &&
+          sql.includes('LIMIT 1')
+        ) {
+          return [
+            {
+              bookingReference: String(parameters?.[0]),
+              roomNumber: 'T102',
+              status: 'CHECKED_IN',
+              checkInDate: '2030-01-08',
+              checkOutDate: '2030-01-12',
+            },
+          ];
+        }
+
         if (sql.includes('FROM room_types')) {
           return [
             {
@@ -198,11 +233,54 @@ describe('AppController (e2e)', () => {
       createQueryRunner: jest.fn(() => queryRunnerMock),
     };
 
+    const fossSessionGatewayMock = {
+      activateGuestSession: jest.fn(
+        async (input: {
+          bookingReference: string;
+          roomNumber: string;
+          checkOutDate: string;
+        }) => {
+          if (failFossActivation) {
+            throw new Error('mock FOSS unavailable');
+          }
+
+          return {
+            status: 'ACTIVATED' as const,
+            sessionReference: `mock-foss-session-${input.bookingReference}`,
+            validUntilDate: input.checkOutDate,
+          };
+        },
+      ),
+    };
+
+    const printGatewayMock = {
+      requestPrint: jest.fn(
+        async (input: {
+          documentType: string;
+          bookingReference: string;
+          roomNumber: string;
+        }) => {
+          if (failPrinting) {
+            throw new Error('mock printer unavailable');
+          }
+
+          return {
+            status: 'accepted' as const,
+            printJobReference: `mock-print-${input.documentType.toLowerCase()}-${input.bookingReference}`,
+          };
+        },
+      ),
+    };
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
       .overrideProvider(DataSource)
       .useValue(dataSourceMock)
+      .overrideProvider(FossSessionGateway)
+      .useValue(fossSessionGatewayMock)
+      .overrideProvider(CheckInPrintGateway)
+      .useValue(printGatewayMock)
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -216,6 +294,11 @@ describe('AppController (e2e)', () => {
     );
 
     await app.init();
+  });
+
+  beforeEach(() => {
+    failFossActivation = false;
+    failPrinting = false;
   });
 
   it('/ (GET)', () => {
@@ -244,6 +327,7 @@ describe('AppController (e2e)', () => {
       .expect(200)
       .expect((response) => {
         expect(response.body).toHaveLength(1);
+
         expect(response.body[0].guestName).toBe('CI Test Guest');
       });
   });
@@ -257,7 +341,9 @@ describe('AppController (e2e)', () => {
       .expect(200)
       .expect((response) => {
         expect(response.body).toHaveLength(1);
+
         expect(response.body[0].status).toBe('CONFIRMED');
+
         expect(response.body[0].checkInDate).toBe('2030-01-10');
       });
   });
@@ -271,7 +357,9 @@ describe('AppController (e2e)', () => {
       .expect(200)
       .expect((response) => {
         expect(response.body).toHaveLength(1);
+
         expect(response.body[0].status).toBe('CHECKED_IN');
+
         expect(response.body[0].checkOutDate).toBe('2030-01-12');
       });
   });
@@ -304,7 +392,9 @@ describe('AppController (e2e)', () => {
         );
 
         expect(response.body.source).toBe('WALK_IN');
+
         expect(response.body.status).toBe('CONFIRMED');
+
         expect(response.body.totalAmount).toBe(30000);
 
         expect(response.body.payment).toEqual(
@@ -316,7 +406,9 @@ describe('AppController (e2e)', () => {
         );
 
         expect(response.body).not.toHaveProperty('cardNumber');
+
         expect(response.body.payment).not.toHaveProperty('cardNumber');
+
         expect(response.body.payment).not.toHaveProperty('cvv');
       });
   });
@@ -469,7 +561,7 @@ describe('AppController (e2e)', () => {
       .expect(400);
   });
 
-  it('/check-in completes physical-document check-in (POST)', () => {
+  it('/check-in completes check-in and activates FOSS session (POST)', () => {
     return request(app.getHttpServer())
       .post('/check-in')
       .send({
@@ -498,8 +590,43 @@ describe('AppController (e2e)', () => {
             verifiedAt: '2032-01-10T10:00:00.000Z',
           },
           auditLogId: '88888888-8888-4888-8888-888888888888',
+          fossSession: {
+            status: 'ACTIVATED',
+            sessionReference: `mock-foss-session-${checkInBookingId}`,
+            validUntilDate: '2032-01-12',
+          },
         });
       });
+  });
+
+  it('/check-in keeps check-in successful when FOSS activation fails (POST)', async () => {
+    failFossActivation = true;
+
+    const response = await request(app.getHttpServer())
+      .post('/check-in')
+      .send({
+        bookingReference: checkInBookingId,
+        roomNumber: 'T103',
+        verification: {
+          documentType: 'NIC',
+          verificationMethod: 'PHYSICAL_DOCUMENT',
+          verifiedBy: receptionistId,
+        },
+      })
+      .expect(201);
+
+    expect(response.body.status).toBe('checked_in');
+
+    expect(response.body.bookingStatus).toBe('CHECKED_IN');
+
+    expect(response.body.roomStatus).toBe('OCCUPIED');
+
+    expect(response.body.fossSession).toEqual({
+      status: 'FAILED',
+      sessionReference: null,
+      validUntilDate: '2032-01-12',
+      failureCode: 'FOSS_ACTIVATION_FAILED',
+    });
   });
 
   it('/check-in accepts scanned-copy verification metadata (POST)', () => {
@@ -524,6 +651,8 @@ describe('AppController (e2e)', () => {
         expect(response.body.verification.verificationMethod).toBe(
           'SCANNED_COPY',
         );
+
+        expect(response.body.fossSession.status).toBe('ACTIVATED');
 
         expect(response.body).not.toHaveProperty('documentStorageKey');
 
@@ -572,6 +701,94 @@ describe('AppController (e2e)', () => {
           verificationMethod: 'PHYSICAL_DOCUMENT',
           verifiedBy: 'not-a-uuid',
         },
+      })
+      .expect(400);
+  });
+
+  it('/check-in/:bookingReference/print accepts registration-card printing (POST)', () => {
+    return request(app.getHttpServer())
+      .post(`/check-in/${checkedInBookingId}/print`)
+      .send({
+        documentType: 'REGISTRATION_CARD',
+      })
+      .expect(201)
+      .expect({
+        status: 'accepted',
+        documentType: 'REGISTRATION_CARD',
+        bookingReference: checkedInBookingId,
+        roomNumber: 'T102',
+        printJobReference: `mock-print-registration_card-${checkedInBookingId}`,
+      });
+  });
+
+  it('/check-in/:bookingReference/print accepts payment-receipt printing (POST)', () => {
+    return request(app.getHttpServer())
+      .post(`/check-in/${checkedInBookingId}/print`)
+      .send({
+        documentType: 'payment_receipt',
+      })
+      .expect(201)
+      .expect((response) => {
+        expect(response.body).toEqual({
+          status: 'accepted',
+          documentType: 'PAYMENT_RECEIPT',
+          bookingReference: checkedInBookingId,
+          roomNumber: 'T102',
+          printJobReference: `mock-print-payment_receipt-${checkedInBookingId}`,
+        });
+
+        expect(response.body).not.toHaveProperty('cardNumber');
+
+        expect(response.body).not.toHaveProperty('cvv');
+      });
+  });
+
+  it('/check-in/:bookingReference/print rejects unsupported document type (POST)', () => {
+    return request(app.getHttpServer())
+      .post(`/check-in/${checkedInBookingId}/print`)
+      .send({
+        documentType: 'BOARDING_PASS',
+      })
+      .expect(400);
+  });
+
+  it('/check-in/:bookingReference/print rejects raw card fields (POST)', () => {
+    return request(app.getHttpServer())
+      .post(`/check-in/${checkedInBookingId}/print`)
+      .send({
+        documentType: 'PAYMENT_RECEIPT',
+        cardNumber: '4111111111111111',
+        cvv: '123',
+        pin: '9999',
+      })
+      .expect(400)
+      .expect((response) => {
+        expect(response.body.message).toEqual(
+          expect.arrayContaining([
+            'property cardNumber should not exist',
+            'property cvv should not exist',
+            'property pin should not exist',
+          ]),
+        );
+      });
+  });
+
+  it('/check-in/:bookingReference/print returns 503 when printing gateway fails (POST)', async () => {
+    failPrinting = true;
+
+    await request(app.getHttpServer())
+      .post(`/check-in/${checkedInBookingId}/print`)
+      .send({
+        documentType: 'REGISTRATION_CARD',
+      })
+      .expect(503);
+  });
+
+  it('/check-in/:bookingReference/print rejects invalid booking UUID (POST)', () => {
+    return request(app.getHttpServer())
+      .post('/check-in/not-a-uuid/print')
+      .send({
+        documentType: 'REGISTRATION_CARD',
       })
       .expect(400);
   });

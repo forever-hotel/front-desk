@@ -11,6 +11,22 @@ export interface CheckInVerificationResult {
   verifiedAt: string;
 }
 
+export interface ActivatedFossSessionResult {
+  status: 'ACTIVATED';
+  sessionReference: string;
+  validUntilDate: string;
+}
+
+export interface FailedFossSessionResult {
+  status: 'FAILED';
+  sessionReference: null;
+  validUntilDate: string;
+  failureCode: 'FOSS_ACTIVATION_FAILED';
+}
+
+export type FossSessionResult =
+  ActivatedFossSessionResult | FailedFossSessionResult;
+
 export interface CheckInResult {
   status: 'checked_in';
   bookingReference: string;
@@ -19,4 +35,5 @@ export interface CheckInResult {
   roomStatus: 'OCCUPIED';
   verification: CheckInVerificationResult;
   auditLogId: string;
+  fossSession: FossSessionResult;
 }

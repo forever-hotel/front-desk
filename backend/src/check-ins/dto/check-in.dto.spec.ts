@@ -1,6 +1,10 @@
 import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
+import {
+  CheckInDocumentType,
+  CheckInPrintRequestDto,
+} from './check-in-print-request.dto';
 import { CheckInRequestDto } from './check-in-request.dto';
 import {
   IdentityDocumentType,
@@ -27,7 +31,6 @@ describe('Check-in DTO validation', () => {
     const errors = await validate(dto);
 
     expect(errors).toHaveLength(0);
-
     expect(dto.roomNumber).toBe('T103');
 
     expect(dto.verification.documentType).toBe(IdentityDocumentType.NIC);
@@ -90,8 +93,11 @@ describe('Check-in DTO validation', () => {
     expect(errors).toHaveLength(0);
 
     expect(dto.roomNumber).toBeUndefined();
+
     expect(dto.verification.documentStorageKey).toBeUndefined();
+
     expect(dto.verification.documentSha256).toBeUndefined();
+
     expect(dto.verification.notes).toBeUndefined();
   });
 
@@ -132,9 +138,13 @@ describe('Check-in DTO validation', () => {
 
     expect(dto.roomNumber).toBe(123);
     expect(dto.verification.documentType).toBe(123);
+
     expect(dto.verification.verificationMethod).toBe(456);
+
     expect(dto.verification.documentStorageKey).toBe(789);
+
     expect(dto.verification.documentSha256).toBe(123);
+
     expect(dto.verification.notes).toBe(456);
   });
 
@@ -170,5 +180,50 @@ describe('Check-in DTO validation', () => {
     const errors = await validate(dto);
 
     expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it('should transform and validate a registration-card print request', async () => {
+    const dto = plainToInstance(CheckInPrintRequestDto, {
+      documentType: ' registration_card ',
+    });
+
+    const errors = await validate(dto);
+
+    expect(errors).toHaveLength(0);
+
+    expect(dto.documentType).toBe(CheckInDocumentType.REGISTRATION_CARD);
+  });
+
+  it('should transform and validate a payment-receipt print request', async () => {
+    const dto = plainToInstance(CheckInPrintRequestDto, {
+      documentType: ' payment_receipt ',
+    });
+
+    const errors = await validate(dto);
+
+    expect(errors).toHaveLength(0);
+
+    expect(dto.documentType).toBe(CheckInDocumentType.PAYMENT_RECEIPT);
+  });
+
+  it('should reject an unsupported check-in document type', async () => {
+    const dto = plainToInstance(CheckInPrintRequestDto, {
+      documentType: 'BOARDING_PASS',
+    });
+
+    const errors = await validate(dto);
+
+    expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it('should safely handle non-string print document input', async () => {
+    const dto = plainToInstance(CheckInPrintRequestDto, {
+      documentType: 123,
+    });
+
+    const errors = await validate(dto);
+
+    expect(errors.length).toBeGreaterThan(0);
+    expect(dto.documentType).toBe(123);
   });
 });
