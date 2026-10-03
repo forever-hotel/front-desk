@@ -4,6 +4,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { FolioModule } from './billing/folio.module';
 import { CheckInModule } from './check-ins/check-in.module';
+import { CheckOutModule } from './check-outs/check-out.module';
 import { envValidationSchema } from './config/env.validation';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
@@ -24,6 +25,7 @@ import { RoomsModule } from './rooms/rooms.module';
     RoomsModule,
     RoomChangesModule,
     FolioModule,
+    CheckOutModule,
   ],
   controllers: [AppController],
   providers: [AppService],

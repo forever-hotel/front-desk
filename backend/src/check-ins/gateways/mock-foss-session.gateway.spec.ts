@@ -22,4 +22,15 @@ describe('MockFossSessionGateway', () => {
       validUntilDate: '2032-01-12',
     });
   });
+
+  it('should return a deterministic mock deactivation result', async () => {
+    await expect(
+      gateway.deactivateGuestSession({
+        bookingReference: '44444444-4444-4444-8444-444444444444',
+        roomNumber: 'T102',
+      }),
+    ).resolves.toEqual({
+      status: 'DEACTIVATED',
+    });
+  });
 });
