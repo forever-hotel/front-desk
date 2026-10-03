@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { RoomStatusBoardItem } from '../models/room-status-board-item';
 import { RoomStatusTransitionPersistenceResult } from '../models/room-status-transition-persistence';
@@ -29,6 +29,9 @@ interface UpdatedRoomRow {
   lastClearedAt: Date | string | null;
   updatedAt: Date | string;
 }
+
+type MaintenanceAuditAction =
+  'ROOM_MAINTENANCE_BLOCKED' | 'ROOM_MAINTENANCE_CLEARED';
 
 @Injectable()
 export class PostgresRoomRepository extends RoomRepository {
@@ -78,13 +81,13 @@ export class PostgresRoomRepository extends RoomRepository {
     try {
       const roomRows = (await queryRunner.query(
         `
-        SELECT
-          room_number AS "roomNumber",
-          status::text AS "status"
-        FROM rooms
-        WHERE room_number = $1
-        FOR UPDATE
-        `,
+          SELECT
+            room_number AS "roomNumber",
+            status::text AS "status"
+          FROM rooms
+          WHERE room_number = $1
+          FOR UPDATE
+          `,
         [input.roomNumber],
       )) as LockedRoomRow[];
 
@@ -116,6 +119,43 @@ export class PostgresRoomRepository extends RoomRepository {
         };
       }
 
+      const maintenanceAuditAction = this.getMaintenanceAuditAction(
+        currentRoom.status,
+        input.targetStatus,
+      );
+
+      if (maintenanceAuditAction) {
+        if (!input.performedBy) {
+          throw new BadRequestException(
+            'performedBy is required for maintenance transitions',
+          );
+        }
+
+        const staffRows = await queryRunner.query(
+          `
+            SELECT
+              worker_id::text AS "workerId",
+              role::text AS "role",
+              is_active AS "isActive"
+            FROM staff_users
+            WHERE worker_id = $1
+            LIMIT 1
+            FOR SHARE
+            `,
+          [input.performedBy],
+        );
+
+        if (
+          staffRows.length === 0 ||
+          staffRows[0].role !== 'RECEPTIONIST' ||
+          staffRows[0].isActive !== true
+        ) {
+          throw new BadRequestException(
+            'Maintenance change must be performed by an active receptionist',
+          );
+        }
+      }
+
       const rawUpdateResult = (await queryRunner.query(
         `
           UPDATE rooms
@@ -138,22 +178,8 @@ export class PostgresRoomRepository extends RoomRepository {
         [input.targetStatus, input.roomNumber],
       )) as unknown[];
 
-      /*
-       * TypeORM's PostgreSQL QueryRunner may return
-       * UPDATE results as:
-       *
-       *   [rows, affectedRowCount]
-       *
-       * while unit-test mocks may return:
-       *
-       *   rows
-       *
-       * Normalize both shapes before reading the
-       * returned room.
-       */
-      const updatedRows = Array.isArray(rawUpdateResult[0])
-        ? (rawUpdateResult[0] as UpdatedRoomRow[])
-        : (rawUpdateResult as UpdatedRoomRow[]);
+      const updatedRows =
+        this.normalizeMutationRows<UpdatedRoomRow>(rawUpdateResult);
 
       const updatedRoom = updatedRows[0];
 
@@ -164,11 +190,51 @@ export class PostgresRoomRepository extends RoomRepository {
       }
 
       /*
-       * Build the result before COMMIT.
-       *
-       * If timestamp conversion or result mapping
-       * unexpectedly fails, the transaction is still
-       * active and can safely be rolled back.
+       * Maintenance blocking/clearing is
+       * audited in the SAME transaction as
+       * the room-state change.
+       */
+      if (maintenanceAuditAction && input.performedBy) {
+        const auditDetails = {
+          previousStatus: currentRoom.status,
+          targetStatus: input.targetStatus,
+          notes: input.notes ?? null,
+        };
+
+        await queryRunner.query(
+          `
+          INSERT INTO audit_logs (
+            event_category,
+            actor_type,
+            staff_user_id,
+            action,
+            entity_type,
+            entity_id,
+            details
+          )
+          VALUES (
+            'FRONT_DESK_OPERATION',
+            'STAFF',
+            $1,
+            $2,
+            'ROOM',
+            $3,
+            $4::jsonb
+          )
+          `,
+          [
+            input.performedBy,
+            maintenanceAuditAction,
+            input.roomNumber,
+            JSON.stringify(auditDetails),
+          ],
+        );
+      }
+
+      /*
+       * Build the response before COMMIT so
+       * any mapping/conversion failure occurs
+       * while rollback is still possible.
        */
       const result: RoomStatusTransitionPersistenceResult = {
         kind: 'updated',
@@ -190,6 +256,35 @@ export class PostgresRoomRepository extends RoomRepository {
     } finally {
       await queryRunner.release();
     }
+  }
+
+  private getMaintenanceAuditAction(
+    currentStatus: RoomStatus,
+    targetStatus: RoomStatus,
+  ): MaintenanceAuditAction | null {
+    if (
+      currentStatus === RoomStatus.VACANT &&
+      targetStatus === RoomStatus.UNDER_MAINTENANCE
+    ) {
+      return 'ROOM_MAINTENANCE_BLOCKED';
+    }
+
+    if (
+      currentStatus === RoomStatus.UNDER_MAINTENANCE &&
+      targetStatus === RoomStatus.VACANT
+    ) {
+      return 'ROOM_MAINTENANCE_CLEARED';
+    }
+
+    return null;
+  }
+
+  private normalizeMutationRows<T>(rawResult: unknown[]): T[] {
+    if (Array.isArray(rawResult[0])) {
+      return rawResult[0] as T[];
+    }
+
+    return rawResult as T[];
   }
 
   private toIso(value: Date | string): string {

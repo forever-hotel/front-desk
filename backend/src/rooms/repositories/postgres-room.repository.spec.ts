@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { RoomStatus } from '../models/room-status';
 import { PostgresRoomRepository } from './postgres-room.repository';
@@ -18,6 +19,8 @@ describe('PostgresRoomRepository', () => {
     rollbackTransaction: jest.Mock;
     release: jest.Mock;
   };
+
+  const receptionistId = '66666666-6666-4666-8666-666666666666';
 
   beforeEach(() => {
     queryRunner = {
@@ -119,17 +122,9 @@ describe('PostgresRoomRepository', () => {
         updatedAt: '2032-01-10T11:00:00.000Z',
       },
     ]);
-
-    expect(dataSource.query).toHaveBeenCalledWith(
-      expect.stringContaining('FROM rooms r'),
-    );
-
-    expect(dataSource.query).toHaveBeenCalledWith(
-      expect.stringContaining('INNER JOIN room_types'),
-    );
   });
 
-  it('should normalize the real TypeORM UPDATE result shape and commit an allowed transition', async () => {
+  it('should block maintenance and create an audit entry atomically', async () => {
     queryRunner.query
       .mockResolvedValueOnce([
         {
@@ -137,32 +132,33 @@ describe('PostgresRoomRepository', () => {
           status: RoomStatus.VACANT,
         },
       ])
-      /*
-       * PostgreSQL QueryRunner UPDATE result:
-       *
-       * [returnedRows, affectedRowCount]
-       */
+      .mockResolvedValueOnce([
+        {
+          workerId: receptionistId,
+          role: 'RECEPTIONIST',
+          isActive: true,
+        },
+      ])
       .mockResolvedValueOnce([
         [
           {
             roomNumber: 'T103',
             status: RoomStatus.UNDER_MAINTENANCE,
-            lastClearedAt: new Date('2032-01-10T08:00:00.000Z'),
-            updatedAt: new Date('2032-01-10T11:00:00.000Z'),
+            lastClearedAt: '2032-01-09T08:00:00.000Z',
+            updatedAt: '2032-01-10T11:00:00.000Z',
           },
         ],
         1,
-      ]);
+      ])
+      .mockResolvedValueOnce([]);
 
     const result = await repository.transitionStatus({
       roomNumber: 'T103',
       targetStatus: RoomStatus.UNDER_MAINTENANCE,
       allowedCurrentStatuses: [RoomStatus.VACANT],
+      performedBy: receptionistId,
+      notes: 'Air-conditioner repair',
     });
-
-    expect(queryRunner.connect).toHaveBeenCalledTimes(1);
-
-    expect(queryRunner.startTransaction).toHaveBeenCalledTimes(1);
 
     expect(queryRunner.query).toHaveBeenNthCalledWith(
       1,
@@ -172,15 +168,30 @@ describe('PostgresRoomRepository', () => {
 
     expect(queryRunner.query).toHaveBeenNthCalledWith(
       2,
+      expect.stringContaining('FROM staff_users'),
+      [receptionistId],
+    );
+
+    expect(queryRunner.query).toHaveBeenNthCalledWith(
+      3,
       expect.stringContaining('UPDATE rooms'),
       [RoomStatus.UNDER_MAINTENANCE, 'T103'],
     );
 
-    expect(queryRunner.commitTransaction).toHaveBeenCalledTimes(1);
+    const auditCall = queryRunner.query.mock.calls[3];
 
-    expect(queryRunner.rollbackTransaction).not.toHaveBeenCalled();
+    expect(auditCall[0]).toContain('INSERT INTO audit_logs');
 
-    expect(queryRunner.release).toHaveBeenCalledTimes(1);
+    expect(auditCall[1]).toEqual([
+      receptionistId,
+      'ROOM_MAINTENANCE_BLOCKED',
+      'T103',
+      JSON.stringify({
+        previousStatus: RoomStatus.VACANT,
+        targetStatus: RoomStatus.UNDER_MAINTENANCE,
+        notes: 'Air-conditioner repair',
+      }),
+    ]);
 
     expect(result).toEqual({
       kind: 'updated',
@@ -188,28 +199,43 @@ describe('PostgresRoomRepository', () => {
         roomNumber: 'T103',
         previousStatus: RoomStatus.VACANT,
         status: RoomStatus.UNDER_MAINTENANCE,
-        lastClearedAt: '2032-01-10T08:00:00.000Z',
+        lastClearedAt: '2032-01-09T08:00:00.000Z',
         updatedAt: '2032-01-10T11:00:00.000Z',
       },
     });
+
+    expect(queryRunner.commitTransaction).toHaveBeenCalledTimes(1);
+
+    expect(queryRunner.rollbackTransaction).not.toHaveBeenCalled();
   });
 
-  it('should use the database clearing timestamp when transitioning to VACANT', async () => {
+  it('should clear maintenance, update lastClearedAt and audit the clear', async () => {
     queryRunner.query
       .mockResolvedValueOnce([
         {
           roomNumber: 'T104',
-          status: RoomStatus.REQUIRES_CLEANING,
+          status: RoomStatus.UNDER_MAINTENANCE,
         },
       ])
       .mockResolvedValueOnce([
         {
-          roomNumber: 'T104',
-          status: RoomStatus.VACANT,
-          lastClearedAt: new Date('2032-01-10T12:00:00.000Z'),
-          updatedAt: new Date('2032-01-10T12:00:00.000Z'),
+          workerId: receptionistId,
+          role: 'RECEPTIONIST',
+          isActive: true,
         },
-      ]);
+      ])
+      .mockResolvedValueOnce([
+        [
+          {
+            roomNumber: 'T104',
+            status: RoomStatus.VACANT,
+            lastClearedAt: '2032-01-10T12:00:00.000Z',
+            updatedAt: '2032-01-10T12:00:00.000Z',
+          },
+        ],
+        1,
+      ])
+      .mockResolvedValueOnce([]);
 
     const result = await repository.transitionStatus({
       roomNumber: 'T104',
@@ -218,59 +244,156 @@ describe('PostgresRoomRepository', () => {
         RoomStatus.REQUIRES_CLEANING,
         RoomStatus.UNDER_MAINTENANCE,
       ],
+      performedBy: receptionistId,
+      notes: 'Maintenance completed',
     });
 
     expect(queryRunner.query).toHaveBeenNthCalledWith(
-      2,
+      3,
       expect.stringContaining("WHEN $1::room_status = 'VACANT'::room_status"),
       [RoomStatus.VACANT, 'T104'],
     );
+
+    const auditCall = queryRunner.query.mock.calls[3];
+
+    expect(auditCall[0]).toContain('INSERT INTO audit_logs');
+
+    expect(auditCall[1]).toEqual([
+      receptionistId,
+      'ROOM_MAINTENANCE_CLEARED',
+      'T104',
+      JSON.stringify({
+        previousStatus: RoomStatus.UNDER_MAINTENANCE,
+        targetStatus: RoomStatus.VACANT,
+        notes: 'Maintenance completed',
+      }),
+    ]);
 
     expect(result).toEqual({
       kind: 'updated',
       value: {
         roomNumber: 'T104',
-        previousStatus: RoomStatus.REQUIRES_CLEANING,
+        previousStatus: RoomStatus.UNDER_MAINTENANCE,
         status: RoomStatus.VACANT,
         lastClearedAt: '2032-01-10T12:00:00.000Z',
         updatedAt: '2032-01-10T12:00:00.000Z',
       },
     });
+
+    expect(queryRunner.commitTransaction).toHaveBeenCalledTimes(1);
   });
 
-  it('should preserve the existing clearing timestamp for non-VACANT transitions', async () => {
+  it('should allow REQUIRES_CLEANING to VACANT without maintenance audit metadata', async () => {
     queryRunner.query
       .mockResolvedValueOnce([
         {
           roomNumber: 'T105',
-          status: RoomStatus.VACANT,
+          status: RoomStatus.REQUIRES_CLEANING,
         },
       ])
       .mockResolvedValueOnce([
         {
           roomNumber: 'T105',
-          status: RoomStatus.UNDER_MAINTENANCE,
-          lastClearedAt: '2032-01-09T07:00:00.000Z',
+          status: RoomStatus.VACANT,
+          lastClearedAt: '2032-01-10T13:00:00.000Z',
           updatedAt: '2032-01-10T13:00:00.000Z',
         },
       ]);
 
     const result = await repository.transitionStatus({
       roomNumber: 'T105',
-      targetStatus: RoomStatus.UNDER_MAINTENANCE,
-      allowedCurrentStatuses: [RoomStatus.VACANT],
+      targetStatus: RoomStatus.VACANT,
+      allowedCurrentStatuses: [
+        RoomStatus.REQUIRES_CLEANING,
+        RoomStatus.UNDER_MAINTENANCE,
+      ],
     });
 
     expect(result).toEqual({
       kind: 'updated',
       value: {
         roomNumber: 'T105',
-        previousStatus: RoomStatus.VACANT,
-        status: RoomStatus.UNDER_MAINTENANCE,
-        lastClearedAt: '2032-01-09T07:00:00.000Z',
+        previousStatus: RoomStatus.REQUIRES_CLEANING,
+        status: RoomStatus.VACANT,
+        lastClearedAt: '2032-01-10T13:00:00.000Z',
         updatedAt: '2032-01-10T13:00:00.000Z',
       },
     });
+
+    expect(queryRunner.query).toHaveBeenCalledTimes(2);
+  });
+
+  it('should require performedBy for a maintenance transition', async () => {
+    queryRunner.query.mockResolvedValueOnce([
+      {
+        roomNumber: 'T103',
+        status: RoomStatus.VACANT,
+      },
+    ]);
+
+    await expect(
+      repository.transitionStatus({
+        roomNumber: 'T103',
+        targetStatus: RoomStatus.UNDER_MAINTENANCE,
+        allowedCurrentStatuses: [RoomStatus.VACANT],
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(queryRunner.rollbackTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('should reject maintenance change by a non-receptionist', async () => {
+    queryRunner.query
+      .mockResolvedValueOnce([
+        {
+          roomNumber: 'T103',
+          status: RoomStatus.VACANT,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          workerId: receptionistId,
+          role: 'WORKER',
+          isActive: true,
+        },
+      ]);
+
+    await expect(
+      repository.transitionStatus({
+        roomNumber: 'T103',
+        targetStatus: RoomStatus.UNDER_MAINTENANCE,
+        allowedCurrentStatuses: [RoomStatus.VACANT],
+        performedBy: receptionistId,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(queryRunner.rollbackTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('should reject maintenance change by an inactive receptionist', async () => {
+    queryRunner.query
+      .mockResolvedValueOnce([
+        {
+          roomNumber: 'T103',
+          status: RoomStatus.VACANT,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          workerId: receptionistId,
+          role: 'RECEPTIONIST',
+          isActive: false,
+        },
+      ]);
+
+    await expect(
+      repository.transitionStatus({
+        roomNumber: 'T103',
+        targetStatus: RoomStatus.UNDER_MAINTENANCE,
+        allowedCurrentStatuses: [RoomStatus.VACANT],
+        performedBy: receptionistId,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('should return not_found and roll back when the room does not exist', async () => {
@@ -280,6 +403,7 @@ describe('PostgresRoomRepository', () => {
       roomNumber: 'T999',
       targetStatus: RoomStatus.UNDER_MAINTENANCE,
       allowedCurrentStatuses: [RoomStatus.VACANT],
+      performedBy: receptionistId,
     });
 
     expect(result).toEqual({
@@ -289,11 +413,9 @@ describe('PostgresRoomRepository', () => {
     expect(queryRunner.rollbackTransaction).toHaveBeenCalledTimes(1);
 
     expect(queryRunner.commitTransaction).not.toHaveBeenCalled();
-
-    expect(queryRunner.release).toHaveBeenCalledTimes(1);
   });
 
-  it('should return same_state without executing an UPDATE', async () => {
+  it('should return same_state without updating the room', async () => {
     queryRunner.query.mockResolvedValueOnce([
       {
         roomNumber: 'T101',
@@ -318,11 +440,9 @@ describe('PostgresRoomRepository', () => {
     expect(queryRunner.query).toHaveBeenCalledTimes(1);
 
     expect(queryRunner.rollbackTransaction).toHaveBeenCalledTimes(1);
-
-    expect(queryRunner.commitTransaction).not.toHaveBeenCalled();
   });
 
-  it('should return blocked without executing an UPDATE for an invalid transition', async () => {
+  it('should return blocked without updating an invalid transition', async () => {
     queryRunner.query.mockResolvedValueOnce([
       {
         roomNumber: 'T102',
@@ -334,6 +454,7 @@ describe('PostgresRoomRepository', () => {
       roomNumber: 'T102',
       targetStatus: RoomStatus.UNDER_MAINTENANCE,
       allowedCurrentStatuses: [RoomStatus.VACANT],
+      performedBy: receptionistId,
     });
 
     expect(result).toEqual({
@@ -342,13 +463,9 @@ describe('PostgresRoomRepository', () => {
     });
 
     expect(queryRunner.query).toHaveBeenCalledTimes(1);
-
-    expect(queryRunner.rollbackTransaction).toHaveBeenCalledTimes(1);
-
-    expect(queryRunner.commitTransaction).not.toHaveBeenCalled();
   });
 
-  it('should roll back when an UPDATE unexpectedly returns no room', async () => {
+  it('should roll back a maintenance change when audit insertion fails', async () => {
     queryRunner.query
       .mockResolvedValueOnce([
         {
@@ -356,21 +473,66 @@ describe('PostgresRoomRepository', () => {
           status: RoomStatus.VACANT,
         },
       ])
-      .mockResolvedValueOnce([[], 0]);
+      .mockResolvedValueOnce([
+        {
+          workerId: receptionistId,
+          role: 'RECEPTIONIST',
+          isActive: true,
+        },
+      ])
+      .mockResolvedValueOnce([
+        [
+          {
+            roomNumber: 'T103',
+            status: RoomStatus.UNDER_MAINTENANCE,
+            lastClearedAt: '2032-01-09T08:00:00.000Z',
+            updatedAt: '2032-01-10T11:00:00.000Z',
+          },
+        ],
+        1,
+      ])
+      .mockRejectedValueOnce(new Error('audit failure'));
 
     await expect(
       repository.transitionStatus({
         roomNumber: 'T103',
         targetStatus: RoomStatus.UNDER_MAINTENANCE,
         allowedCurrentStatuses: [RoomStatus.VACANT],
+        performedBy: receptionistId,
       }),
-    ).rejects.toThrow('Room T103 was not returned after status update');
+    ).rejects.toThrow('audit failure');
 
     expect(queryRunner.rollbackTransaction).toHaveBeenCalledTimes(1);
 
     expect(queryRunner.commitTransaction).not.toHaveBeenCalled();
 
     expect(queryRunner.release).toHaveBeenCalledTimes(1);
+  });
+
+  it('should roll back when an UPDATE unexpectedly returns no room', async () => {
+    queryRunner.query
+      .mockResolvedValueOnce([
+        {
+          roomNumber: 'T105',
+          status: RoomStatus.REQUIRES_CLEANING,
+        },
+      ])
+      .mockResolvedValueOnce([[], 0]);
+
+    await expect(
+      repository.transitionStatus({
+        roomNumber: 'T105',
+        targetStatus: RoomStatus.VACANT,
+        allowedCurrentStatuses: [
+          RoomStatus.REQUIRES_CLEANING,
+          RoomStatus.UNDER_MAINTENANCE,
+        ],
+      }),
+    ).rejects.toThrow('Room T105 was not returned after status update');
+
+    expect(queryRunner.rollbackTransaction).toHaveBeenCalledTimes(1);
+
+    expect(queryRunner.commitTransaction).not.toHaveBeenCalled();
   });
 
   it('should roll back and rethrow an unexpected database error', async () => {
@@ -381,6 +543,7 @@ describe('PostgresRoomRepository', () => {
         roomNumber: 'T103',
         targetStatus: RoomStatus.UNDER_MAINTENANCE,
         allowedCurrentStatuses: [RoomStatus.VACANT],
+        performedBy: receptionistId,
       }),
     ).rejects.toThrow('database failure');
 

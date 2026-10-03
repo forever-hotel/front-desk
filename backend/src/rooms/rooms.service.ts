@@ -20,26 +20,21 @@ const ALLOWED_CURRENT_STATUSES_BY_TARGET: Record<
   ],
 
   /*
-   * OCCUPIED is owned by the transactional
-   * guest check-in workflow.
-   *
-   * The generic room-status endpoint must
-   * not bypass check-in.
+   * OCCUPIED remains owned by the
+   * transactional guest check-in and
+   * room-change workflows.
    */
   [RoomStatus.OCCUPIED]: [],
 
   /*
-   * REQUIRES_CLEANING is owned by the
-   * checkout workflow.
-   *
-   * The generic room-status endpoint must
-   * not bypass checkout.
+   * REQUIRES_CLEANING remains owned by
+   * checkout and room-change workflows.
    */
   [RoomStatus.REQUIRES_CLEANING]: [],
 
   /*
-   * A clean/vacant room may be removed
-   * from normal use for maintenance.
+   * Only a clean/vacant room can be
+   * manually blocked for maintenance.
    */
   [RoomStatus.UNDER_MAINTENANCE]: [RoomStatus.VACANT],
 };
@@ -67,6 +62,8 @@ export class RoomsService {
       targetStatus: dto.targetStatus,
       allowedCurrentStatuses:
         ALLOWED_CURRENT_STATUSES_BY_TARGET[dto.targetStatus],
+      performedBy: dto.performedBy,
+      notes: dto.notes?.trim() || undefined,
     });
 
     if (outcome.kind === 'not_found') {

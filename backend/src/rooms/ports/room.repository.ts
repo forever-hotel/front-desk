@@ -6,6 +6,8 @@ export interface TransitionRoomStatusInput {
   roomNumber: string;
   targetStatus: RoomStatus;
   allowedCurrentStatuses: readonly RoomStatus[];
+  performedBy?: string;
+  notes?: string;
 }
 
 export abstract class RoomRepository {

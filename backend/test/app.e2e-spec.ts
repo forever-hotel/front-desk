@@ -19,6 +19,14 @@ describe('AppController (e2e)', () => {
 
   const receptionistId = '66666666-6666-4666-8666-666666666666';
 
+  const workerId = '67676767-6767-4676-8676-676767676767';
+
+  const inactiveReceptionistId = '68686868-6868-4686-8686-686868686868';
+
+  const roomTypeId = '11111111-1111-4111-8111-111111111111';
+
+  const auditLogId = '88888888-8888-4888-8888-888888888888';
+
   beforeAll(async () => {
     process.env.NODE_ENV = 'test';
     process.env.DB_HOST = 'localhost';
@@ -42,7 +50,40 @@ describe('AppController (e2e)', () => {
           return [];
         }
 
+        /*
+         * Staff validation used by:
+         *
+         * - transactional check-in
+         * - Plan 10 room changes
+         * - Plan 10 maintenance audit
+         */
         if (sql.includes('FROM staff_users')) {
+          const workerIdParameter = String(parameters?.[0]);
+
+          if (workerIdParameter === workerId) {
+            return [
+              {
+                workerId,
+                role: 'WORKER',
+                isActive: true,
+              },
+            ];
+          }
+
+          if (workerIdParameter === inactiveReceptionistId) {
+            return [
+              {
+                workerId: inactiveReceptionistId,
+                role: 'RECEPTIONIST',
+                isActive: false,
+              },
+            ];
+          }
+
+          if (workerIdParameter !== receptionistId) {
+            return [];
+          }
+
           return [
             {
               workerId: receptionistId,
@@ -52,6 +93,10 @@ describe('AppController (e2e)', () => {
           ];
         }
 
+        /*
+         * Availability/conflict checks for
+         * check-in and room changes.
+         */
         if (
           sql.includes('FROM bookings') &&
           sql.includes('booking_id <> $2') &&
@@ -60,19 +105,104 @@ describe('AppController (e2e)', () => {
           return [];
         }
 
+        /*
+         * Plan 10 booking row lock.
+         *
+         * The already checked-in booking is
+         * assigned to T102.
+         */
         if (sql.includes('FROM bookings') && sql.includes('FOR UPDATE')) {
-          return [
-            {
-              bookingId: checkInBookingId,
-              roomTypeId: '11111111-1111-4111-8111-111111111111',
-              roomNumber: null,
-              status: 'CONFIRMED',
-              checkInDate: '2032-01-10',
-              checkOutDate: '2032-01-12',
-            },
-          ];
+          const bookingId = String(parameters?.[0]);
+
+          if (bookingId === checkedInBookingId) {
+            return [
+              {
+                bookingId: checkedInBookingId,
+                roomTypeId,
+                roomNumber: 'T102',
+                status: 'CHECKED_IN',
+                checkInDate: '2030-01-08',
+                checkOutDate: '2030-01-12',
+              },
+            ];
+          }
+
+          if (bookingId === checkInBookingId) {
+            return [
+              {
+                bookingId: checkInBookingId,
+                roomTypeId,
+                roomNumber: null,
+                status: 'CONFIRMED',
+                checkInDate: '2032-01-10',
+                checkOutDate: '2032-01-12',
+              },
+            ];
+          }
+
+          return [];
         }
 
+        /*
+         * Plan 10 room change locks both
+         * current and target rooms in one
+         * deterministic query.
+         */
+        if (
+          sql.includes('FROM rooms') &&
+          sql.includes('WHERE room_number IN') &&
+          sql.includes('ORDER BY room_number ASC') &&
+          sql.includes('FOR UPDATE')
+        ) {
+          const currentRoomNumber = String(parameters?.[0]);
+
+          const targetRoomNumber = String(parameters?.[1]);
+
+          const rooms: Array<{
+            roomNumber: string;
+            roomTypeId: string;
+            status: string;
+          }> = [];
+
+          if (currentRoomNumber === 'T102') {
+            rooms.push({
+              roomNumber: 'T102',
+              roomTypeId,
+              status: 'OCCUPIED',
+            });
+          }
+
+          if (targetRoomNumber === 'T105') {
+            rooms.push({
+              roomNumber: 'T105',
+              roomTypeId,
+              status: 'VACANT',
+            });
+          }
+
+          if (targetRoomNumber === 'T104') {
+            rooms.push({
+              roomNumber: 'T104',
+              roomTypeId,
+              status: 'UNDER_MAINTENANCE',
+            });
+          }
+
+          if (targetRoomNumber === 'S201') {
+            rooms.push({
+              roomNumber: 'S201',
+              roomTypeId: '99999999-9999-4999-8999-999999999999',
+              status: 'VACANT',
+            });
+          }
+
+          return rooms;
+        }
+
+        /*
+         * Single-room lock used by check-in
+         * and generic room-status management.
+         */
         if (sql.includes('FROM rooms') && sql.includes('FOR UPDATE')) {
           const roomNumber = String(parameters?.[0]);
 
@@ -84,7 +214,17 @@ describe('AppController (e2e)', () => {
             return [
               {
                 roomNumber,
-                roomTypeId: '11111111-1111-4111-8111-111111111111',
+                roomTypeId,
+                status: 'UNDER_MAINTENANCE',
+              },
+            ];
+          }
+
+          if (roomNumber === 'T102') {
+            return [
+              {
+                roomNumber,
+                roomTypeId,
                 status: 'OCCUPIED',
               },
             ];
@@ -93,18 +233,14 @@ describe('AppController (e2e)', () => {
           return [
             {
               roomNumber,
-              roomTypeId: '11111111-1111-4111-8111-111111111111',
+              roomTypeId,
               status: 'VACANT',
             },
           ];
         }
 
         /*
-         * Plan 09 room-status transition.
-         *
-         * Keep this matcher specific so it does
-         * not intercept the Plan 07 check-in room
-         * update query.
+         * Plan 09/10 room-status update.
          */
         if (
           sql.includes('UPDATE rooms') &&
@@ -142,10 +278,14 @@ describe('AppController (e2e)', () => {
           ];
         }
 
+        /*
+         * Check-in, room-change and
+         * maintenance audit persistence.
+         */
         if (sql.includes('INSERT INTO audit_logs')) {
           return [
             {
-              logId: '88888888-8888-4888-8888-888888888888',
+              logId: auditLogId,
             },
           ];
         }
@@ -178,6 +318,12 @@ describe('AppController (e2e)', () => {
           ];
         }
 
+        /*
+         * UPDATE booking/room statements
+         * used by check-in and room-change
+         * workflows do not need a mocked
+         * row result.
+         */
         return [];
       }),
 
@@ -211,6 +357,73 @@ describe('AppController (e2e)', () => {
         }
 
         /*
+         * Plan 10 available-room booking
+         * context.
+         */
+        if (
+          sql.includes('booking_id::text AS "bookingId"') &&
+          sql.includes('FROM bookings') &&
+          sql.includes('WHERE booking_id = $1') &&
+          sql.includes('LIMIT 1')
+        ) {
+          const bookingId = String(parameters?.[0]);
+
+          if (bookingId === checkedInBookingId) {
+            return [
+              {
+                bookingId: checkedInBookingId,
+                roomTypeId,
+                roomNumber: 'T102',
+                status: 'CHECKED_IN',
+                checkInDate: '2030-01-08',
+                checkOutDate: '2030-01-12',
+              },
+            ];
+          }
+
+          if (bookingId === checkInBookingId) {
+            return [
+              {
+                bookingId: checkInBookingId,
+                roomTypeId,
+                roomNumber: null,
+                status: 'CONFIRMED',
+                checkInDate: '2032-01-10',
+                checkOutDate: '2032-01-12',
+              },
+            ];
+          }
+
+          return [];
+        }
+
+        /*
+         * Plan 10 available target rooms.
+         *
+         * This matcher must run before the
+         * general Plan 09 room-board matcher
+         * because both queries join room_types.
+         */
+        if (
+          sql.includes('FROM rooms r') &&
+          sql.includes('INNER JOIN room_types rt') &&
+          sql.includes("r.status = 'VACANT'") &&
+          sql.includes('NOT EXISTS')
+        ) {
+          return [
+            {
+              roomNumber: 'T105',
+              roomTypeId,
+              roomTypeName: 'CI Standard Room',
+              floor: 1,
+              status: 'VACANT',
+              lastClearedAt: '2032-01-09T08:00:00.000Z',
+              updatedAt: '2032-01-10T08:00:00.000Z',
+            },
+          ];
+        }
+
+        /*
          * Plan 09 room-status board.
          */
         if (
@@ -221,7 +434,7 @@ describe('AppController (e2e)', () => {
           return [
             {
               roomNumber: 'T101',
-              roomTypeId: '11111111-1111-4111-8111-111111111111',
+              roomTypeId,
               roomTypeName: 'CI Standard Room',
               floor: 1,
               status: 'VACANT',
@@ -230,7 +443,7 @@ describe('AppController (e2e)', () => {
             },
             {
               roomNumber: 'T102',
-              roomTypeId: '11111111-1111-4111-8111-111111111111',
+              roomTypeId,
               roomTypeName: 'CI Standard Room',
               floor: 1,
               status: 'OCCUPIED',
@@ -239,7 +452,7 @@ describe('AppController (e2e)', () => {
             },
             {
               roomNumber: 'T103',
-              roomTypeId: '11111111-1111-4111-8111-111111111111',
+              roomTypeId,
               roomTypeName: 'CI Standard Room',
               floor: 1,
               status: 'REQUIRES_CLEANING',
@@ -248,7 +461,7 @@ describe('AppController (e2e)', () => {
             },
             {
               roomNumber: 'T104',
-              roomTypeId: '11111111-1111-4111-8111-111111111111',
+              roomTypeId,
               roomTypeName: 'CI Standard Room',
               floor: 1,
               status: 'UNDER_MAINTENANCE',
@@ -261,7 +474,7 @@ describe('AppController (e2e)', () => {
         if (sql.includes('FROM room_types')) {
           return [
             {
-              roomTypeId: '11111111-1111-4111-8111-111111111111',
+              roomTypeId,
               typeName: 'CI Standard Room',
               pricePerNight: 15000,
               maxGuests: 2,
@@ -448,11 +661,13 @@ describe('AppController (e2e)', () => {
       });
   });
 
-  it('/rooms/:roomNumber/status allows VACANT to UNDER_MAINTENANCE (PATCH)', () => {
+  it('/rooms/:roomNumber/status audits VACANT to UNDER_MAINTENANCE (PATCH)', () => {
     return request(app.getHttpServer())
       .patch('/rooms/t103/status')
       .send({
         targetStatus: 'under_maintenance',
+        performedBy: receptionistId,
+        notes: 'Air-conditioner repair',
       })
       .expect(200)
       .expect({
@@ -460,6 +675,24 @@ describe('AppController (e2e)', () => {
         previousStatus: 'VACANT',
         status: 'UNDER_MAINTENANCE',
         lastClearedAt: '2032-01-09T08:00:00.000Z',
+        updatedAt: '2032-01-10T12:00:00.000Z',
+      });
+  });
+
+  it('/rooms/:roomNumber/status audits UNDER_MAINTENANCE to VACANT (PATCH)', () => {
+    return request(app.getHttpServer())
+      .patch('/rooms/t104/status')
+      .send({
+        targetStatus: 'vacant',
+        performedBy: receptionistId,
+        notes: 'Repair completed',
+      })
+      .expect(200)
+      .expect({
+        roomNumber: 'T104',
+        previousStatus: 'UNDER_MAINTENANCE',
+        status: 'VACANT',
+        lastClearedAt: '2032-01-10T12:00:00.000Z',
         updatedAt: '2032-01-10T12:00:00.000Z',
       });
   });
@@ -507,6 +740,100 @@ describe('AppController (e2e)', () => {
         targetStatus: 'UNDER_MAINTENANCE',
       })
       .expect(404);
+  });
+
+  it('/room-changes/:bookingReference/available-rooms returns eligible targets (GET)', () => {
+    return request(app.getHttpServer())
+      .get(`/room-changes/${checkedInBookingId}/available-rooms`)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toHaveLength(1);
+
+        expect(response.body[0]).toEqual({
+          roomNumber: 'T105',
+          roomTypeId,
+          roomTypeName: 'CI Standard Room',
+          floor: 1,
+          status: 'VACANT',
+          lastClearedAt: '2032-01-09T08:00:00.000Z',
+          updatedAt: '2032-01-10T08:00:00.000Z',
+        });
+
+        expect(response.body[0]).not.toHaveProperty('guestName');
+
+        expect(response.body[0]).not.toHaveProperty('email');
+      });
+  });
+
+  it('/room-changes/:bookingReference/available-rooms rejects invalid booking UUID (GET)', () => {
+    return request(app.getHttpServer())
+      .get('/room-changes/not-a-uuid/available-rooms')
+      .expect(400);
+  });
+
+  it('/room-changes atomically reassigns a checked-in booking (POST)', () => {
+    return request(app.getHttpServer())
+      .post('/room-changes')
+      .send({
+        bookingReference: checkedInBookingId,
+        targetRoomNumber: ' t105 ',
+        performedBy: receptionistId,
+        reason: 'Guest requested quieter room',
+      })
+      .expect(201)
+      .expect({
+        status: 'room_changed',
+        bookingReference: checkedInBookingId,
+        previousRoomNumber: 'T102',
+        roomNumber: 'T105',
+        previousRoomStatus: 'REQUIRES_CLEANING',
+        roomStatus: 'OCCUPIED',
+        auditLogId,
+      });
+  });
+
+  it('/room-changes rejects changing to the current room (POST)', () => {
+    return request(app.getHttpServer())
+      .post('/room-changes')
+      .send({
+        bookingReference: checkedInBookingId,
+        targetRoomNumber: 'T102',
+        performedBy: receptionistId,
+      })
+      .expect(409);
+  });
+
+  it('/room-changes rejects an UNDER_MAINTENANCE target room (POST)', () => {
+    return request(app.getHttpServer())
+      .post('/room-changes')
+      .send({
+        bookingReference: checkedInBookingId,
+        targetRoomNumber: 'T104',
+        performedBy: receptionistId,
+      })
+      .expect(409);
+  });
+
+  it('/room-changes rejects a booking that is not CHECKED_IN (POST)', () => {
+    return request(app.getHttpServer())
+      .post('/room-changes')
+      .send({
+        bookingReference: checkInBookingId,
+        targetRoomNumber: 'T105',
+        performedBy: receptionistId,
+      })
+      .expect(409);
+  });
+
+  it('/room-changes rejects invalid performedBy UUID (POST)', () => {
+    return request(app.getHttpServer())
+      .post('/room-changes')
+      .send({
+        bookingReference: checkedInBookingId,
+        targetRoomNumber: 'T105',
+        performedBy: 'not-a-uuid',
+      })
+      .expect(400);
   });
 
   it('/bookings/search (GET)', () => {
@@ -566,7 +893,7 @@ describe('AppController (e2e)', () => {
           phone: '+94000000001',
         },
         booking: {
-          roomTypeId: '11111111-1111-4111-8111-111111111111',
+          roomTypeId,
           checkInDate: '2030-02-10',
           checkOutDate: '2030-02-12',
           numGuests: 2,
@@ -614,7 +941,7 @@ describe('AppController (e2e)', () => {
           phone: '+94000000002',
         },
         booking: {
-          roomTypeId: '11111111-1111-4111-8111-111111111111',
+          roomTypeId,
           checkInDate: '2030-03-10',
           checkOutDate: '2030-03-11',
           numGuests: 1,
@@ -644,7 +971,7 @@ describe('AppController (e2e)', () => {
           email: 'unsafe-card@example.invalid',
         },
         booking: {
-          roomTypeId: '11111111-1111-4111-8111-111111111111',
+          roomTypeId,
           checkInDate: '2030-04-10',
           checkOutDate: '2030-04-11',
           numGuests: 1,
@@ -677,7 +1004,7 @@ describe('AppController (e2e)', () => {
           email: 'unsupported@example.invalid',
         },
         booking: {
-          roomTypeId: '11111111-1111-4111-8111-111111111111',
+          roomTypeId,
           checkInDate: '2030-05-10',
           checkOutDate: '2030-05-11',
           numGuests: 1,
@@ -698,7 +1025,7 @@ describe('AppController (e2e)', () => {
           email: 'not-an-email',
         },
         booking: {
-          roomTypeId: '11111111-1111-4111-8111-111111111111',
+          roomTypeId,
           checkInDate: '2030-06-10',
           checkOutDate: '2030-06-11',
           numGuests: 1,
@@ -719,7 +1046,7 @@ describe('AppController (e2e)', () => {
           email: 'invalid-date@example.invalid',
         },
         booking: {
-          roomTypeId: '11111111-1111-4111-8111-111111111111',
+          roomTypeId,
           checkInDate: '2030-07-10',
           checkOutDate: '2030-07-09',
           numGuests: 1,
@@ -740,7 +1067,7 @@ describe('AppController (e2e)', () => {
           email: 'large-group@example.invalid',
         },
         booking: {
-          roomTypeId: '11111111-1111-4111-8111-111111111111',
+          roomTypeId,
           checkInDate: '2030-08-10',
           checkOutDate: '2030-08-11',
           numGuests: 3,
@@ -780,7 +1107,7 @@ describe('AppController (e2e)', () => {
             verifiedBy: receptionistId,
             verifiedAt: '2032-01-10T10:00:00.000Z',
           },
-          auditLogId: '88888888-8888-4888-8888-888888888888',
+          auditLogId,
           fossSession: {
             status: 'ACTIVATED',
             sessionReference: `mock-foss-session-${checkInBookingId}`,
