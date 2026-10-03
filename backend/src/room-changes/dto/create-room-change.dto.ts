@@ -1,20 +1,22 @@
 import { Transform } from 'class-transformer';
-import { IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
-import { RoomStatus } from '../models/room-status';
+import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
 
-export class UpdateRoomStatusDto {
+export class CreateRoomChangeDto {
+  @IsUUID('4')
+  bookingReference!: string;
+
   @Transform(({ value }) =>
     typeof value === 'string' ? value.trim().toUpperCase() : value,
   )
-  @IsEnum(RoomStatus)
-  targetStatus!: RoomStatus;
+  @IsString()
+  @IsNotEmpty()
+  targetRoomNumber!: string;
 
-  @IsOptional()
   @IsUUID('4')
-  performedBy?: string;
+  performedBy!: string;
 
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsOptional()
   @IsString()
-  notes?: string;
+  reason?: string;
 }
