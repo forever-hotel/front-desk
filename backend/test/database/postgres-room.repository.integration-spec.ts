@@ -6,6 +6,8 @@ describe('PostgresRoomRepository integration', () => {
   let dataSource: DataSource;
   let repository: PostgresRoomRepository;
 
+  const receptionistId = '66666666-6666-4666-8666-666666666666';
+
   const roomNumbers = ['P901', 'P902', 'P903', 'P904'];
 
   beforeAll(async () => {
@@ -23,7 +25,8 @@ describe('PostgresRoomRepository integration', () => {
 
     repository = new PostgresRoomRepository(dataSource);
 
-    await removePlan09Fixtures();
+    await removePlan09AuditFixtures();
+    await removePlan09RoomFixtures();
 
     await dataSource.query(`
       INSERT INTO rooms (
@@ -41,18 +44,22 @@ describe('PostgresRoomRepository integration', () => {
         '11111111-1111-4111-8111-111111111111',
         9,
         'VACANT',
-        TIMESTAMPTZ '2030-01-01T08:00:00.000Z',
+        TIMESTAMPTZ
+          '2030-01-01T08:00:00.000Z',
         'Plan 09 vacant-room fixture',
-        TIMESTAMPTZ '2030-01-01T08:00:00.000Z'
+        TIMESTAMPTZ
+          '2030-01-01T08:00:00.000Z'
       ),
       (
         'P902',
         '11111111-1111-4111-8111-111111111111',
         9,
         'OCCUPIED',
-        TIMESTAMPTZ '2030-01-01T08:00:00.000Z',
+        TIMESTAMPTZ
+          '2030-01-01T08:00:00.000Z',
         'Plan 09 occupied-room fixture',
-        TIMESTAMPTZ '2030-01-01T09:00:00.000Z'
+        TIMESTAMPTZ
+          '2030-01-01T09:00:00.000Z'
       ),
       (
         'P903',
@@ -61,29 +68,44 @@ describe('PostgresRoomRepository integration', () => {
         'REQUIRES_CLEANING',
         NULL,
         'Plan 09 cleaning-room fixture',
-        TIMESTAMPTZ '2030-01-01T10:00:00.000Z'
+        TIMESTAMPTZ
+          '2030-01-01T10:00:00.000Z'
       ),
       (
         'P904',
         '11111111-1111-4111-8111-111111111111',
         9,
         'UNDER_MAINTENANCE',
-        TIMESTAMPTZ '2030-01-01T07:00:00.000Z',
+        TIMESTAMPTZ
+          '2030-01-01T07:00:00.000Z',
         'Plan 09 maintenance-room fixture',
-        TIMESTAMPTZ '2030-01-01T11:00:00.000Z'
+        TIMESTAMPTZ
+          '2030-01-01T11:00:00.000Z'
       )
     `);
   });
 
   beforeEach(async () => {
+    /*
+     * Plan 10 adds audit persistence to
+     * maintenance block/clear operations.
+     *
+     * Remove test-only maintenance audit rows
+     * before every case so this legacy Plan 09
+     * integration suite remains isolated.
+     */
+    await removePlan09AuditFixtures();
+
     await dataSource.query(`
       UPDATE rooms
       SET
         status = 'VACANT',
         last_cleared_at =
-          TIMESTAMPTZ '2030-01-01T08:00:00.000Z',
+          TIMESTAMPTZ
+            '2030-01-01T08:00:00.000Z',
         updated_at =
-          TIMESTAMPTZ '2030-01-01T08:00:00.000Z'
+          TIMESTAMPTZ
+            '2030-01-01T08:00:00.000Z'
       WHERE room_number = 'P901'
     `);
 
@@ -92,9 +114,11 @@ describe('PostgresRoomRepository integration', () => {
       SET
         status = 'OCCUPIED',
         last_cleared_at =
-          TIMESTAMPTZ '2030-01-01T08:00:00.000Z',
+          TIMESTAMPTZ
+            '2030-01-01T08:00:00.000Z',
         updated_at =
-          TIMESTAMPTZ '2030-01-01T09:00:00.000Z'
+          TIMESTAMPTZ
+            '2030-01-01T09:00:00.000Z'
       WHERE room_number = 'P902'
     `);
 
@@ -104,7 +128,8 @@ describe('PostgresRoomRepository integration', () => {
         status = 'REQUIRES_CLEANING',
         last_cleared_at = NULL,
         updated_at =
-          TIMESTAMPTZ '2030-01-01T10:00:00.000Z'
+          TIMESTAMPTZ
+            '2030-01-01T10:00:00.000Z'
       WHERE room_number = 'P903'
     `);
 
@@ -113,16 +138,19 @@ describe('PostgresRoomRepository integration', () => {
       SET
         status = 'UNDER_MAINTENANCE',
         last_cleared_at =
-          TIMESTAMPTZ '2030-01-01T07:00:00.000Z',
+          TIMESTAMPTZ
+            '2030-01-01T07:00:00.000Z',
         updated_at =
-          TIMESTAMPTZ '2030-01-01T11:00:00.000Z'
+          TIMESTAMPTZ
+            '2030-01-01T11:00:00.000Z'
       WHERE room_number = 'P904'
     `);
   });
 
   afterAll(async () => {
     if (dataSource?.isInitialized) {
-      await removePlan09Fixtures();
+      await removePlan09AuditFixtures();
+      await removePlan09RoomFixtures();
       await dataSource.destroy();
     }
   });
@@ -166,6 +194,13 @@ describe('PostgresRoomRepository integration', () => {
       roomNumber: 'P901',
       targetStatus: RoomStatus.UNDER_MAINTENANCE,
       allowedCurrentStatuses: [RoomStatus.VACANT],
+
+      /*
+       * Plan 10 requires the receptionist
+       * identity for maintenance operations.
+       */
+      performedBy: receptionistId,
+      notes: 'Plan 09 integration maintenance test',
     });
 
     expect(result.kind).toBe('updated');
@@ -184,12 +219,13 @@ describe('PostgresRoomRepository integration', () => {
     );
 
     const rows = (await dataSource.query(`
-      SELECT
-        status::text AS "status",
-        last_cleared_at AS "lastClearedAt"
-      FROM rooms
-      WHERE room_number = 'P901'
-    `)) as Array<{
+        SELECT
+          status::text AS "status",
+          last_cleared_at
+            AS "lastClearedAt"
+        FROM rooms
+        WHERE room_number = 'P901'
+      `)) as Array<{
       status: string;
       lastClearedAt: Date | null;
     }>;
@@ -198,6 +234,39 @@ describe('PostgresRoomRepository integration', () => {
 
     expect(rows[0].lastClearedAt?.toISOString()).toBe(
       '2030-01-01T08:00:00.000Z',
+    );
+
+    /*
+     * Plan 10 additionally requires
+     * maintenance changes to be audited.
+     */
+    const auditRows = await dataSource.query(
+      `
+        SELECT
+          action,
+          entity_type AS "entityType",
+          entity_id AS "entityId",
+          staff_user_id::text
+            AS "staffUserId"
+        FROM audit_logs
+        WHERE
+          action =
+            'ROOM_MAINTENANCE_BLOCKED'
+          AND entity_type = 'ROOM'
+          AND entity_id = $1
+        `,
+      ['P901'],
+    );
+
+    expect(auditRows).toHaveLength(1);
+
+    expect(auditRows[0]).toEqual(
+      expect.objectContaining({
+        action: 'ROOM_MAINTENANCE_BLOCKED',
+        entityType: 'ROOM',
+        entityId: 'P901',
+        staffUserId: receptionistId,
+      }),
     );
   });
 
@@ -226,12 +295,13 @@ describe('PostgresRoomRepository integration', () => {
     expect(result.value.lastClearedAt).not.toBeNull();
 
     const rows = (await dataSource.query(`
-      SELECT
-        status::text AS "status",
-        last_cleared_at AS "lastClearedAt"
-      FROM rooms
-      WHERE room_number = 'P903'
-    `)) as Array<{
+        SELECT
+          status::text AS "status",
+          last_cleared_at
+            AS "lastClearedAt"
+        FROM rooms
+        WHERE room_number = 'P903'
+      `)) as Array<{
       status: string;
       lastClearedAt: Date | null;
     }>;
@@ -249,6 +319,13 @@ describe('PostgresRoomRepository integration', () => {
         RoomStatus.REQUIRES_CLEANING,
         RoomStatus.UNDER_MAINTENANCE,
       ],
+
+      /*
+       * Plan 10 requires the receptionist
+       * identity when maintenance is cleared.
+       */
+      performedBy: receptionistId,
+      notes: 'Plan 09 integration maintenance-clear test',
     });
 
     expect(result.kind).toBe('updated');
@@ -262,6 +339,35 @@ describe('PostgresRoomRepository integration', () => {
     expect(result.value.status).toBe(RoomStatus.VACANT);
 
     expect(result.value.lastClearedAt).not.toBeNull();
+
+    const auditRows = await dataSource.query(
+      `
+        SELECT
+          action,
+          entity_type AS "entityType",
+          entity_id AS "entityId",
+          staff_user_id::text
+            AS "staffUserId"
+        FROM audit_logs
+        WHERE
+          action =
+            'ROOM_MAINTENANCE_CLEARED'
+          AND entity_type = 'ROOM'
+          AND entity_id = $1
+        `,
+      ['P904'],
+    );
+
+    expect(auditRows).toHaveLength(1);
+
+    expect(auditRows[0]).toEqual(
+      expect.objectContaining({
+        action: 'ROOM_MAINTENANCE_CLEARED',
+        entityType: 'ROOM',
+        entityId: 'P904',
+        staffUserId: receptionistId,
+      }),
+    );
   });
 
   it('returns same_state without changing the room', async () => {
@@ -280,10 +386,11 @@ describe('PostgresRoomRepository integration', () => {
     });
 
     const rows = (await dataSource.query(`
-      SELECT status::text AS "status"
-      FROM rooms
-      WHERE room_number = 'P901'
-    `)) as Array<{
+        SELECT
+          status::text AS "status"
+        FROM rooms
+        WHERE room_number = 'P901'
+      `)) as Array<{
       status: string;
     }>;
 
@@ -303,10 +410,11 @@ describe('PostgresRoomRepository integration', () => {
     });
 
     const rows = (await dataSource.query(`
-      SELECT status::text AS "status"
-      FROM rooms
-      WHERE room_number = 'P902'
-    `)) as Array<{
+        SELECT
+          status::text AS "status"
+        FROM rooms
+        WHERE room_number = 'P902'
+      `)) as Array<{
       status: string;
     }>;
 
@@ -325,7 +433,25 @@ describe('PostgresRoomRepository integration', () => {
     });
   });
 
-  async function removePlan09Fixtures(): Promise<void> {
+  async function removePlan09AuditFixtures(): Promise<void> {
+    await dataSource.query(`
+      DELETE FROM audit_logs
+      WHERE
+        entity_type = 'ROOM'
+        AND entity_id IN (
+          'P901',
+          'P902',
+          'P903',
+          'P904'
+        )
+        AND action IN (
+          'ROOM_MAINTENANCE_BLOCKED',
+          'ROOM_MAINTENANCE_CLEARED'
+        )
+    `);
+  }
+
+  async function removePlan09RoomFixtures(): Promise<void> {
     await dataSource.query(`
       DELETE FROM rooms
       WHERE room_number IN (
