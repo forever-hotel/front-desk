@@ -32,6 +32,18 @@ All notable changes to the Front Desk System will be documented in this file.
 - Added integer `LKR` monetary handling and validation for persisted and external folio charges.
 - Added `ExternalFolioChargeGateway` as the cross-subsystem charge integration boundary without creating a `folios` table.
 - Added unit, PostgreSQL integration, E2E, and OpenAPI documentation coverage for the running-folio feature.
+- Added Plan 12 / FD-09 and FD-10 transactional checkout core through `POST /check-outs`.
+- Added authoritative outstanding-balance calculation from the current running folio minus persisted `COMPLETED` payments.
+- Added `CASH` and `CARD_ON_SITE` final-payment contracts without accepting a client-supplied payment amount.
+- Added `CheckoutPaymentGateway` with a deterministic mock adapter for the core checkout boundary.
+- Added atomic checkout persistence covering final completed payment, `CHECKED_OUT` booking state, `REQUIRES_CLEANING` room state, and `CHECK_OUT` audit logging.
+- Added PostgreSQL booking/room row locking and completed-payment revalidation before checkout commit.
+- Added fully-paid checkout support without inserting a zero-value payment record.
+- Added final-payment failure protection so failed payment does not mutate booking, room, audit, or FOSS state.
+- Extended the FOSS session contract with post-commit guest-session deactivation.
+- Added explicit post-commit FOSS deactivation failure reporting without reversing a completed hotel checkout.
+- Added Plan 12 unit tests, PostgreSQL integration coverage, E2E coverage, and OpenAPI documentation.
+- Updated the root README with the transactional checkout flow, safety boundaries, testing evidence, and current scope.
 
 ### Fixed
 
