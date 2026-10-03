@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { FolioModule } from './billing/folio.module';
 import { CheckInModule } from './check-ins/check-in.module';
 import { envValidationSchema } from './config/env.validation';
 import { DatabaseModule } from './database/database.module';
@@ -22,6 +23,7 @@ import { RoomsModule } from './rooms/rooms.module';
     CheckInModule,
     RoomsModule,
     RoomChangesModule,
+    FolioModule,
   ],
   controllers: [AppController],
   providers: [AppService],

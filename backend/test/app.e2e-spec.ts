@@ -4,6 +4,7 @@ import { jest } from '@jest/globals';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
+import { ExternalFolioChargeGateway } from '../src/billing/ports/external-folio-charge.gateway';
 import { CheckInPrintGateway } from '../src/check-ins/ports/check-in-print.gateway';
 import { FossSessionGateway } from '../src/check-ins/ports/foss-session.gateway';
 
@@ -12,10 +13,13 @@ describe('AppController (e2e)', () => {
 
   let failFossActivation = false;
   let failPrinting = false;
+  let failExternalFolioCharges = false;
 
   const checkInBookingId = '55555555-5555-4555-8555-555555555551';
 
   const checkedInBookingId = '44444444-4444-4444-8444-444444444444';
+
+  const unknownFolioBookingId = '99999999-9999-4999-8999-999999999998';
 
   const receptionistId = '66666666-6666-4666-8666-666666666666';
 
@@ -337,6 +341,52 @@ describe('AppController (e2e)', () => {
     const dataSourceMock = {
       query: jest.fn(async (sql: string, parameters?: unknown[]) => {
         /*
+         * Plan 11 running-folio booking
+         * context.
+         *
+         * Keep this matcher before Plan 08
+         * print context because both queries
+         * select bookingReference/roomNumber.
+         */
+        if (
+          sql.includes('booking_id::text AS "bookingReference"') &&
+          sql.includes('total_amount AS "roomCharge"') &&
+          sql.includes('FROM bookings') &&
+          sql.includes('WHERE booking_id = $1') &&
+          sql.includes('LIMIT 1')
+        ) {
+          const bookingId = String(parameters?.[0]);
+
+          if (bookingId === checkedInBookingId) {
+            return [
+              {
+                bookingReference: checkedInBookingId,
+                roomNumber: 'T102',
+                checkInDate: '2030-01-08',
+                checkOutDate: '2030-01-12',
+                bookingStatus: 'CHECKED_IN',
+                roomCharge: 60000,
+              },
+            ];
+          }
+
+          if (bookingId === checkInBookingId) {
+            return [
+              {
+                bookingReference: checkInBookingId,
+                roomNumber: null,
+                checkInDate: '2032-01-10',
+                checkOutDate: '2032-01-12',
+                bookingStatus: 'CONFIRMED',
+                roomCharge: 30000,
+              },
+            ];
+          }
+
+          return [];
+        }
+
+        /*
          * Plan 08 print-context query.
          */
         if (
@@ -575,6 +625,47 @@ describe('AppController (e2e)', () => {
       ),
     };
 
+    const externalFolioChargeGatewayMock = {
+      findCharges: jest.fn(async (bookingReference: string) => {
+        if (failExternalFolioCharges) {
+          throw new Error('mock external folio provider unavailable');
+        }
+
+        if (bookingReference !== checkedInBookingId) {
+          return [];
+        }
+
+        /*
+         * Intentionally return the food items
+         * out of order. FolioService must
+         * produce deterministic ordering.
+         */
+        return [
+          {
+            reference: 'SERVICE-001',
+            category: 'SERVICES',
+            description: 'Additional service',
+            amount: 1500,
+            occurredAt: '2030-01-10T10:00:00.000Z',
+          },
+          {
+            reference: 'FOOD-002',
+            category: 'FOOD_AND_BEVERAGE',
+            description: 'Breakfast order',
+            amount: 2500,
+            occurredAt: '2030-01-10T08:00:00.000Z',
+          },
+          {
+            reference: 'FOOD-001',
+            category: 'FOOD_AND_BEVERAGE',
+            description: 'Dinner order',
+            amount: 2000,
+            occurredAt: '2030-01-09T18:30:00.000Z',
+          },
+        ];
+      }),
+    };
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
@@ -584,6 +675,8 @@ describe('AppController (e2e)', () => {
       .useValue(fossSessionGatewayMock)
       .overrideProvider(CheckInPrintGateway)
       .useValue(printGatewayMock)
+      .overrideProvider(ExternalFolioChargeGateway)
+      .useValue(externalFolioChargeGatewayMock)
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -602,6 +695,7 @@ describe('AppController (e2e)', () => {
   beforeEach(() => {
     failFossActivation = false;
     failPrinting = false;
+    failExternalFolioCharges = false;
   });
 
   it('/ (GET)', () => {
@@ -834,6 +928,105 @@ describe('AppController (e2e)', () => {
         performedBy: 'not-a-uuid',
       })
       .expect(400);
+  });
+
+  it('/folios/:bookingReference returns deterministic FD-15 running folio (GET)', () => {
+    return request(app.getHttpServer())
+      .get(`/folios/${checkedInBookingId}`)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toEqual({
+          bookingReference: checkedInBookingId,
+          roomNumber: 'T102',
+          checkInDate: '2030-01-08',
+          checkOutDate: '2030-01-12',
+          bookingStatus: 'CHECKED_IN',
+          currency: 'LKR',
+          categories: [
+            {
+              category: 'ROOM_CHARGES',
+              items: [
+                {
+                  reference: `ROOM-${checkedInBookingId}`,
+                  description: 'Room accommodation',
+                  amount: 60000,
+                  occurredAt: '2030-01-08T00:00:00.000Z',
+                },
+              ],
+              subtotal: 60000,
+            },
+            {
+              category: 'FOOD_AND_BEVERAGE',
+              items: [
+                {
+                  reference: 'FOOD-001',
+                  description: 'Dinner order',
+                  amount: 2000,
+                  occurredAt: '2030-01-09T18:30:00.000Z',
+                },
+                {
+                  reference: 'FOOD-002',
+                  description: 'Breakfast order',
+                  amount: 2500,
+                  occurredAt: '2030-01-10T08:00:00.000Z',
+                },
+              ],
+              subtotal: 4500,
+            },
+            {
+              category: 'SERVICES',
+              items: [
+                {
+                  reference: 'SERVICE-001',
+                  description: 'Additional service',
+                  amount: 1500,
+                  occurredAt: '2030-01-10T10:00:00.000Z',
+                },
+              ],
+              subtotal: 1500,
+            },
+          ],
+          total: 66000,
+        });
+
+        expect(Number.isSafeInteger(response.body.total)).toBe(true);
+
+        for (const category of response.body.categories) {
+          expect(Number.isSafeInteger(category.subtotal)).toBe(true);
+
+          for (const item of category.items) {
+            expect(Number.isSafeInteger(item.amount)).toBe(true);
+          }
+        }
+
+        expect(response.body).not.toHaveProperty('guestName');
+        expect(response.body).not.toHaveProperty('email');
+        expect(response.body).not.toHaveProperty('nicOrPassport');
+      });
+  });
+
+  it('/folios/:bookingReference rejects invalid booking UUID (GET)', () => {
+    return request(app.getHttpServer()).get('/folios/not-a-uuid').expect(400);
+  });
+
+  it('/folios/:bookingReference returns 404 for an unknown booking (GET)', () => {
+    return request(app.getHttpServer())
+      .get(`/folios/${unknownFolioBookingId}`)
+      .expect(404);
+  });
+
+  it('/folios/:bookingReference rejects a booking that is not CHECKED_IN (GET)', () => {
+    return request(app.getHttpServer())
+      .get(`/folios/${checkInBookingId}`)
+      .expect(409);
+  });
+
+  it('/folios/:bookingReference returns 503 when external charge retrieval fails (GET)', async () => {
+    failExternalFolioCharges = true;
+
+    await request(app.getHttpServer())
+      .get(`/folios/${checkedInBookingId}`)
+      .expect(503);
   });
 
   it('/bookings/search (GET)', () => {
