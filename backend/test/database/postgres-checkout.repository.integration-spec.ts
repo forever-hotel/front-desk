@@ -423,18 +423,8 @@ describe('PostgresCheckoutRepository integration', () => {
     expect(auditRows).toHaveLength(0);
   });
 
-  it('does not directly mutate FOSS sessions or WKMS tasks during checkout persistence', async () => {
-    const fossCountBefore = await countRowsForBooking(
-      'foss_sessions',
-      checkoutBookingReference,
-    );
-
-    const wkmsCountBefore = await countRowsForBooking(
-      'wkms_tasks',
-      checkoutBookingReference,
-    );
-
-    await repository.commitCheckout({
+  it('completes checkout without requiring FOSS or WKMS persistence tables', async () => {
+    const result = await repository.commitCheckout({
       bookingReference: checkoutBookingReference,
       performedBy: receptionistId,
       roomNumber: 'P1201',
@@ -444,18 +434,9 @@ describe('PostgresCheckoutRepository integration', () => {
       paymentMethod: CheckoutPaymentMethod.CASH,
     });
 
-    const fossCountAfter = await countRowsForBooking(
-      'foss_sessions',
-      checkoutBookingReference,
-    );
-
-    const wkmsCountAfter = await countRowsForBooking(
-      'wkms_tasks',
-      checkoutBookingReference,
-    );
-
-    expect(fossCountAfter).toBe(fossCountBefore);
-    expect(wkmsCountAfter).toBe(wkmsCountBefore);
+    expect(result.status).toBe('checked_out');
+    expect(result.bookingStatus).toBe('CHECKED_OUT');
+    expect(result.roomStatus).toBe('REQUIRES_CLEANING');
   });
 
   async function createPlan12Fixtures(): Promise<void> {
@@ -600,22 +581,6 @@ describe('PostgresCheckoutRepository integration', () => {
 
     await dataSource.query(
       `
-      DELETE FROM wkms_tasks
-      WHERE booking_id = ANY($1::uuid[])
-      `,
-      [bookingReferences],
-    );
-
-    await dataSource.query(
-      `
-      DELETE FROM foss_sessions
-      WHERE booking_id = ANY($1::uuid[])
-      `,
-      [bookingReferences],
-    );
-
-    await dataSource.query(
-      `
       UPDATE bookings
       SET
         room_number = CASE booking_id
@@ -694,22 +659,6 @@ describe('PostgresCheckoutRepository integration', () => {
 
     await dataSource.query(
       `
-      DELETE FROM wkms_tasks
-      WHERE booking_id = ANY($1::uuid[])
-      `,
-      [bookingReferences],
-    );
-
-    await dataSource.query(
-      `
-      DELETE FROM foss_sessions
-      WHERE booking_id = ANY($1::uuid[])
-      `,
-      [bookingReferences],
-    );
-
-    await dataSource.query(
-      `
       DELETE FROM payments
       WHERE booking_id = ANY($1::uuid[])
       `,
@@ -740,22 +689,6 @@ describe('PostgresCheckoutRepository integration', () => {
       `
       SELECT COUNT(*)::int AS "count"
       FROM payments
-      WHERE booking_id = $1
-      `,
-      [bookingReference],
-    );
-
-    return Number(rows[0].count);
-  }
-
-  async function countRowsForBooking(
-    tableName: 'foss_sessions' | 'wkms_tasks',
-    bookingReference: string,
-  ): Promise<number> {
-    const rows = await dataSource.query(
-      `
-      SELECT COUNT(*)::int AS "count"
-      FROM ${tableName}
       WHERE booking_id = $1
       `,
       [bookingReference],
