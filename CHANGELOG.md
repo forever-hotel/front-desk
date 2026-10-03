@@ -27,7 +27,11 @@ All notable changes to the Front Desk System will be documented in this file.
 - Added `GET /health/ready` database readiness endpoint using a lightweight PostgreSQL connectivity check.
 - Added unit and E2E tests for environment validation and database readiness success/failure behaviour.
 - Added `backend/.env.example` with safe database configuration placeholders.
-
+- Added FD-15 `GET /folios/:bookingReference` running-folio API for active checked-in stays.
+- Added deterministic folio grouping for room charges, food and beverage, and services with server-calculated category subtotals and grand total.
+- Added integer `LKR` monetary handling and validation for persisted and external folio charges.
+- Added `ExternalFolioChargeGateway` as the cross-subsystem charge integration boundary without creating a `folios` table.
+- Added unit, PostgreSQL integration, E2E, and OpenAPI documentation coverage for the running-folio feature.
 
 ### Fixed
 

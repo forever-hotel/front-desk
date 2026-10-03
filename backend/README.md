@@ -6,7 +6,8 @@ The Front Desk backend currently provides reservation lookup, walk-in booking,
 transactional guest check-in, guest identity verification, room assignment,
 FOSS guest-session activation contracts, check-in document printing contracts,
 FD-12 room-status management, FD-11 atomic room reassignment, FD-13 maintenance
-blocking/clearing, and Front Desk audit logging.
+blocking/clearing, FD-15 deterministic running guest folios, and Front Desk
+audit logging.
 
 The service uses PostgreSQL for Front Desk-owned persistence and keeps
 cross-subsystem responsibilities behind explicit integration contracts.
@@ -46,6 +47,12 @@ Implemented backend capabilities include:
 - Room-change audit logging
 - PostgreSQL row locking for room mutations
 - Real-time-ready room-status and room-change results
+- FD-15 running guest folio API
+- Deterministic room, food/beverage, and service charge categories
+- Server-calculated folio category subtotals and grand total
+- Integer `LKR` monetary representation
+- External folio-charge integration contract
+- Read-only folio model with no separate `folios` table
 - Unit tests
 - PostgreSQL integration tests
 - End-to-end tests
@@ -66,11 +73,12 @@ FD-08  Registration-card and payment-receipt printing contracts
 FD-11  Room change / reassignment
 FD-12  Room-status board
 FD-13  Maintenance block / clear and availability impact
+FD-15  Running guest folio / accumulated charges
 FD-16  Front Desk audit logging
 ```
 
-Some later integration work remains outside the current backend scope and is
-listed in the Out of Scope sections below.
+Later checkout and production cross-service integration work remains outside the
+current backend scope where noted below.
 
 ---
 
@@ -145,7 +153,7 @@ Check formatting:
 npm run format:check
 ```
 
-Format all supported files:
+Format supported files:
 
 ```bash
 npm run format
@@ -157,6 +165,7 @@ feature.
 Examples:
 
 ```bash
+npx prettier --write src/billing
 npx prettier --write src/room-changes
 npx prettier --write src/rooms
 npx prettier --write test/app.e2e-spec.ts
@@ -219,35 +228,29 @@ A pull request must continue to satisfy all four coverage gates.
 
 ---
 
-# Current Plan 10 Local Verification
+# Current Plan 11 Local Verification
 
-The current Plan 10 feature branch has passed local verification for:
+The current Plan 11 feature branch has passed local verification for:
 
 ```text
 Lint
 PASS
-0 warnings
-0 errors
 
 Build
 PASS
 
 Unit tests
-25 suites passed
-181 tests passed
-0 failed
+PASS
 
 Coverage
-Statements  98.98%
-Branches    87.44%
-Functions   97.02%
-Lines       98.90%
+PASS
+global coverage gates remain >= 80%
 
 E2E
 PASS
 ```
 
-The Plan 10 PostgreSQL integration suite is intended to run in the disposable
+The Plan 11 PostgreSQL integration suite is intended to run in the disposable
 PostgreSQL environment provided by GitHub Actions.
 
 ---
@@ -1106,8 +1109,8 @@ deadlock risk.
 
 Target-room availability is re-checked **after** the target room has been locked.
 
-The earlier available-room list is therefore advisory for the UI and is never
-trusted as the final transaction decision.
+The earlier available-room list is advisory for the UI and is never trusted as
+the final transaction decision.
 
 ---
 
@@ -1235,8 +1238,8 @@ The current FD-11 implementation does **not** directly modify:
 foss_sessions
 ```
 
-Room-change FOSS session re-linking or token rotation has not been defined in the
-current Plan 10 contract.
+Room-change FOSS session re-linking or token rotation has not been defined in
+the current Plan 10 contract.
 
 Any future update must go through an approved FOSS integration contract instead
 of a direct FOSS database write.
@@ -1259,9 +1262,285 @@ Automatic WKMS cleaning-task creation remains future integration work.
 
 ---
 
+# FD-15 — Running Guest Folio / Billing
+
+Plan 11 implements the running folio read model required by FD-15.
+
+A receptionist can retrieve accumulated charges for an active checked-in stay
+without performing checkout or final payment settlement.
+
+## Endpoint
+
+```http
+GET /folios/:bookingReference
+```
+
+Example:
+
+```http
+GET /folios/44444444-4444-4444-8444-444444444444
+```
+
+The booking reference is validated as a UUID v4.
+
+## Active-stay eligibility
+
+A running folio is available only when:
+
+```text
+booking exists
+booking status = CHECKED_IN
+room is assigned
+```
+
+Expected HTTP outcomes:
+
+```text
+200  running folio returned
+400  malformed booking UUID
+404  booking not found
+409  booking is not an active checked-in stay
+503  required external charge retrieval failed
+```
+
+## Folio model
+
+The folio is a derived read model.
+
+Plan 11 does not create:
+
+```text
+folios table
+folio database entity
+folio migration
+```
+
+The Front Desk backend builds the folio from authoritative booking data and an
+explicit external-charge integration contract.
+
+## Charge categories
+
+The response always uses this deterministic category order:
+
+```text
+1. ROOM_CHARGES
+2. FOOD_AND_BEVERAGE
+3. SERVICES
+```
+
+Each category contains:
+
+```text
+category
+items
+subtotal
+```
+
+The complete response contains:
+
+```text
+bookingReference
+roomNumber
+checkInDate
+checkOutDate
+bookingStatus
+currency
+categories
+total
+```
+
+Example response:
+
+```json
+{
+  "bookingReference": "44444444-4444-4444-8444-444444444444",
+  "roomNumber": "T102",
+  "checkInDate": "2030-01-08",
+  "checkOutDate": "2030-01-12",
+  "bookingStatus": "CHECKED_IN",
+  "currency": "LKR",
+  "categories": [
+    {
+      "category": "ROOM_CHARGES",
+      "items": [
+        {
+          "reference": "ROOM-44444444-4444-4444-8444-444444444444",
+          "description": "Room accommodation",
+          "amount": 60000,
+          "occurredAt": "2030-01-08T00:00:00.000Z"
+        }
+      ],
+      "subtotal": 60000
+    },
+    {
+      "category": "FOOD_AND_BEVERAGE",
+      "items": [],
+      "subtotal": 0
+    },
+    {
+      "category": "SERVICES",
+      "items": [],
+      "subtotal": 0
+    }
+  ],
+  "total": 60000
+}
+```
+
+## Room-charge source
+
+The persisted booking amount is the authoritative room-charge input:
+
+```text
+bookings.total_amount
+```
+
+The folio endpoint does not accept a client-supplied room total and does not
+trust client-calculated subtotals or grand totals.
+
+## External charge contract
+
+Food/beverage and service charges are kept behind:
+
+```text
+ExternalFolioChargeGateway
+```
+
+The integration contract provides:
+
+```text
+reference
+category
+description
+amount
+occurredAt
+```
+
+Supported external categories are:
+
+```text
+FOOD_AND_BEVERAGE
+SERVICES
+```
+
+The current adapter is:
+
+```text
+MockExternalFolioChargeGateway
+```
+
+It returns an empty external-charge list until the approved live cross-service
+integration is connected.
+
+This allows the running folio endpoint to return a valid room-only folio while
+keeping the future KMS/FOSS integration boundary explicit.
+
+The Front Desk folio service does not directly mutate KMS, FOSS, or WKMS-owned
+tables.
+
+## No fabricated service prices
+
+If an external service record does not provide an approved monetary amount, the
+Front Desk backend does not invent one.
+
+Only amounts received from approved persisted data or the external-charge
+contract may contribute to the folio total.
+
+## Currency rule
+
+All monetary values are represented as integers in the smallest supported
+currency unit.
+
+```text
+currency = LKR
+```
+
+Valid:
+
+```text
+15000
+```
+
+Invalid monetary representation for the folio contract:
+
+```text
+15000.50
+1499.99
+```
+
+The service validates that room charges and external charges are non-negative
+safe integers.
+
+## Deterministic totals
+
+For each category:
+
+```text
+subtotal = sum(item amounts)
+```
+
+The complete folio total is:
+
+```text
+ROOM_CHARGES subtotal
++
+FOOD_AND_BEVERAGE subtotal
++
+SERVICES subtotal
+```
+
+All calculations are performed by the backend.
+
+## Deterministic item ordering
+
+External folio items are ordered by:
+
+```text
+occurredAt ASC
+reference ASC
+```
+
+Therefore identical booking and charge data produce identical itemisation,
+subtotals, ordering, and grand total.
+
+## Failure boundary
+
+If the external charge provider fails, the backend does not silently return an
+incomplete folio.
+
+Instead:
+
+```text
+503 Service Unavailable
+```
+
+is returned.
+
+## API documentation
+
+The Plan 11 HTTP contract is documented in:
+
+```text
+docs/folio-api.openapi.yaml
+```
+
+The OpenAPI document describes:
+
+```text
+GET /folios/{bookingReference}
+
+200
+400
+404
+409
+503
+```
+
+---
+
 # Database Usage
 
-Plan 10 uses the existing shared schema.
+The current backend uses the approved shared PostgreSQL schema.
 
 Relevant tables include:
 
@@ -1270,27 +1549,59 @@ bookings
 rooms
 room_types
 staff_users
+payments
+fds_id_verifications
 audit_logs
 ```
 
-No new production table is required.
+Plan 11 does not introduce a new production table.
 
-No new room-status enum is required.
-
-Persisted statuses remain:
+For the folio read model, relevant booking fields include:
 
 ```text
-VACANT
-OCCUPIED
-REQUIRES_CLEANING
-UNDER_MAINTENANCE
+booking_id
+room_number
+check_in_date
+check_out_date
+status
+total_amount
 ```
+
+The authoritative room-charge source is:
+
+```text
+bookings.total_amount
+```
+
+No new folio persistence entity is required.
 
 ---
 
 # PostgreSQL Integration Tests
 
 Integration tests are designed for a disposable PostgreSQL database.
+
+## Reservation repository integration
+
+File:
+
+```text
+test/database/postgres-booking.repository.integration-spec.ts
+```
+
+Covers persisted reservation search, arrivals, departures, and deterministic
+seed behavior.
+
+## Walk-in booking integration
+
+The walk-in integration tests verify:
+
+- room-type lookup;
+- server-calculated pricing;
+- booking persistence;
+- payment persistence;
+- transaction success;
+- transaction rollback.
 
 ## Check-in integration coverage
 
@@ -1367,7 +1678,26 @@ Uses isolated Plan 10 fixtures and verifies:
 - availability restoration after clearing;
 - full rollback when room-change audit persistence fails.
 
-Do not run this suite against shared Neon development data.
+## Plan 11 folio repository integration
+
+File:
+
+```text
+test/database/postgres-folio.repository.integration-spec.ts
+```
+
+Uses deterministic shared CI seed data and verifies:
+
+- checked-in booking context retrieval;
+- persisted room number and stay dates;
+- persisted booking status;
+- `bookings.total_amount` as the authoritative room charge;
+- integer room-charge representation;
+- confirmed/non-active booking state preservation;
+- unknown booking behavior;
+- read-only behavior with no booking mutation.
+
+Do not run the full integration suite against shared Neon development data.
 
 ---
 
@@ -1445,11 +1775,44 @@ The current unit/contract suite covers:
 - audit failure rollback;
 - unexpected database failure rollback.
 
+## Running folio
+
+- room-only running folio;
+- food-and-beverage charges;
+- service charges;
+- mixed-category folio;
+- stable category ordering;
+- stable external-item ordering;
+- room-charge validation;
+- integer currency validation;
+- `LKR` response currency;
+- category subtotal calculation;
+- grand-total calculation;
+- zero-value external charges;
+- unknown booking rejection;
+- inactive-stay rejection;
+- missing-room rejection;
+- external-provider failure handling;
+- non-array external provider response rejection;
+- unsupported external category rejection;
+- invalid external reference rejection;
+- invalid external description rejection;
+- fractional external amount rejection;
+- negative external amount rejection;
+- unsafe external amount rejection;
+- invalid external timestamp rejection;
+- subtotal overflow protection;
+- grand-total overflow protection;
+- deterministic repeat-response behavior;
+- PostgreSQL folio-context mapping;
+- parameterized folio repository query;
+- external gateway contract behavior.
+
 ---
 
 # End-to-End Tests
 
-The E2E suite verifies the public HTTP contracts.
+The E2E suite verifies public HTTP contracts.
 
 Coverage includes:
 
@@ -1483,6 +1846,22 @@ Coverage includes:
 - maintenance-target rejection;
 - non-`CHECKED_IN` booking rejection;
 - invalid `performedBy` validation.
+
+## Running folio
+
+- valid FD-15 running folio;
+- room, food/beverage, and service itemisation;
+- deterministic category order;
+- deterministic item order;
+- server-calculated category subtotals;
+- server-calculated grand total;
+- integer monetary values;
+- explicit `LKR` currency;
+- invalid booking UUID -> `400`;
+- unknown booking -> `404`;
+- inactive stay -> `409`;
+- external provider failure -> `503`;
+- guest PII exclusion from the folio response.
 
 ## Reservation
 
@@ -1608,8 +1987,11 @@ role = RECEPTIONIST
 is_active = TRUE
 ```
 
-These request-provided identities must later be replaced by authenticated staff
-identity from the centralized JWT.
+The current Plan 11 folio endpoint is read-only and does not yet add final JWT
+authorization logic.
+
+These transitional identities and read access controls must later be replaced
+or enforced through the centralized JWT/RBAC layer.
 
 ---
 
@@ -1684,6 +2066,44 @@ src/room-changes/
 └── room-changes.module.ts
 ```
 
+## Billing / running folio
+
+```text
+src/billing/
+├── gateways/
+│   ├── mock-external-folio-charge.gateway.ts
+│   └── mock-external-folio-charge.gateway.spec.ts
+├── models/
+│   ├── external-folio-charge.ts
+│   ├── folio-booking-context.ts
+│   ├── folio-category.ts
+│   ├── folio-category-summary.ts
+│   ├── folio-item.ts
+│   └── running-folio.ts
+├── ports/
+│   ├── external-folio-charge.gateway.ts
+│   └── folio.repository.ts
+├── repositories/
+│   ├── postgres-folio.repository.ts
+│   └── postgres-folio.repository.spec.ts
+├── folio.controller.ts
+├── folio.controller.spec.ts
+├── folio.service.ts
+├── folio.service.spec.ts
+└── folio.module.ts
+```
+
+Key contracts:
+
+```text
+FolioRepository
+ExternalFolioChargeGateway
+```
+
+The billing module owns folio composition and total calculation.
+
+It does not take ownership of KMS/FOSS/WKMS persistence.
+
 ---
 
 # Current Backend Architecture
@@ -1702,6 +2122,8 @@ AppModule
    +--> RoomsModule
    |
    +--> RoomChangesModule
+   |
+   +--> FolioModule
 ```
 
 Controllers remain HTTP boundaries.
@@ -1709,6 +2131,42 @@ Controllers remain HTTP boundaries.
 Business rules remain in services/repositories.
 
 PostgreSQL access does not live directly inside controllers.
+
+---
+
+# Folio Architecture
+
+```text
+FolioController
+      |
+      v
+FolioService
+      |
+      +-----------------------+
+      |                       |
+      v                       v
+FolioRepository       ExternalFolioChargeGateway
+      |                       |
+      v                       v
+PostgreSQL            approved external
+booking data          charge adapter
+```
+
+`FolioController` owns the HTTP boundary.
+
+`FolioService` owns:
+
+- active-stay validation;
+- category construction;
+- deterministic ordering;
+- monetary validation;
+- category subtotal calculation;
+- grand-total calculation;
+- response composition.
+
+`FolioRepository` owns Front Desk booking-context retrieval.
+
+`ExternalFolioChargeGateway` owns the external charge integration boundary.
 
 ---
 
@@ -1747,6 +2205,9 @@ UNDER_MAINTENANCE -> VACANT
 The generic room-status endpoint cannot be used to bypass check-in, room-change,
 or checkout lifecycle rules.
 
+The Plan 11 running-folio endpoint is read-only and does not alter room or
+booking lifecycle state.
+
 ---
 
 # Security Notes
@@ -1769,6 +2230,13 @@ The current Front Desk backend follows these rules:
 - Lock mutable booking/room rows before committing lifecycle changes.
 - Re-check target-room availability inside the room-change transaction.
 - Do not expose guest PII through room-status or room-change availability APIs.
+- Do not expose unnecessary guest PII through the running-folio response.
+- Do not trust client-calculated folio subtotals or totals.
+- Use integer smallest-unit monetary values for folio calculations.
+- Reject invalid, negative, fractional, or unsafe external folio amounts.
+- Keep external food/service charge retrieval behind the approved gateway contract.
+- Do not fabricate service prices when no approved monetary source exists.
+- Do not silently return a partial folio when required external charge retrieval fails.
 
 ---
 
@@ -1807,7 +2275,8 @@ registration-card printing
 payment-receipt printing
 ```
 
-Current FOSS and printing adapters are mocks representing integration boundaries.
+Current FOSS and printing adapters are mocks representing integration
+boundaries.
 
 ---
 
@@ -1840,7 +2309,7 @@ E2E coverage
 
 # Plan 10 Summary
 
-Plan 10 implements:
+Plan 10 implemented:
 
 ```text
 FD-11
@@ -1854,16 +2323,11 @@ FD-16
 room-change and maintenance audit logging
 ```
 
-New HTTP contracts:
+HTTP contracts:
 
 ```http
 GET /room-changes/:bookingReference/available-rooms
 POST /room-changes
-```
-
-Existing room status endpoint is extended for audited maintenance:
-
-```http
 PATCH /rooms/:roomNumber/status
 ```
 
@@ -1940,7 +2404,7 @@ audit              -> absent
 
 # Plan 10 Out of Scope
 
-The current Plan 10 implementation intentionally does not include:
+Plan 10 intentionally does not include:
 
 - frontend room-change screen;
 - frontend maintenance screen;
@@ -1961,6 +2425,205 @@ The current Plan 10 implementation intentionally does not include:
 
 ---
 
+# Plan 11 Summary
+
+Plan 11 implements:
+
+```text
+FD-15
+running guest folio / accumulated charges
+```
+
+New HTTP contract:
+
+```http
+GET /folios/:bookingReference
+```
+
+Plan 11 provides:
+
+```text
+active CHECKED_IN stay validation
+
+room charge from bookings.total_amount
+
+ROOM_CHARGES
+FOOD_AND_BEVERAGE
+SERVICES
+
+deterministic category order
+
+deterministic external item order
+
+server-calculated category subtotals
+
+server-calculated grand total
+
+integer monetary validation
+
+currency = LKR
+
+ExternalFolioChargeGateway
+
+MockExternalFolioChargeGateway
+
+400 invalid UUID
+
+404 unknown booking
+
+409 inactive stay
+
+503 external charge provider failure
+
+no folios table
+
+unit tests
+
+PostgreSQL integration tests
+
+E2E tests
+
+OpenAPI contract
+```
+
+The running folio is intentionally a read model.
+
+It does not perform checkout, payment settlement, room lifecycle transitions,
+FOSS deactivation, or WKMS task creation.
+
+---
+
+# Plan 11 Failure Boundaries
+
+## Unknown booking
+
+```text
+404 Not Found
+```
+
+No folio is fabricated.
+
+## Invalid booking UUID
+
+```text
+400 Bad Request
+```
+
+The request is rejected at the HTTP boundary.
+
+## Booking is not CHECKED_IN
+
+```text
+409 Conflict
+```
+
+The backend does not present it as an active running folio.
+
+## Checked-in booking without assigned room
+
+```text
+409 Conflict
+```
+
+The folio is not generated from an inconsistent active-stay state.
+
+## Invalid persisted room charge
+
+The backend rejects:
+
+```text
+negative
+fractional
+unsafe integer
+```
+
+persisted room amounts instead of returning an invalid monetary result.
+
+## Invalid external charge payload
+
+The backend rejects:
+
+```text
+unsupported category
+empty reference
+empty description
+negative amount
+fractional amount
+unsafe integer amount
+invalid timestamp
+```
+
+## External provider failure
+
+```text
+503 Service Unavailable
+```
+
+The backend does not silently return a partial folio.
+
+## Monetary overflow
+
+Category and grand totals are protected by `Number.isSafeInteger`.
+
+Unsafe totals are rejected.
+
+---
+
+# Plan 11 Out of Scope
+
+Plan 11 intentionally does not include:
+
+- final guest checkout;
+- booking transition to `CHECKED_OUT`;
+- final payment settlement;
+- unpaid-balance settlement;
+- checkout payment processing;
+- checkout receipt printing;
+- FOSS session deactivation;
+- checkout room transition to `REQUIRES_CLEANING`;
+- automatic WKMS checkout-cleaning task creation;
+- Stripe checkout/payment processing;
+- frontend Folio screen;
+- API Gateway integration;
+- RabbitMQ charge-event integration;
+- production KMS/FOSS charge adapter before its final contract is approved;
+- final centralized JWT/RBAC integration;
+- a new `folios` database table.
+
+---
+
+# API Documentation
+
+Plan 11 introduces a version-controlled OpenAPI contract:
+
+```text
+docs/folio-api.openapi.yaml
+```
+
+It documents:
+
+```text
+GET /folios/{bookingReference}
+
+200
+400
+404
+409
+503
+```
+
+The OpenAPI contract includes:
+
+- booking-reference path parameter;
+- running-folio response schema;
+- folio-category schema;
+- folio-item schema;
+- integer monetary fields;
+- `LKR` currency;
+- error response shape.
+
+---
+
 # Git Workflow
 
 Feature development uses:
@@ -1977,16 +2640,16 @@ Pull requests for normal development target:
 develop
 ```
 
-Current Plan 10 branch:
+Current Plan 11 branch:
 
 ```text
-feature/45-room-change-maintenance
+feature/47-running-folio
 ```
 
-Recommended Plan 10 commit:
+Recommended Plan 11 commit:
 
 ```text
-feat(fds-backend): add atomic room reassignment and audited maintenance
+feat(fds-backend): implement deterministic running folio
 ```
 
 ---
@@ -1996,17 +2659,21 @@ feat(fds-backend): add atomic room reassignment and audited maintenance
 Before merging a backend feature:
 
 - acceptance criteria are implemented;
-- lint passes;
-- build passes;
-- unit tests pass;
-- global coverage remains at least 80%;
-- E2E tests pass;
-- PostgreSQL integration tests pass in CI where required;
-- no secrets are committed;
-- documentation is updated;
+- agreed style guide/linter passes;
+- unit tests for new logic pass;
+- integration tests for new API endpoints pass;
+- new code coverage remains at least 80%;
+- no hardcoded secrets or credentials are introduced;
 - pull request targets `develop`;
-- CI passes;
-- related GitHub issue is linked.
+- pull request description is completed;
+- at least one peer code review is completed;
+- all `[blocker]` review comments are resolved;
+- CI passes lint, build, unit, integration, and E2E checks;
+- staging smoke testing is completed where available;
+- API documentation is updated;
+- `CHANGELOG.md` is updated under `[Unreleased]`;
+- the GitHub Issue is linked to the PR/commits;
+- the issue is moved to `Done` after merge.
 
 ---
 
@@ -2026,7 +2693,7 @@ FD-12
 
 ---
 
-# Current Plan 10 Issue
+# Completed Plan 10 Issue
 
 ```text
 Issue #45
@@ -2042,7 +2709,7 @@ FD-13
 FD-16 integration for room-change / maintenance audit
 ```
 
-Current implementation scope includes:
+Implemented scope includes:
 
 ```text
 GET /room-changes/:bookingReference/available-rooms
@@ -2095,5 +2762,77 @@ checkout
 WKMS task automation
 FOSS room-session re-linking
 API Gateway integration
+final JWT/RBAC integration
+```
+
+---
+
+# Current Plan 11 Issue
+
+```text
+Issue #47
+
+[DDP-76] feat(fds-backend): implement deterministic running folio API
+```
+
+Plan 11 covers:
+
+```text
+FD-15
+```
+
+Current implementation scope includes:
+
+```text
+GET /folios/:bookingReference
+
+active CHECKED_IN stay validation
+
+room charge from bookings.total_amount
+
+ROOM_CHARGES
+
+FOOD_AND_BEVERAGE
+
+SERVICES
+
+deterministic category ordering
+
+deterministic item ordering
+
+integer LKR monetary values
+
+category subtotals
+
+grand total
+
+ExternalFolioChargeGateway
+
+MockExternalFolioChargeGateway
+
+400 / 404 / 409 / 503 handling
+
+no folios table
+
+unit tests
+
+PostgreSQL integration tests
+
+E2E tests
+
+OpenAPI documentation
+```
+
+Pending outside Plan 11:
+
+```text
+final checkout
+payment settlement
+FOSS deactivation
+WKMS checkout cleaning task
+production KMS/FOSS charge adapter
+frontend folio UI
+API Gateway integration
+RabbitMQ charge events
 final JWT/RBAC integration
 ```
