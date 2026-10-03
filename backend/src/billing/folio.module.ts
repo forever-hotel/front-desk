@@ -19,5 +19,6 @@ import { PostgresFolioRepository } from './repositories/postgres-folio.repositor
       useClass: MockExternalFolioChargeGateway,
     },
   ],
+  exports: [FolioService],
 })
 export class FolioModule {}

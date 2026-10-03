@@ -33,5 +33,6 @@ import { PostgresCheckInRepository } from './repositories/postgres-check-in.repo
       useClass: MockCheckInPrintGateway,
     },
   ],
+  exports: [FossSessionGateway],
 })
 export class CheckInModule {}

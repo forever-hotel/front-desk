@@ -10,8 +10,21 @@ export interface ActivateFossSessionResult {
   validUntilDate: string;
 }
 
+export interface DeactivateFossSessionInput {
+  bookingReference: string;
+  roomNumber: string;
+}
+
+export interface DeactivateFossSessionResult {
+  status: 'DEACTIVATED';
+}
+
 export abstract class FossSessionGateway {
   abstract activateGuestSession(
     input: ActivateFossSessionInput,
   ): Promise<ActivateFossSessionResult>;
+
+  abstract deactivateGuestSession(
+    input: DeactivateFossSessionInput,
+  ): Promise<DeactivateFossSessionResult>;
 }

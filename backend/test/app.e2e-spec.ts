@@ -7,13 +7,19 @@ import { DataSource } from 'typeorm';
 import { ExternalFolioChargeGateway } from '../src/billing/ports/external-folio-charge.gateway';
 import { CheckInPrintGateway } from '../src/check-ins/ports/check-in-print.gateway';
 import { FossSessionGateway } from '../src/check-ins/ports/foss-session.gateway';
+import { CheckoutPaymentGateway } from '../src/check-outs/ports/checkout-payment.gateway';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
 
   let failFossActivation = false;
+  let failFossDeactivation = false;
   let failPrinting = false;
   let failExternalFolioCharges = false;
+  let failFinalPayment = false;
+  let checkoutPreviouslyPaid = 30000;
+  let fossDeactivationCalls = 0;
+  let finalPaymentCalls = 0;
 
   const checkInBookingId = '55555555-5555-4555-8555-555555555551';
 
@@ -106,6 +112,44 @@ describe('AppController (e2e)', () => {
           sql.includes('booking_id <> $2') &&
           sql.includes('status IN')
         ) {
+          return [];
+        }
+
+        /*
+         * Plan 12 checkout booking row lock.
+         *
+         * Keep this matcher before the Plan 10
+         * booking lock because Plan 12 uses
+         * bookingReference/bookingStatus aliases.
+         */
+        if (
+          sql.includes('booking_id::text AS "bookingReference"') &&
+          sql.includes('status::text AS "bookingStatus"') &&
+          sql.includes('FROM bookings') &&
+          sql.includes('FOR UPDATE')
+        ) {
+          const bookingId = String(parameters?.[0]);
+
+          if (bookingId === checkedInBookingId) {
+            return [
+              {
+                bookingReference: checkedInBookingId,
+                roomNumber: 'T102',
+                bookingStatus: 'CHECKED_IN',
+              },
+            ];
+          }
+
+          if (bookingId === checkInBookingId) {
+            return [
+              {
+                bookingReference: checkInBookingId,
+                roomNumber: 'T101',
+                bookingStatus: 'CONFIRMED',
+              },
+            ];
+          }
+
           return [];
         }
 
@@ -204,6 +248,50 @@ describe('AppController (e2e)', () => {
         }
 
         /*
+         * Plan 12 checkout room lock.
+         *
+         * Keep this before the generic room lock
+         * because checkout expects roomStatus.
+         */
+        if (
+          sql.includes('room_number AS "roomNumber"') &&
+          sql.includes('status::text AS "roomStatus"') &&
+          sql.includes('FROM rooms') &&
+          sql.includes('FOR UPDATE')
+        ) {
+          const roomNumber = String(parameters?.[0]);
+
+          if (roomNumber === 'T102') {
+            return [
+              {
+                roomNumber: 'T102',
+                roomStatus: 'OCCUPIED',
+              },
+            ];
+          }
+
+          if (roomNumber === 'T104') {
+            return [
+              {
+                roomNumber: 'T104',
+                roomStatus: 'UNDER_MAINTENANCE',
+              },
+            ];
+          }
+
+          if (roomNumber === 'T999') {
+            return [];
+          }
+
+          return [
+            {
+              roomNumber,
+              roomStatus: 'VACANT',
+            },
+          ];
+        }
+
+        /*
          * Single-room lock used by check-in
          * and generic room-status management.
          */
@@ -283,6 +371,22 @@ describe('AppController (e2e)', () => {
         }
 
         /*
+         * Plan 12 revalidation of completed
+         * payments inside the checkout transaction.
+         */
+        if (
+          sql.includes('FROM payments') &&
+          sql.includes("payment_status = 'COMPLETED'") &&
+          sql.includes('AS "previouslyPaid"')
+        ) {
+          return [
+            {
+              previouslyPaid: checkoutPreviouslyPaid,
+            },
+          ];
+        }
+
+        /*
          * Check-in, room-change and
          * maintenance audit persistence.
          */
@@ -306,6 +410,26 @@ describe('AppController (e2e)', () => {
               specialRequests:
                 parameters?.[6] === null ? null : String(parameters?.[6]),
               numGuests: Number(parameters?.[7]),
+            },
+          ];
+        }
+
+        /*
+         * Plan 12 final-payment persistence.
+         */
+        if (
+          sql.includes('INSERT INTO payments') &&
+          sql.includes('$2::payment_method') &&
+          sql.includes("'COMPLETED'") &&
+          sql.includes('NOW()')
+        ) {
+          return [
+            {
+              paymentId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+              paymentMethod: String(parameters?.[1]),
+              amount: Number(parameters?.[2]),
+              paymentStatus: 'COMPLETED',
+              paidAt: '2030-01-12T10:00:00.000Z',
             },
           ];
         }
@@ -340,6 +464,98 @@ describe('AppController (e2e)', () => {
 
     const dataSourceMock = {
       query: jest.fn(async (sql: string, parameters?: unknown[]) => {
+        /*
+         * Plan 12 checkout staff validation
+         * used before any final-payment attempt.
+         */
+        if (sql.includes('FROM staff_users')) {
+          const workerIdParameter = String(parameters?.[0]);
+
+          if (workerIdParameter === workerId) {
+            return [
+              {
+                workerId,
+                role: 'WORKER',
+                isActive: true,
+              },
+            ];
+          }
+
+          if (workerIdParameter === inactiveReceptionistId) {
+            return [
+              {
+                workerId: inactiveReceptionistId,
+                role: 'RECEPTIONIST',
+                isActive: false,
+              },
+            ];
+          }
+
+          if (workerIdParameter !== receptionistId) {
+            return [];
+          }
+
+          return [
+            {
+              workerId: receptionistId,
+              role: 'RECEPTIONIST',
+              isActive: true,
+            },
+          ];
+        }
+
+        /*
+         * Plan 12 active-stay checkout context.
+         */
+        if (
+          sql.includes('b.booking_id::text AS "bookingReference"') &&
+          sql.includes('r.status::text AS "roomStatus"') &&
+          sql.includes('FROM bookings b') &&
+          sql.includes('LEFT JOIN rooms r') &&
+          sql.includes('WHERE b.booking_id = $1')
+        ) {
+          const bookingId = String(parameters?.[0]);
+
+          if (bookingId === checkedInBookingId) {
+            return [
+              {
+                bookingReference: checkedInBookingId,
+                roomNumber: 'T102',
+                bookingStatus: 'CHECKED_IN',
+                roomStatus: 'OCCUPIED',
+              },
+            ];
+          }
+
+          if (bookingId === checkInBookingId) {
+            return [
+              {
+                bookingReference: checkInBookingId,
+                roomNumber: 'T101',
+                bookingStatus: 'CONFIRMED',
+                roomStatus: 'VACANT',
+              },
+            ];
+          }
+
+          return [];
+        }
+
+        /*
+         * Plan 12 completed-payment total.
+         */
+        if (
+          sql.includes('FROM payments') &&
+          sql.includes("payment_status = 'COMPLETED'") &&
+          sql.includes('AS "previouslyPaid"')
+        ) {
+          return [
+            {
+              previouslyPaid: checkoutPreviouslyPaid,
+            },
+          ];
+        }
+
         /*
          * Plan 11 running-folio booking
          * context.
@@ -604,6 +820,20 @@ describe('AppController (e2e)', () => {
           };
         },
       ),
+
+      deactivateGuestSession: jest.fn(
+        async (_input: { bookingReference: string; roomNumber: string }) => {
+          fossDeactivationCalls += 1;
+
+          if (failFossDeactivation) {
+            throw new Error('mock FOSS deactivation unavailable');
+          }
+
+          return {
+            status: 'DEACTIVATED' as const,
+          };
+        },
+      ),
     };
 
     const printGatewayMock = {
@@ -666,6 +896,25 @@ describe('AppController (e2e)', () => {
       }),
     };
 
+    const checkoutPaymentGatewayMock = {
+      processFinalPayment: jest.fn(
+        async (_input: {
+          bookingReference: string;
+          amount: number;
+          currency: 'LKR';
+          paymentMethod: 'CASH' | 'CARD_ON_SITE';
+        }) => {
+          finalPaymentCalls += 1;
+
+          return {
+            status: failFinalPayment
+              ? ('FAILED' as const)
+              : ('COMPLETED' as const),
+          };
+        },
+      ),
+    };
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
@@ -677,6 +926,8 @@ describe('AppController (e2e)', () => {
       .useValue(printGatewayMock)
       .overrideProvider(ExternalFolioChargeGateway)
       .useValue(externalFolioChargeGatewayMock)
+      .overrideProvider(CheckoutPaymentGateway)
+      .useValue(checkoutPaymentGatewayMock)
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -694,8 +945,13 @@ describe('AppController (e2e)', () => {
 
   beforeEach(() => {
     failFossActivation = false;
+    failFossDeactivation = false;
     failPrinting = false;
     failExternalFolioCharges = false;
+    failFinalPayment = false;
+    checkoutPreviouslyPaid = 30000;
+    fossDeactivationCalls = 0;
+    finalPaymentCalls = 0;
   });
 
   it('/ (GET)', () => {
@@ -1027,6 +1283,207 @@ describe('AppController (e2e)', () => {
     await request(app.getHttpServer())
       .get(`/folios/${checkedInBookingId}`)
       .expect(503);
+  });
+
+  it('/check-outs completes transactional checkout core and deactivates FOSS (POST)', () => {
+    return request(app.getHttpServer())
+      .post('/check-outs')
+      .send({
+        bookingReference: checkedInBookingId,
+        performedBy: receptionistId,
+        paymentMethod: 'CASH',
+      })
+      .expect(201)
+      .expect((response) => {
+        expect(response.body).toEqual({
+          status: 'checked_out',
+          bookingReference: checkedInBookingId,
+          roomNumber: 'T102',
+          bookingStatus: 'CHECKED_OUT',
+          roomStatus: 'REQUIRES_CLEANING',
+          currency: 'LKR',
+          folioTotal: 66000,
+          previouslyPaid: 30000,
+          finalPaymentAmount: 36000,
+          payment: {
+            paymentId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+            paymentMethod: 'CASH',
+            paymentStatus: 'COMPLETED',
+            amount: 36000,
+            paidAt: '2030-01-12T10:00:00.000Z',
+          },
+          auditLogId,
+          fossSession: {
+            status: 'DEACTIVATED',
+          },
+        });
+
+        expect(finalPaymentCalls).toBe(1);
+        expect(fossDeactivationCalls).toBe(1);
+        expect(Number.isSafeInteger(response.body.folioTotal)).toBe(true);
+        expect(Number.isSafeInteger(response.body.previouslyPaid)).toBe(true);
+        expect(Number.isSafeInteger(response.body.finalPaymentAmount)).toBe(
+          true,
+        );
+      });
+  });
+
+  it('/check-outs supports an already fully paid stay without a new payment (POST)', () => {
+    checkoutPreviouslyPaid = 66000;
+
+    return request(app.getHttpServer())
+      .post('/check-outs')
+      .send({
+        bookingReference: checkedInBookingId,
+        performedBy: receptionistId,
+      })
+      .expect(201)
+      .expect((response) => {
+        expect(response.body).toEqual({
+          status: 'checked_out',
+          bookingReference: checkedInBookingId,
+          roomNumber: 'T102',
+          bookingStatus: 'CHECKED_OUT',
+          roomStatus: 'REQUIRES_CLEANING',
+          currency: 'LKR',
+          folioTotal: 66000,
+          previouslyPaid: 66000,
+          finalPaymentAmount: 0,
+          payment: null,
+          auditLogId,
+          fossSession: {
+            status: 'DEACTIVATED',
+          },
+        });
+
+        expect(finalPaymentCalls).toBe(0);
+        expect(fossDeactivationCalls).toBe(1);
+      });
+  });
+
+  it('/check-outs rejects an invalid booking UUID (POST)', () => {
+    return request(app.getHttpServer())
+      .post('/check-outs')
+      .send({
+        bookingReference: 'not-a-uuid',
+        performedBy: receptionistId,
+        paymentMethod: 'CASH',
+      })
+      .expect(400);
+  });
+
+  it('/check-outs rejects an invalid performedBy UUID (POST)', () => {
+    return request(app.getHttpServer())
+      .post('/check-outs')
+      .send({
+        bookingReference: checkedInBookingId,
+        performedBy: 'not-a-uuid',
+        paymentMethod: 'CASH',
+      })
+      .expect(400);
+  });
+
+  it('/check-outs returns 404 for an unknown booking (POST)', () => {
+    return request(app.getHttpServer())
+      .post('/check-outs')
+      .send({
+        bookingReference: unknownFolioBookingId,
+        performedBy: receptionistId,
+        paymentMethod: 'CASH',
+      })
+      .expect(404);
+  });
+
+  it('/check-outs rejects a booking that is not CHECKED_IN (POST)', () => {
+    return request(app.getHttpServer())
+      .post('/check-outs')
+      .send({
+        bookingReference: checkInBookingId,
+        performedBy: receptionistId,
+        paymentMethod: 'CASH',
+      })
+      .expect(409);
+  });
+
+  it('/check-outs requires payment method when an outstanding balance exists (POST)', () => {
+    return request(app.getHttpServer())
+      .post('/check-outs')
+      .send({
+        bookingReference: checkedInBookingId,
+        performedBy: receptionistId,
+      })
+      .expect(400)
+      .expect(() => {
+        expect(finalPaymentCalls).toBe(0);
+        expect(fossDeactivationCalls).toBe(0);
+      });
+  });
+
+  it('/check-outs rejects unsupported payment method (POST)', () => {
+    return request(app.getHttpServer())
+      .post('/check-outs')
+      .send({
+        bookingReference: checkedInBookingId,
+        performedBy: receptionistId,
+        paymentMethod: 'STRIPE',
+      })
+      .expect(400);
+  });
+
+  it('/check-outs rejects raw card fields (POST)', () => {
+    return request(app.getHttpServer())
+      .post('/check-outs')
+      .send({
+        bookingReference: checkedInBookingId,
+        performedBy: receptionistId,
+        paymentMethod: 'CARD_ON_SITE',
+        cardNumber: '4111111111111111',
+        cvv: '123',
+        expiryDate: '12/30',
+      })
+      .expect(400);
+  });
+
+  it('/check-outs returns 402 when final payment fails and does not deactivate FOSS (POST)', () => {
+    failFinalPayment = true;
+
+    return request(app.getHttpServer())
+      .post('/check-outs')
+      .send({
+        bookingReference: checkedInBookingId,
+        performedBy: receptionistId,
+        paymentMethod: 'CASH',
+      })
+      .expect(402)
+      .expect(() => {
+        expect(finalPaymentCalls).toBe(1);
+        expect(fossDeactivationCalls).toBe(0);
+      });
+  });
+
+  it('/check-outs preserves committed checkout when FOSS deactivation fails (POST)', () => {
+    failFossDeactivation = true;
+
+    return request(app.getHttpServer())
+      .post('/check-outs')
+      .send({
+        bookingReference: checkedInBookingId,
+        performedBy: receptionistId,
+        paymentMethod: 'CASH',
+      })
+      .expect(201)
+      .expect((response) => {
+        expect(response.body.status).toBe('checked_out');
+        expect(response.body.bookingStatus).toBe('CHECKED_OUT');
+        expect(response.body.roomStatus).toBe('REQUIRES_CLEANING');
+        expect(response.body.fossSession).toEqual({
+          status: 'FAILED',
+          failureCode: 'FOSS_DEACTIVATION_FAILED',
+        });
+
+        expect(finalPaymentCalls).toBe(1);
+        expect(fossDeactivationCalls).toBe(1);
+      });
   });
 
   it('/bookings/search (GET)', () => {
