@@ -1,4 +1,6 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Optional } from '@nestjs/common';
+import { RealtimePublisherService } from '../realtime/realtime-publisher.service';
+import { RoomStatus } from '../rooms/models/room-status';
 import { CheckInRequestDto } from './dto/check-in-request.dto';
 import { IdVerificationMethod } from './dto/check-in-verification.dto';
 import { CheckInResult, FossSessionResult } from './models/check-in-result';
@@ -10,6 +12,9 @@ export class CheckInService {
   constructor(
     private readonly checkInRepository: CheckInRepository,
     private readonly fossSessionGateway: FossSessionGateway,
+
+    @Optional()
+    private readonly realtimePublisherService?: RealtimePublisherService,
   ) {}
 
   async checkIn(dto: CheckInRequestDto): Promise<CheckInResult> {
@@ -46,6 +51,17 @@ export class CheckInService {
           verification.documentSha256?.trim().toLowerCase() || undefined,
         notes: verification.notes?.trim() || undefined,
       },
+    });
+
+    /*
+     * The database transaction has committed at this point.
+     * Front Desk clients can therefore safely receive OCCUPIED.
+     */
+    this.realtimePublisherService?.publishRoomStatusUpdated({
+      roomNumber: committedCheckIn.roomNumber,
+      status: RoomStatus.OCCUPIED,
+      source: 'CHECK_IN',
+      performedBy: verification.verifiedBy,
     });
 
     let fossSession: FossSessionResult;
