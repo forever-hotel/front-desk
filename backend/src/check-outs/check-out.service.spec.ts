@@ -9,6 +9,7 @@ import { FolioService } from '../billing/folio.service';
 import { FolioCategory } from '../billing/models/folio-category';
 import { RunningFolio } from '../billing/models/running-folio';
 import { FossSessionGateway } from '../check-ins/ports/foss-session.gateway';
+import { CheckoutCompletedPublisher } from '../messaging/publishers/checkout-completed.publisher';
 import { CheckOutService } from './check-out.service';
 import { CheckoutPaymentMethod } from './models/checkout-payment-result';
 import { CheckoutPersistenceResult } from './models/checkout-result';
@@ -21,6 +22,7 @@ describe('CheckOutService', () => {
   let paymentGateway: jest.Mocked<CheckoutPaymentGateway>;
   let folioService: jest.Mocked<FolioService>;
   let fossSessionGateway: jest.Mocked<FossSessionGateway>;
+  let checkoutCompletedPublisher: jest.Mocked<CheckoutCompletedPublisher>;
 
   const bookingReference = '44444444-4444-4444-8444-444444444444';
   const performedBy = '66666666-6666-4666-8666-666666666666';
@@ -120,6 +122,10 @@ describe('CheckOutService', () => {
       deactivateGuestSession: jest.fn(),
     };
 
+    const checkoutCompletedPublisherMock = {
+      publishCheckoutCompleted: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CheckOutService,
@@ -139,6 +145,10 @@ describe('CheckOutService', () => {
           provide: FossSessionGateway,
           useValue: fossSessionGatewayMock,
         },
+        {
+          provide: CheckoutCompletedPublisher,
+          useValue: checkoutCompletedPublisherMock,
+        },
       ],
     }).compile();
 
@@ -147,6 +157,7 @@ describe('CheckOutService', () => {
     paymentGateway = module.get(CheckoutPaymentGateway);
     folioService = module.get(FolioService);
     fossSessionGateway = module.get(FossSessionGateway);
+    checkoutCompletedPublisher = module.get(CheckoutCompletedPublisher);
 
     repository.prepareCheckout.mockResolvedValue(preparation);
     folioService.getRunningFolio.mockResolvedValue(runningFolio);
@@ -154,6 +165,10 @@ describe('CheckOutService', () => {
       status: 'COMPLETED',
     });
     repository.commitCheckout.mockResolvedValue(committedCheckout);
+    checkoutCompletedPublisher.publishCheckoutCompleted.mockResolvedValue({
+      status: 'PUBLISHED',
+      eventId: `checkout:${bookingReference}`,
+    });
     fossSessionGateway.deactivateGuestSession.mockResolvedValue({
       status: 'DEACTIVATED',
     });
@@ -195,7 +210,21 @@ describe('CheckOutService', () => {
       roomNumber: 'T102',
     });
 
+    expect(
+      checkoutCompletedPublisher.publishCheckoutCompleted,
+    ).toHaveBeenCalledWith({
+      bookingReference,
+      roomNumber: 'T102',
+    });
+
     expect(repository.commitCheckout.mock.invocationCallOrder[0]).toBeLessThan(
+      checkoutCompletedPublisher.publishCheckoutCompleted.mock
+        .invocationCallOrder[0],
+    );
+    expect(
+      checkoutCompletedPublisher.publishCheckoutCompleted.mock
+        .invocationCallOrder[0],
+    ).toBeLessThan(
       fossSessionGateway.deactivateGuestSession.mock.invocationCallOrder[0],
     );
 
@@ -252,6 +281,12 @@ describe('CheckOutService', () => {
       paymentMethod: undefined,
     });
 
+    expect(
+      checkoutCompletedPublisher.publishCheckoutCompleted,
+    ).toHaveBeenCalledWith({
+      bookingReference,
+      roomNumber: 'T102',
+    });
     expect(fossSessionGateway.deactivateGuestSession).toHaveBeenCalledTimes(1);
 
     expect(result.finalPaymentAmount).toBe(0);
@@ -268,6 +303,9 @@ describe('CheckOutService', () => {
 
     expect(paymentGateway.processFinalPayment).not.toHaveBeenCalled();
     expect(repository.commitCheckout).not.toHaveBeenCalled();
+    expect(
+      checkoutCompletedPublisher.publishCheckoutCompleted,
+    ).not.toHaveBeenCalled();
     expect(fossSessionGateway.deactivateGuestSession).not.toHaveBeenCalled();
   });
 
@@ -292,6 +330,9 @@ describe('CheckOutService', () => {
     }
 
     expect(repository.commitCheckout).not.toHaveBeenCalled();
+    expect(
+      checkoutCompletedPublisher.publishCheckoutCompleted,
+    ).not.toHaveBeenCalled();
     expect(fossSessionGateway.deactivateGuestSession).not.toHaveBeenCalled();
   });
 
@@ -316,6 +357,9 @@ describe('CheckOutService', () => {
     }
 
     expect(repository.commitCheckout).not.toHaveBeenCalled();
+    expect(
+      checkoutCompletedPublisher.publishCheckoutCompleted,
+    ).not.toHaveBeenCalled();
     expect(fossSessionGateway.deactivateGuestSession).not.toHaveBeenCalled();
   });
 
@@ -386,6 +430,12 @@ describe('CheckOutService', () => {
     });
 
     expect(repository.commitCheckout).toHaveBeenCalledTimes(1);
+    expect(
+      checkoutCompletedPublisher.publishCheckoutCompleted,
+    ).toHaveBeenCalledWith({
+      bookingReference,
+      roomNumber: 'T102',
+    });
 
     expect(result).toEqual({
       ...committedCheckout,
@@ -409,6 +459,9 @@ describe('CheckOutService', () => {
       }),
     ).rejects.toThrow('Checkout transaction failed');
 
+    expect(
+      checkoutCompletedPublisher.publishCheckoutCompleted,
+    ).not.toHaveBeenCalled();
     expect(fossSessionGateway.deactivateGuestSession).not.toHaveBeenCalled();
   });
 

@@ -8,6 +8,7 @@ import { CheckOutModule } from './check-outs/check-out.module';
 import { envValidationSchema } from './config/env.validation';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
+import { MessagingModule } from './messaging/messaging.module';
 import { RoomChangesModule } from './room-changes/room-changes.module';
 import { BookingsModule } from './reservations/bookings.module';
 import { RoomsModule } from './rooms/rooms.module';
@@ -19,6 +20,7 @@ import { RoomsModule } from './rooms/rooms.module';
       validationSchema: envValidationSchema,
     }),
     DatabaseModule,
+    MessagingModule,
     HealthModule,
     BookingsModule,
     CheckInModule,
