@@ -4,10 +4,13 @@ import {
   HttpException,
   HttpStatus,
   Injectable,
+  Optional,
 } from '@nestjs/common';
 import { FolioService } from '../billing/folio.service';
 import { FossSessionGateway } from '../check-ins/ports/foss-session.gateway';
 import { CheckoutCompletedPublisher } from '../messaging/publishers/checkout-completed.publisher';
+import { RealtimePublisherService } from '../realtime/realtime-publisher.service';
+import { RoomStatus } from '../rooms/models/room-status';
 import { CreateCheckOutDto } from './dto/create-check-out.dto';
 import { CheckoutBalance } from './models/checkout-balance';
 import { CheckoutResult } from './models/checkout-result';
@@ -22,6 +25,9 @@ export class CheckOutService {
     private readonly folioService: FolioService,
     private readonly fossSessionGateway: FossSessionGateway,
     private readonly checkoutCompletedPublisher: CheckoutCompletedPublisher,
+
+    @Optional()
+    private readonly realtimePublisherService?: RealtimePublisherService,
   ) {}
 
   async checkOut(dto: CreateCheckOutDto): Promise<CheckoutResult> {
@@ -95,6 +101,18 @@ export class CheckOutService {
       previouslyPaid: balance.previouslyPaid,
       finalPaymentAmount: balance.amountDue,
       paymentMethod: balance.amountDue > 0 ? dto.paymentMethod : undefined,
+    });
+
+    /*
+     * The room is now transactionally committed as
+     * REQUIRES_CLEANING, so every connected Front Desk
+     * screen can update immediately.
+     */
+    this.realtimePublisherService?.publishRoomStatusUpdated({
+      roomNumber: committed.roomNumber,
+      status: RoomStatus.REQUIRES_CLEANING,
+      source: 'CHECK_OUT',
+      performedBy: dto.performedBy,
     });
 
     /*

@@ -3,7 +3,9 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
+import { RealtimePublisherService } from '../realtime/realtime-publisher.service';
 import { UpdateRoomStatusDto } from './dto/update-room-status.dto';
 import { RoomStatusBoardItem } from './models/room-status-board-item';
 import { RoomStatusTransitionResult } from './models/room-status-transition-result';
@@ -41,7 +43,12 @@ const ALLOWED_CURRENT_STATUSES_BY_TARGET: Record<
 
 @Injectable()
 export class RoomsService {
-  constructor(private readonly roomRepository: RoomRepository) {}
+  constructor(
+    private readonly roomRepository: RoomRepository,
+
+    @Optional()
+    private readonly realtimePublisherService?: RealtimePublisherService,
+  ) {}
 
   getStatusBoard(): Promise<RoomStatusBoardItem[]> {
     return this.roomRepository.findAllStatuses();
@@ -82,6 +89,15 @@ export class RoomsService {
       );
     }
 
-    return outcome.value;
+    const result = outcome.value;
+
+    this.realtimePublisherService?.publishRoomStatusUpdated({
+      roomNumber: result.roomNumber,
+      status: result.status,
+      source: 'ROOM_STATUS',
+      performedBy: dto.performedBy,
+    });
+
+    return result;
   }
 }
