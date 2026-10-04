@@ -1,4 +1,5 @@
 import * as Joi from 'joi';
+import { RABBITMQ_TOPOLOGY } from '../messaging/messaging.constants';
 
 export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string()
@@ -24,6 +25,40 @@ export const envValidationSchema = Joi.object({
   DB_SYNCHRONIZE: Joi.boolean().truthy('true').falsy('false').default(false),
 
   DB_LOGGING: Joi.boolean().truthy('true').falsy('false').default(false),
+
+  RABBITMQ_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
+
+  RABBITMQ_URL: Joi.string()
+    .uri({
+      scheme: ['amqp', 'amqps'],
+    })
+    .optional(),
+
+  RABBITMQ_EXCHANGE: Joi.string()
+    .trim()
+    .min(1)
+    .default(RABBITMQ_TOPOLOGY.defaultExchange),
+
+  RABBITMQ_PREFETCH: Joi.number().integer().min(1).max(100).default(10),
+
+  RABBITMQ_MAX_RETRIES: Joi.number().integer().min(0).max(10).default(3),
+
+  RABBITMQ_RETRY_DELAY_MS: Joi.number()
+    .integer()
+    .min(1000)
+    .max(300000)
+    .default(5000),
 })
   .or('DATABASE_URL', 'DB_HOST')
-  .and('DB_HOST', 'DB_USERNAME', 'DB_PASSWORD', 'DB_NAME');
+  .and('DB_HOST', 'DB_USERNAME', 'DB_PASSWORD', 'DB_NAME')
+  .custom((value, helpers) => {
+    if (value.RABBITMQ_ENABLED === true && !value.RABBITMQ_URL) {
+      return helpers.error('rabbitmq.urlRequired');
+    }
+
+    return value;
+  })
+  .messages({
+    'rabbitmq.urlRequired':
+      '"RABBITMQ_URL" is required when "RABBITMQ_ENABLED" is true',
+  });

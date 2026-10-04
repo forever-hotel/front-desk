@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { FolioService } from '../billing/folio.service';
 import { FossSessionGateway } from '../check-ins/ports/foss-session.gateway';
+import { CheckoutCompletedPublisher } from '../messaging/publishers/checkout-completed.publisher';
 import { CreateCheckOutDto } from './dto/create-check-out.dto';
 import { CheckoutBalance } from './models/checkout-balance';
 import { CheckoutResult } from './models/checkout-result';
@@ -20,13 +21,13 @@ export class CheckOutService {
     private readonly checkoutPaymentGateway: CheckoutPaymentGateway,
     private readonly folioService: FolioService,
     private readonly fossSessionGateway: FossSessionGateway,
+    private readonly checkoutCompletedPublisher: CheckoutCompletedPublisher,
   ) {}
 
   async checkOut(dto: CreateCheckOutDto): Promise<CheckoutResult> {
     /*
-     * Validate the acting receptionist and
-     * active booking/room state before any
-     * payment attempt is made.
+     * Validate the acting receptionist and active
+     * booking/room state before any payment attempt.
      */
     const preparation = await this.checkoutRepository.prepareCheckout({
       bookingReference: dto.bookingReference,
@@ -34,8 +35,8 @@ export class CheckOutService {
     });
 
     /*
-     * Plan 11 remains the authoritative
-     * folio-composition path.
+     * Plan 11 remains the authoritative folio
+     * composition path.
      */
     const folio = await this.folioService.getRunningFolio(dto.bookingReference);
 
@@ -82,9 +83,9 @@ export class CheckOutService {
     }
 
     /*
-     * Persistent checkout mutations happen
-     * only after final payment has succeeded,
-     * or when no new payment is required.
+     * Persistent checkout mutations happen only after
+     * final payment succeeds or when no new payment is
+     * required.
      */
     const committed = await this.checkoutRepository.commitCheckout({
       bookingReference: dto.bookingReference,
@@ -97,9 +98,22 @@ export class CheckOutService {
     });
 
     /*
+     * The RabbitMQ checkout-completed event belongs to
+     * the successfully committed hotel checkout.
+     *
+     * It is deliberately attempted before FOSS
+     * deactivation, because FOSS failure must not stop
+     * WKMS from receiving the room-cleaning trigger.
+     */
+    await this.checkoutCompletedPublisher.publishCheckoutCompleted({
+      bookingReference: committed.bookingReference,
+      roomNumber: committed.roomNumber,
+    });
+
+    /*
      * FOSS is a separate subsystem.
-     * Deactivation happens only AFTER the
-     * core checkout transaction commits.
+     * Deactivation happens only AFTER the core checkout
+     * transaction commits.
      */
     try {
       const fossSession = await this.fossSessionGateway.deactivateGuestSession({

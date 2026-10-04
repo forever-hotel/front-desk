@@ -36,4 +36,68 @@ describe('Environment validation', () => {
 
     expect(error).toBeDefined();
   });
+
+  it('should allow RabbitMQ to remain disabled without broker credentials', () => {
+    const { error, value } = envValidationSchema.validate({
+      NODE_ENV: 'development',
+      DATABASE_URL: 'postgresql://user:password@example.com:5432/forever_hotel',
+      RABBITMQ_ENABLED: false,
+    });
+
+    expect(error).toBeUndefined();
+    expect(value.RABBITMQ_ENABLED).toBe(false);
+  });
+
+  it('should require RABBITMQ_URL when RabbitMQ is enabled', () => {
+    const { error } = envValidationSchema.validate({
+      NODE_ENV: 'development',
+      DATABASE_URL: 'postgresql://user:password@example.com:5432/forever_hotel',
+      RABBITMQ_ENABLED: true,
+    });
+
+    expect(error).toBeDefined();
+  });
+
+  it('should accept valid RabbitMQ configuration', () => {
+    const { error, value } = envValidationSchema.validate({
+      NODE_ENV: 'development',
+      DATABASE_URL: 'postgresql://user:password@example.com:5432/forever_hotel',
+      RABBITMQ_ENABLED: true,
+      RABBITMQ_URL: 'amqp://user:password@localhost:5672',
+      RABBITMQ_EXCHANGE: 'forever.events',
+      RABBITMQ_PREFETCH: 10,
+      RABBITMQ_MAX_RETRIES: 3,
+      RABBITMQ_RETRY_DELAY_MS: 5000,
+    });
+
+    expect(error).toBeUndefined();
+    expect(value.RABBITMQ_ENABLED).toBe(true);
+    expect(value.RABBITMQ_EXCHANGE).toBe('forever.events');
+    expect(value.RABBITMQ_PREFETCH).toBe(10);
+    expect(value.RABBITMQ_MAX_RETRIES).toBe(3);
+    expect(value.RABBITMQ_RETRY_DELAY_MS).toBe(5000);
+  });
+
+  it('should reject a non-AMQP RabbitMQ URL', () => {
+    const { error } = envValidationSchema.validate({
+      NODE_ENV: 'development',
+      DATABASE_URL: 'postgresql://user:password@example.com:5432/forever_hotel',
+      RABBITMQ_ENABLED: true,
+      RABBITMQ_URL: 'https://example.com/rabbitmq',
+    });
+
+    expect(error).toBeDefined();
+  });
+
+  it('should reject invalid RabbitMQ retry configuration', () => {
+    const { error } = envValidationSchema.validate({
+      NODE_ENV: 'development',
+      DATABASE_URL: 'postgresql://user:password@example.com:5432/forever_hotel',
+      RABBITMQ_ENABLED: true,
+      RABBITMQ_URL: 'amqp://user:password@localhost:5672',
+      RABBITMQ_MAX_RETRIES: -1,
+    });
+
+    expect(error).toBeDefined();
+  });
 });
