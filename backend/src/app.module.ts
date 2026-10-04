@@ -9,8 +9,9 @@ import { envValidationSchema } from './config/env.validation';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
 import { MessagingModule } from './messaging/messaging.module';
-import { RoomChangesModule } from './room-changes/room-changes.module';
+import { RealtimeModule } from './realtime/realtime.module';
 import { BookingsModule } from './reservations/bookings.module';
+import { RoomChangesModule } from './room-changes/room-changes.module';
 import { RoomsModule } from './rooms/rooms.module';
 
 @Module({
@@ -21,6 +22,7 @@ import { RoomsModule } from './rooms/rooms.module';
     }),
     DatabaseModule,
     MessagingModule,
+    RealtimeModule,
     HealthModule,
     BookingsModule,
     CheckInModule,
