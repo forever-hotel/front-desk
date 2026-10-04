@@ -1,0 +1,192 @@
+.page h1 {
+  margin: 0 0 5px;
+
+  color: var(--navy);
+
+  font-size: 22px;
+  font-weight: 500;
+}
+
+.page p {
+  margin: 0;
+
+  color: var(--muted);
+
+  font-size: 12px;
+}
+
+.headingRow {
+  display: flex;
+
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 20px;
+
+  margin-bottom: 22px;
+}
+
+.connectionBadge {
+  display: inline-flex;
+
+  align-items: center;
+
+  gap: 7px;
+
+  padding: 7px 10px;
+
+  border: 1px solid var(--border);
+  border-radius: 999px;
+
+  background: #ffffff;
+
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+}
+
+.connectionDot {
+  width: 6px;
+  height: 6px;
+
+  border-radius: 50%;
+
+  background: currentColor;
+}
+
+.connected {
+  border-color: #b9dbc8;
+
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.connecting {
+  border-color: #ecd598;
+
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.fallback {
+  border-color: #e8bfc0;
+
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.list {
+  display: grid;
+
+  gap: 12px;
+}
+
+.card {
+  padding: 16px;
+
+  border: 1px solid var(--border);
+  border-radius: 6px;
+
+  background: var(--card-surface);
+}
+
+.cardTop {
+  display: flex;
+
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 16px;
+}
+
+.room {
+  display: inline-block;
+
+  margin-bottom: 5px;
+
+  color: var(--navy-mid);
+
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.card h2 {
+  margin: 0;
+
+  color: var(--navy);
+
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.priority {
+  display: inline-flex;
+
+  padding: 5px 8px;
+
+  border-radius: 999px;
+
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.high {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.normal {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.meta {
+  display: flex;
+
+  flex-wrap: wrap;
+
+  gap: 8px 18px;
+
+  margin-top: 13px;
+
+  color: var(--muted);
+
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+
+  font-size: 9px;
+}
+
+.emptyState {
+  padding: 34px;
+
+  border: 1px solid var(--border);
+  border-radius: 6px;
+
+  background: var(--card-surface);
+  color: var(--muted);
+
+  text-align: center;
+}
+
+.error {
+  margin-bottom: 14px;
+
+  padding: 10px 12px;
+
+  border: 1px solid #e8bfc0;
+  border-radius: 4px;
+
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+@media (max-width: 600px) {
+  .headingRow,
+  .cardTop {
+    flex-direction: column;
+  }
+}
