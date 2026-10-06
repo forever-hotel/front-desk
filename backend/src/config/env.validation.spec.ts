@@ -100,4 +100,83 @@ describe('Environment validation', () => {
 
     expect(error).toBeDefined();
   });
+
+  it('should allow WKMS integration to remain disabled without a base URL', () => {
+    const { error, value } = envValidationSchema.validate({
+      NODE_ENV: 'development',
+      DATABASE_URL: 'postgresql://user:password@example.com:5432/forever_hotel',
+      WKMS_INTEGRATION_ENABLED: false,
+    });
+
+    expect(error).toBeUndefined();
+
+    expect(value.WKMS_INTEGRATION_ENABLED).toBe(false);
+
+    expect(value.WKMS_REQUEST_TIMEOUT_MS).toBe(5000);
+  });
+
+  it('should require WKMS_BASE_URL when WKMS integration is enabled', () => {
+    const { error } = envValidationSchema.validate({
+      NODE_ENV: 'development',
+      DATABASE_URL: 'postgresql://user:password@example.com:5432/forever_hotel',
+      WKMS_INTEGRATION_ENABLED: true,
+    });
+
+    expect(error).toBeDefined();
+
+    expect(error?.message).toContain('WKMS_BASE_URL');
+  });
+
+  it('should accept a valid WKMS integration configuration', () => {
+    const { error, value } = envValidationSchema.validate({
+      NODE_ENV: 'development',
+      DATABASE_URL: 'postgresql://user:password@example.com:5432/forever_hotel',
+      WKMS_INTEGRATION_ENABLED: true,
+      WKMS_BASE_URL: 'http://localhost:3002',
+      WKMS_REQUEST_TIMEOUT_MS: 7000,
+    });
+
+    expect(error).toBeUndefined();
+
+    expect(value.WKMS_INTEGRATION_ENABLED).toBe(true);
+
+    expect(value.WKMS_BASE_URL).toBe('http://localhost:3002');
+
+    expect(value.WKMS_REQUEST_TIMEOUT_MS).toBe(7000);
+  });
+
+  it('should reject a non-HTTP WKMS base URL', () => {
+    const { error } = envValidationSchema.validate({
+      NODE_ENV: 'development',
+      DATABASE_URL: 'postgresql://user:password@example.com:5432/forever_hotel',
+      WKMS_INTEGRATION_ENABLED: true,
+      WKMS_BASE_URL: 'amqp://localhost:5672',
+    });
+
+    expect(error).toBeDefined();
+  });
+
+  it('should reject a WKMS timeout below the minimum', () => {
+    const { error } = envValidationSchema.validate({
+      NODE_ENV: 'development',
+      DATABASE_URL: 'postgresql://user:password@example.com:5432/forever_hotel',
+      WKMS_INTEGRATION_ENABLED: true,
+      WKMS_BASE_URL: 'http://localhost:3002',
+      WKMS_REQUEST_TIMEOUT_MS: 100,
+    });
+
+    expect(error).toBeDefined();
+  });
+
+  it('should reject a WKMS timeout above the maximum', () => {
+    const { error } = envValidationSchema.validate({
+      NODE_ENV: 'development',
+      DATABASE_URL: 'postgresql://user:password@example.com:5432/forever_hotel',
+      WKMS_INTEGRATION_ENABLED: true,
+      WKMS_BASE_URL: 'https://wkms.example.com',
+      WKMS_REQUEST_TIMEOUT_MS: 30001,
+    });
+
+    expect(error).toBeDefined();
+  });
 });
