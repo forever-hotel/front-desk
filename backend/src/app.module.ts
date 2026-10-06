@@ -13,6 +13,7 @@ import { RealtimeModule } from './realtime/realtime.module';
 import { BookingsModule } from './reservations/bookings.module';
 import { RoomChangesModule } from './room-changes/room-changes.module';
 import { RoomsModule } from './rooms/rooms.module';
+import { ServiceRequestsModule } from './service-requests/service-requests.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { RoomsModule } from './rooms/rooms.module';
     RoomChangesModule,
     FolioModule,
     CheckOutModule,
+    ServiceRequestsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
