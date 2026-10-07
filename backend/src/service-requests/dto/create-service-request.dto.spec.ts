@@ -60,6 +60,38 @@ describe('CreateServiceRequestDto', () => {
     expect(dto.description).toBe('Air-conditioner requires inspection');
   });
 
+  it('should sanitize script content from a description', async () => {
+    const dto = plainToInstance(CreateServiceRequestDto, {
+      bookingReference,
+      category: ServiceRequestCategory.EXTRA_TOWELS,
+      description: '<script>alert("xss")</script>Please send towels',
+      performedBy: receptionistId,
+    });
+
+    const errors = await validate(dto);
+
+    expect(errors).toHaveLength(0);
+
+    expect(dto.description).toBe('Please send towels');
+
+    expect(dto.description).not.toContain('<script');
+  });
+
+  it('should sanitize HTML markup from a description', async () => {
+    const dto = plainToInstance(CreateServiceRequestDto, {
+      bookingReference,
+      category: ServiceRequestCategory.MAINTENANCE,
+      description: '<img src=x onerror=alert(1)>Maintenance required',
+      performedBy: receptionistId,
+    });
+
+    const errors = await validate(dto);
+
+    expect(errors).toHaveLength(0);
+
+    expect(dto.description).toBe('Maintenance required');
+  });
+
   it('should accept an omitted optional description', async () => {
     const dto = plainToInstance(CreateServiceRequestDto, {
       bookingReference,
@@ -72,6 +104,32 @@ describe('CreateServiceRequestDto', () => {
     expect(errors).toHaveLength(0);
 
     expect(dto.description).toBeUndefined();
+  });
+
+  it('should accept a description exactly 300 characters long', async () => {
+    const dto = plainToInstance(CreateServiceRequestDto, {
+      bookingReference,
+      category: ServiceRequestCategory.OTHER,
+      description: 'a'.repeat(300),
+      performedBy: receptionistId,
+    });
+
+    const errors = await validate(dto);
+
+    expect(errors).toHaveLength(0);
+  });
+
+  it('should reject a description longer than 300 characters', async () => {
+    const dto = plainToInstance(CreateServiceRequestDto, {
+      bookingReference,
+      category: ServiceRequestCategory.OTHER,
+      description: 'a'.repeat(301),
+      performedBy: receptionistId,
+    });
+
+    const errors = await validate(dto);
+
+    expect(errors.length).toBeGreaterThan(0);
   });
 
   it('should reject an unsupported category', async () => {
@@ -103,19 +161,6 @@ describe('CreateServiceRequestDto', () => {
       bookingReference,
       category: ServiceRequestCategory.EXTRA_TOWELS,
       performedBy: 'not-a-uuid',
-    });
-
-    const errors = await validate(dto);
-
-    expect(errors.length).toBeGreaterThan(0);
-  });
-
-  it('should reject a description longer than 500 characters', async () => {
-    const dto = plainToInstance(CreateServiceRequestDto, {
-      bookingReference,
-      category: ServiceRequestCategory.OTHER,
-      description: 'a'.repeat(501),
-      performedBy: receptionistId,
     });
 
     const errors = await validate(dto);
