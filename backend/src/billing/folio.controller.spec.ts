@@ -1,4 +1,3 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { FolioController } from './folio.controller';
 import { FolioService } from './folio.service';
 import { FolioCategory } from './models/folio-category';
@@ -6,7 +5,10 @@ import { RunningFolio } from './models/running-folio';
 
 describe('FolioController', () => {
   let controller: FolioController;
-  let service: jest.Mocked<FolioService>;
+
+  let service: {
+    getRunningFolio: jest.Mock;
+  };
 
   const bookingReference = '44444444-4444-4444-8444-444444444444';
 
@@ -17,50 +19,52 @@ describe('FolioController', () => {
     checkOutDate: '2032-01-12',
     bookingStatus: 'CHECKED_IN',
     currency: 'LKR',
+
     categories: [
       {
         category: FolioCategory.ROOM_CHARGES,
+
         items: [
           {
             reference: `ROOM-${bookingReference}`,
+
             description: 'Room accommodation',
+
             amount: 60000,
+
             occurredAt: '2032-01-10T00:00:00.000Z',
           },
         ],
+
         subtotal: 60000,
       },
+
       {
         category: FolioCategory.FOOD_AND_BEVERAGE,
+
         items: [],
+
         subtotal: 0,
       },
+
       {
         category: FolioCategory.SERVICES,
+
         items: [],
+
         subtotal: 0,
       },
     ],
+
     total: 60000,
   };
 
-  beforeEach(async () => {
-    const serviceMock = {
+  beforeEach(() => {
+    service = {
       getRunningFolio: jest.fn(),
     };
 
-    const module: TestingModule = await Test.createTestingModule({
-      controllers: [FolioController],
-      providers: [
-        {
-          provide: FolioService,
-          useValue: serviceMock,
-        },
-      ],
-    }).compile();
-
-    controller = module.get(FolioController);
-    service = module.get(FolioService);
+    controller = new FolioController(service as unknown as FolioService);
   });
 
   it('should delegate running-folio retrieval to the service', async () => {
