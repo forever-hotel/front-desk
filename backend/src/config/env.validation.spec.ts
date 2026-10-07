@@ -37,6 +37,71 @@ describe('Environment validation', () => {
     expect(error).toBeDefined();
   });
 
+  it('should allow JWT configuration to remain absent during development', () => {
+    const { error, value } = envValidationSchema.validate({
+      NODE_ENV: 'development',
+      DATABASE_URL: 'postgresql://user:password@example.com:5432/forever_hotel',
+    });
+
+    expect(error).toBeUndefined();
+
+    expect(value.JWT_ISSUER).toBe('forever-hotel-auth');
+  });
+
+  it('should allow JWT configuration to remain absent during tests', () => {
+    const { error } = envValidationSchema.validate({
+      NODE_ENV: 'test',
+      DATABASE_URL: 'postgresql://user:password@example.com:5432/forever_hotel',
+    });
+
+    expect(error).toBeUndefined();
+  });
+
+  it('should require JWT_SECRET in staging', () => {
+    const { error } = envValidationSchema.validate({
+      NODE_ENV: 'staging',
+      DATABASE_URL: 'postgresql://user:password@example.com:5432/forever_hotel',
+    });
+
+    expect(error).toBeDefined();
+
+    expect(error?.message).toContain('JWT_SECRET');
+  });
+
+  it('should require JWT_SECRET in production', () => {
+    const { error } = envValidationSchema.validate({
+      NODE_ENV: 'production',
+      DATABASE_URL: 'postgresql://user:password@example.com:5432/forever_hotel',
+    });
+
+    expect(error).toBeDefined();
+
+    expect(error?.message).toContain('JWT_SECRET');
+  });
+
+  it('should reject a JWT secret shorter than 32 characters', () => {
+    const { error } = envValidationSchema.validate({
+      NODE_ENV: 'development',
+      DATABASE_URL: 'postgresql://user:password@example.com:5432/forever_hotel',
+      JWT_SECRET: 'too-short',
+    });
+
+    expect(error).toBeDefined();
+  });
+
+  it('should accept valid production JWT configuration', () => {
+    const { error, value } = envValidationSchema.validate({
+      NODE_ENV: 'production',
+      DATABASE_URL: 'postgresql://user:password@example.com:5432/forever_hotel',
+      JWT_SECRET: 'production-test-secret-at-least-32-characters',
+      JWT_ISSUER: 'forever-hotel-auth',
+    });
+
+    expect(error).toBeUndefined();
+
+    expect(value.JWT_ISSUER).toBe('forever-hotel-auth');
+  });
+
   it('should allow RabbitMQ to remain disabled without broker credentials', () => {
     const { error, value } = envValidationSchema.validate({
       NODE_ENV: 'development',
@@ -71,10 +136,15 @@ describe('Environment validation', () => {
     });
 
     expect(error).toBeUndefined();
+
     expect(value.RABBITMQ_ENABLED).toBe(true);
+
     expect(value.RABBITMQ_EXCHANGE).toBe('forever.events');
+
     expect(value.RABBITMQ_PREFETCH).toBe(10);
+
     expect(value.RABBITMQ_MAX_RETRIES).toBe(3);
+
     expect(value.RABBITMQ_RETRY_DELAY_MS).toBe(5000);
   });
 
