@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AuditModule } from './audit/audit.module';
 import { FolioModule } from './billing/folio.module';
 import { CheckInModule } from './check-ins/check-in.module';
 import { CheckOutModule } from './check-outs/check-out.module';
@@ -13,6 +14,7 @@ import { RealtimeModule } from './realtime/realtime.module';
 import { BookingsModule } from './reservations/bookings.module';
 import { RoomChangesModule } from './room-changes/room-changes.module';
 import { RoomsModule } from './rooms/rooms.module';
+import { SecurityModule } from './security/security.module';
 import { ServiceRequestsModule } from './service-requests/service-requests.module';
 
 @Module({
@@ -21,7 +23,10 @@ import { ServiceRequestsModule } from './service-requests/service-requests.modul
       isGlobal: true,
       validationSchema: envValidationSchema,
     }),
+
     DatabaseModule,
+    SecurityModule,
+    AuditModule,
     MessagingModule,
     RealtimeModule,
     HealthModule,
@@ -33,7 +38,9 @@ import { ServiceRequestsModule } from './service-requests/service-requests.modul
     CheckOutModule,
     ServiceRequestsModule,
   ],
+
   controllers: [AppController],
+
   providers: [AppService],
 })
 export class AppModule {}
