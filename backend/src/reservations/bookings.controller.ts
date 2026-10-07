@@ -1,4 +1,8 @@
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import {
+  FdsReadAccess,
+  FdsWriteAccess,
+} from '../security/auth/fds-access.decorator';
 import { BookingsService } from './bookings.service';
 import { CreateWalkInBookingDto } from './dto/create-walk-in-booking.dto';
 import { BookingSearchResult } from './models/booking-search-result';
@@ -9,12 +13,20 @@ export class BookingsController {
   constructor(private readonly bookingsService: BookingsService) {}
 
   @Get('search')
-  search(@Query('query') query = ''): Promise<BookingSearchResult[]> {
+  @FdsReadAccess()
+  search(
+    @Query('query')
+    query = '',
+  ): Promise<BookingSearchResult[]> {
     return this.bookingsService.search(query);
   }
 
   @Get('recent')
-  async findRecent(@Query('limit') limit?: string) {
+  @FdsReadAccess()
+  async findRecent(
+    @Query('limit')
+    limit?: string,
+  ) {
     const parsedLimit = Number(limit);
 
     const safeLimit =
@@ -29,22 +41,32 @@ export class BookingsController {
   }
 
   @Get('arrivals')
-  findArrivals(@Query('date') date?: string): Promise<BookingSearchResult[]> {
+  @FdsReadAccess()
+  findArrivals(
+    @Query('date')
+    date?: string,
+  ): Promise<BookingSearchResult[]> {
     const targetDate = date ?? new Date().toISOString().slice(0, 10);
 
     return this.bookingsService.findArrivals(targetDate);
   }
 
   @Get('departures')
-  findDepartures(@Query('date') date?: string): Promise<BookingSearchResult[]> {
+  @FdsReadAccess()
+  findDepartures(
+    @Query('date')
+    date?: string,
+  ): Promise<BookingSearchResult[]> {
     const targetDate = date ?? new Date().toISOString().slice(0, 10);
 
     return this.bookingsService.findDepartures(targetDate);
   }
 
   @Post('walk-in')
+  @FdsWriteAccess()
   createWalkInBooking(
-    @Body() request: CreateWalkInBookingDto,
+    @Body()
+    request: CreateWalkInBookingDto,
   ): Promise<WalkInBookingResult> {
     return this.bookingsService.createWalkInBooking(request);
   }
