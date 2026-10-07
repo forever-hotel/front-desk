@@ -1,13 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { getRoomStatusBoard } from "@/services/rooms-api";
-import { connectRealtime } from "@/services/realtime-client";
-import type { RealtimeConnectionState } from "@/types/realtime";
-import type { RoomStatus, RoomStatusBoardItem } from "@/types/room";
-import styles from "./rooms.module.css";
+import { useMemo } from "react";
 
-const FALLBACK_POLL_INTERVAL_MS = 5000;
+import { useRealtimeStatus } from "@/hooks/use-realtime-status";
+
+import type { RoomStatus } from "@/types/room-status.type";
+
+import { useRoomStatus } from "../hooks/use-room-status";
+
+import styles from "./room-status-screen.module.css";
 
 const STATUS_LABELS: Record<RoomStatus, string> = {
   VACANT: "Vacant",
@@ -16,102 +17,10 @@ const STATUS_LABELS: Record<RoomStatus, string> = {
   UNDER_MAINTENANCE: "Under Maintenance",
 };
 
-export default function RoomsPage() {
-  const [rooms, setRooms] = useState<RoomStatusBoardItem[]>([]);
+export function RoomStatusScreen() {
+  const { data: rooms = [], isLoading, error } = useRoomStatus();
 
-  const [connectionState, setConnectionState] =
-    useState<RealtimeConnectionState>("connecting");
-
-  const [loading, setLoading] = useState(true);
-
-  const [error, setError] = useState<string | null>(null);
-
-  const refreshRoomStatus = useCallback(async () => {
-    try {
-      const data = await getRoomStatusBoard();
-
-      setRooms(data);
-      setError(null);
-    } catch {
-      setError("Unable to load the room-status board.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    void getRoomStatusBoard()
-      .then((data) => {
-        if (cancelled) {
-          return;
-        }
-
-        setRooms(data);
-        setError(null);
-      })
-      .catch(() => {
-        if (cancelled) {
-          return;
-        }
-
-        setError("Unable to load the room-status board.");
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    return connectRealtime({
-      onConnectionState: setConnectionState,
-
-      onResyncRequired: () => {
-        void refreshRoomStatus();
-      },
-
-      onRoomStatusUpdated: (event) => {
-        setRooms((currentRooms) =>
-          currentRooms.map((room) =>
-            room.roomNumber === event.data.roomNumber
-              ? {
-                  ...room,
-                  status: event.data.status,
-                  updatedAt: event.occurredAt,
-                }
-              : room,
-          ),
-        );
-      },
-    });
-  }, [refreshRoomStatus]);
-
-  useEffect(() => {
-    if (connectionState === "connected") {
-      return;
-    }
-
-    /*
-     * Application-level fallback.
-     *
-     * If Socket.IO cannot maintain a realtime connection,
-     * periodically refresh the authoritative REST snapshot.
-     */
-    const interval = window.setInterval(() => {
-      void refreshRoomStatus();
-    }, FALLBACK_POLL_INTERVAL_MS);
-
-    return () => {
-      window.clearInterval(interval);
-    };
-  }, [connectionState, refreshRoomStatus]);
+  const { connectionState } = useRealtimeStatus();
 
   const roomCounts = useMemo(() => {
     return rooms.reduce<Record<RoomStatus, number>>(
@@ -138,8 +47,12 @@ export default function RoomsPage() {
           <p>Live room-state updates from Front Desk operations.</p>
         </div>
 
-        <div className={`${styles.connectionBadge} ${styles[connectionState]}`}>
-          <span className={styles.connectionDot} />
+        <div
+          className={`${styles.connectionBadge} ${styles[connectionState]}`}
+          role="status"
+          aria-live="polite"
+        >
+          <span className={styles.connectionDot} aria-hidden="true" />
 
           {connectionState === "connected"
             ? "LIVE"
@@ -171,11 +84,17 @@ export default function RoomsPage() {
         </article>
       </div>
 
-      {error && <div className={styles.error}>{error}</div>}
+      {error && (
+        <div className={styles.error} role="alert">
+          Unable to load the room-status board.
+        </div>
+      )}
 
       <div className={styles.tableCard}>
-        {loading ? (
-          <div className={styles.emptyState}>Loading room status...</div>
+        {isLoading ? (
+          <div className={styles.emptyState} role="status">
+            Loading room status...
+          </div>
         ) : rooms.length === 0 ? (
           <div className={styles.emptyState}>No rooms were returned.</div>
         ) : (
