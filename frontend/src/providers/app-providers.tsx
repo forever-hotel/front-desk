@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+
 import { AntdRegistry } from "@ant-design/nextjs-registry";
 
 import { AntdProvider } from "./antd-provider";
