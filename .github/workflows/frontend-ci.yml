@@ -30,7 +30,7 @@ concurrency:
 
 jobs:
   frontend-ci:
-    name: Format, Lint, Build, and Audit
+    name: Format, Lint, Test, Coverage, Build, and Audit
     runs-on: ubuntu-latest
 
     defaults:
@@ -56,6 +56,18 @@ jobs:
 
       - name: Run lint checks
         run: npm run lint
+
+      - name: Run tests with coverage gate
+        run: npm run test:cov
+
+      - name: Upload coverage evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Build Next.js frontend
         run: npm run build
