@@ -1,4 +1,4 @@
-import type { RoomStatus } from "./room";
+import type { RoomStatus } from "@/types/room-status.type";
 
 export type RealtimeConnectionState = "connecting" | "connected" | "fallback";
 
@@ -16,6 +16,7 @@ export interface RoomStatusUpdatedEvent {
   eventType: "room.status.updated";
   contractVersion: 1;
   occurredAt: string;
+
   data: {
     roomNumber: string;
     status: RoomStatus;
@@ -41,6 +42,7 @@ export interface TaskEscalatedEvent {
   eventVersion: 1;
   occurredAt: string;
   source: "worker-management";
+
   data: {
     taskId: string;
     taskCategory: TaskEscalationCategory;
