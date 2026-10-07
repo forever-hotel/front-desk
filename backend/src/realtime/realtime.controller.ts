@@ -1,5 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import type { TaskEscalatedEvent } from '../messaging/contracts/task-escalated.event';
+import { FdsReadAccess } from '../security/auth/fds-access.decorator';
 import {
   REALTIME_CONTRACT_VERSION,
   REALTIME_EVENTS,
@@ -12,6 +13,7 @@ export class RealtimeController {
   constructor(private readonly realtimeStateService: RealtimeStateService) {}
 
   @Get('contract')
+  @FdsReadAccess()
   getContract() {
     return {
       version: REALTIME_CONTRACT_VERSION,
@@ -37,6 +39,7 @@ export class RealtimeController {
   }
 
   @Get('escalations')
+  @FdsReadAccess()
   getRecentEscalations(): TaskEscalatedEvent[] {
     return this.realtimeStateService.getRecentEscalations();
   }
