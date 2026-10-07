@@ -6,6 +6,13 @@ import {
   ParseUUIDPipe,
   Post,
 } from '@nestjs/common';
+import type { AuthenticatedPrincipal } from '../security/auth/authenticated-principal';
+import { requireMatchingActor } from '../security/auth/actor-identity';
+import { CurrentPrincipal } from '../security/auth/current-principal.decorator';
+import {
+  FdsReadAccess,
+  FdsWriteAccess,
+} from '../security/auth/fds-access.decorator';
 import { CreateRoomChangeDto } from './dto/create-room-change.dto';
 import { AvailableRoomChangeOption } from './models/available-room-change-option';
 import { RoomChangeResult } from './models/room-change-result';
@@ -16,6 +23,7 @@ export class RoomChangesController {
   constructor(private readonly roomChangesService: RoomChangesService) {}
 
   @Get(':bookingReference/available-rooms')
+  @FdsReadAccess()
   findAvailableRooms(
     @Param(
       'bookingReference',
@@ -29,7 +37,19 @@ export class RoomChangesController {
   }
 
   @Post()
-  changeRoom(@Body() dto: CreateRoomChangeDto): Promise<RoomChangeResult> {
-    return this.roomChangesService.changeRoom(dto);
+  @FdsWriteAccess()
+  changeRoom(
+    @Body()
+    dto: CreateRoomChangeDto,
+
+    @CurrentPrincipal()
+    principal: AuthenticatedPrincipal,
+  ): Promise<RoomChangeResult> {
+    requireMatchingActor(dto.performedBy, principal);
+
+    return this.roomChangesService.changeRoom({
+      ...dto,
+      performedBy: principal.userId,
+    });
   }
 }

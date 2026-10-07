@@ -6,6 +6,7 @@ import {
   IsUUID,
   MaxLength,
 } from 'class-validator';
+import { sanitizePlainText } from '../../security/sanitization/sanitize-plain-text';
 import { ServiceRequestCategory } from '../models/service-request-category';
 
 export class CreateServiceRequestDto {
@@ -18,10 +19,10 @@ export class CreateServiceRequestDto {
   @IsEnum(ServiceRequestCategory)
   category!: ServiceRequestCategory;
 
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) => sanitizePlainText(value))
   @IsOptional()
   @IsString()
-  @MaxLength(500)
+  @MaxLength(300)
   description?: string;
 
   @IsUUID('4')

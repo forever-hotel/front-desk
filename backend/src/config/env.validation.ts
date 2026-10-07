@@ -30,6 +30,10 @@ export const envValidationSchema = Joi.object({
 
   DB_LOGGING: Joi.boolean().truthy('true').falsy('false').default(false),
 
+  JWT_SECRET: Joi.string().min(32).optional(),
+
+  JWT_ISSUER: Joi.string().trim().min(3).max(100).default('forever-hotel-auth'),
+
   RABBITMQ_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
 
   RABBITMQ_URL: Joi.string()
@@ -73,6 +77,13 @@ export const envValidationSchema = Joi.object({
   .or('DATABASE_URL', 'DB_HOST')
   .and('DB_HOST', 'DB_USERNAME', 'DB_PASSWORD', 'DB_NAME')
   .custom((value, helpers) => {
+    const deploymentRequiresJwt =
+      value.NODE_ENV === 'staging' || value.NODE_ENV === 'production';
+
+    if (deploymentRequiresJwt && !value.JWT_SECRET) {
+      return helpers.error('auth.jwtSecretRequired');
+    }
+
     if (value.RABBITMQ_ENABLED === true && !value.RABBITMQ_URL) {
       return helpers.error('rabbitmq.urlRequired');
     }
@@ -84,6 +95,9 @@ export const envValidationSchema = Joi.object({
     return value;
   })
   .messages({
+    'auth.jwtSecretRequired':
+      '"JWT_SECRET" is required in staging and production',
+
     'rabbitmq.urlRequired':
       '"RABBITMQ_URL" is required when "RABBITMQ_ENABLED" is true',
 

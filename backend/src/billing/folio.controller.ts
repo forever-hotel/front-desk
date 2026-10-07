@@ -1,12 +1,14 @@
 import { Controller, Get, Param, ParseUUIDPipe } from '@nestjs/common';
-import { RunningFolio } from './models/running-folio';
+import { FdsReadAccess } from '../security/auth/fds-access.decorator';
 import { FolioService } from './folio.service';
+import { RunningFolio } from './models/running-folio';
 
 @Controller('folios')
 export class FolioController {
   constructor(private readonly folioService: FolioService) {}
 
   @Get(':bookingReference')
+  @FdsReadAccess()
   getRunningFolio(
     @Param(
       'bookingReference',

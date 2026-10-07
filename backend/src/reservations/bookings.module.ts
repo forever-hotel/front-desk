@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { SecurityModule } from '../security/security.module';
 import { BookingsController } from './bookings.controller';
 import { BookingsService } from './bookings.service';
 import { BookingRepository } from './repositories/booking.repository';
@@ -7,7 +8,10 @@ import { PostgresWalkInBookingRepository } from './repositories/postgres-walk-in
 import { WalkInBookingRepository } from './repositories/walk-in-booking.repository';
 
 @Module({
+  imports: [SecurityModule],
+
   controllers: [BookingsController],
+
   providers: [
     BookingsService,
     {
@@ -19,6 +23,7 @@ import { WalkInBookingRepository } from './repositories/walk-in-booking.reposito
       useClass: PostgresWalkInBookingRepository,
     },
   ],
+
   exports: [BookingRepository, WalkInBookingRepository],
 })
 export class BookingsModule {}

@@ -1,4 +1,3 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { BookingsController } from './bookings.controller';
 import { BookingsService } from './bookings.service';
 import { CreateWalkInBookingDto } from './dto/create-walk-in-booking.dto';
@@ -6,10 +5,17 @@ import { WalkInPaymentMethod } from './dto/walk-in-payment.dto';
 
 describe('BookingsController', () => {
   let controller: BookingsController;
-  let service: jest.Mocked<BookingsService>;
 
-  beforeEach(async () => {
-    const serviceMock = {
+  let service: {
+    search: jest.Mock;
+    findRecent: jest.Mock;
+    findArrivals: jest.Mock;
+    findDepartures: jest.Mock;
+    createWalkInBooking: jest.Mock;
+  };
+
+  beforeEach(() => {
+    service = {
       search: jest.fn(),
       findRecent: jest.fn(),
       findArrivals: jest.fn(),
@@ -17,18 +23,7 @@ describe('BookingsController', () => {
       createWalkInBooking: jest.fn(),
     };
 
-    const module: TestingModule = await Test.createTestingModule({
-      controllers: [BookingsController],
-      providers: [
-        {
-          provide: BookingsService,
-          useValue: serviceMock,
-        },
-      ],
-    }).compile();
-
-    controller = module.get<BookingsController>(BookingsController);
-    service = module.get(BookingsService);
+    controller = new BookingsController(service as unknown as BookingsService);
   });
 
   it('should search bookings using the provided query', async () => {
@@ -39,7 +34,7 @@ describe('BookingsController', () => {
       },
     ];
 
-    service.search.mockResolvedValue(result as never);
+    service.search.mockResolvedValue(result);
 
     await expect(controller.search('kamal')).resolves.toEqual(result);
 
@@ -55,9 +50,13 @@ describe('BookingsController', () => {
   });
 
   it('should return recent bookings using the provided limit', async () => {
-    const bookings = [{ bookingReference: 'FH-1001' }];
+    const bookings = [
+      {
+        bookingReference: 'FH-1001',
+      },
+    ];
 
-    service.findRecent.mockResolvedValue(bookings as never);
+    service.findRecent.mockResolvedValue(bookings);
 
     await expect(controller.findRecent('10')).resolves.toEqual({
       value: bookings,
@@ -82,7 +81,7 @@ describe('BookingsController', () => {
       },
     ];
 
-    service.findArrivals.mockResolvedValue(bookings as never);
+    service.findArrivals.mockResolvedValue(bookings);
 
     await expect(controller.findArrivals('2030-01-10')).resolves.toEqual(
       bookings,
@@ -98,7 +97,7 @@ describe('BookingsController', () => {
       },
     ];
 
-    service.findDepartures.mockResolvedValue(bookings as never);
+    service.findDepartures.mockResolvedValue(bookings);
 
     await expect(controller.findDepartures('2030-01-12')).resolves.toEqual(
       bookings,
@@ -115,6 +114,7 @@ describe('BookingsController', () => {
         nicOrPassport: 'WALK-IN-NIC-001',
         phone: '+94000000001',
       },
+
       booking: {
         roomTypeId: '11111111-1111-4111-8111-111111111111',
         checkInDate: '2030-02-10',
@@ -122,6 +122,7 @@ describe('BookingsController', () => {
         numGuests: 2,
         specialRequests: 'Quiet room',
       },
+
       payment: {
         paymentMethod: WalkInPaymentMethod.CASH,
       },
@@ -133,7 +134,7 @@ describe('BookingsController', () => {
       status: 'CONFIRMED',
     };
 
-    service.createWalkInBooking.mockResolvedValue(result as never);
+    service.createWalkInBooking.mockResolvedValue(result);
 
     await expect(controller.createWalkInBooking(request)).resolves.toEqual(
       result,
