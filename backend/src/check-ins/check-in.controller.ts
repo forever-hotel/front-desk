@@ -1,4 +1,8 @@
 import { Body, Controller, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import type { AuthenticatedPrincipal } from '../security/auth/authenticated-principal';
+import { requireMatchingActor } from '../security/auth/actor-identity';
+import { CurrentPrincipal } from '../security/auth/current-principal.decorator';
+import { FdsWriteAccess } from '../security/auth/fds-access.decorator';
 import { CheckInPrintService } from './check-in-print.service';
 import { CheckInService } from './check-in.service';
 import { CheckInPrintRequestDto } from './dto/check-in-print-request.dto';
@@ -14,11 +18,27 @@ export class CheckInController {
   ) {}
 
   @Post()
-  checkIn(@Body() dto: CheckInRequestDto): Promise<CheckInResult> {
-    return this.checkInService.checkIn(dto);
+  @FdsWriteAccess()
+  checkIn(
+    @Body()
+    dto: CheckInRequestDto,
+
+    @CurrentPrincipal()
+    principal: AuthenticatedPrincipal,
+  ): Promise<CheckInResult> {
+    requireMatchingActor(dto.verification.verifiedBy, principal);
+
+    return this.checkInService.checkIn({
+      ...dto,
+      verification: {
+        ...dto.verification,
+        verifiedBy: principal.userId,
+      },
+    });
   }
 
   @Post(':bookingReference/print')
+  @FdsWriteAccess()
   printDocument(
     @Param(
       'bookingReference',
@@ -27,7 +47,9 @@ export class CheckInController {
       }),
     )
     bookingReference: string,
-    @Body() dto: CheckInPrintRequestDto,
+
+    @Body()
+    dto: CheckInPrintRequestDto,
   ): Promise<CheckInPrintResult> {
     return this.checkInPrintService.requestPrint(bookingReference, dto);
   }

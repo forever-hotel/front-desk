@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { RealtimeModule } from '../realtime/realtime.module';
+import { SecurityModule } from '../security/security.module';
 import { CheckInController } from './check-in.controller';
 import { CheckInPrintService } from './check-in-print.service';
 import { CheckInService } from './check-in.service';
@@ -13,8 +14,10 @@ import { PostgresCheckInPrintRepository } from './repositories/postgres-check-in
 import { PostgresCheckInRepository } from './repositories/postgres-check-in.repository';
 
 @Module({
-  imports: [RealtimeModule],
+  imports: [RealtimeModule, SecurityModule],
+
   controllers: [CheckInController],
+
   providers: [
     CheckInService,
     CheckInPrintService,
@@ -35,6 +38,7 @@ import { PostgresCheckInRepository } from './repositories/postgres-check-in.repo
       useClass: MockCheckInPrintGateway,
     },
   ],
+
   exports: [FossSessionGateway],
 })
 export class CheckInModule {}
