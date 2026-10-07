@@ -28,6 +28,10 @@ export class RealtimeStateService {
     }
   }
 
+  removeTaskEscalation(taskId: string): void {
+    this.escalations.delete(taskId);
+  }
+
   getRecentEscalations(): TaskEscalatedEvent[] {
     return Array.from(this.escalations.values()).reverse();
   }
