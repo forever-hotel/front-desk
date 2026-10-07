@@ -1,23 +1,25 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import type { TableColumnsType } from "antd";
+import { useState } from "react";
 
 import { Alert, Button, Empty, Input, Select, Spin, Table, Tag } from "antd";
 
+import type { TableColumnsType } from "antd";
+
 import { Search } from "lucide-react";
 
-import {
-  getRecentBookings,
-  searchBookings,
-} from "@/services/booking-search-api";
+import { useRecentBookings } from "../hooks/use-recent-bookings";
+import { useSearchBookings } from "../hooks/use-search-bookings";
 
-import type { BookingSearchField, BookingSearchItem } from "@/types/booking";
+import type {
+  BookingSearchField,
+  BookingSearchItem,
+} from "../types/reservation.type";
 
-import styles from "./search-booking.module.css";
+import styles from "./booking-search-screen.module.css";
 
-const searchByOptions = [
+const SEARCH_BY_OPTIONS = [
   {
     value: "all",
     label: "All Fields",
@@ -38,127 +40,68 @@ const searchByOptions = [
     value: "phone",
     label: "Phone",
   },
-];
+] satisfies Array<{
+  value: BookingSearchField;
+  label: string;
+}>;
 
-export default function BookingSearchPage() {
+export function BookingSearchScreen() {
   const [query, setQuery] = useState("");
-
   const [searchBy, setSearchBy] = useState<BookingSearchField>("all");
-
-  const [bookings, setBookings] = useState<BookingSearchItem[]>([]);
-
-  const [isLoading, setIsLoading] = useState(true);
-
-  const [error, setError] = useState<string | null>(null);
 
   const [hasSearched, setHasSearched] = useState(false);
 
-  /*
-   * Load the most recent bookings.
-   *
-   * This is used:
-   * - when the page first opens
-   * - when Clear is clicked
-   * - when an empty search is submitted
-   */
-  const loadRecentBookings = useCallback(async (showLoading = true) => {
-    if (showLoading) {
-      setIsLoading(true);
-    }
+  const [searchResults, setSearchResults] = useState<
+    BookingSearchItem[] | null
+  >(null);
 
-    setError(null);
+  const recentBookingsQuery = useRecentBookings(5);
+  const searchBookingsMutation = useSearchBookings();
 
-    try {
-      const recentBookings = await getRecentBookings(5);
+  const bookings = searchResults ?? recentBookingsQuery.data ?? [];
 
-      setBookings(recentBookings);
-      setHasSearched(false);
-    } catch (recentError) {
-      console.error("Recent bookings failed:", recentError);
+  const isLoading =
+    searchBookingsMutation.isPending ||
+    (!hasSearched && recentBookingsQuery.isLoading);
 
-      setBookings([]);
+  const error = hasSearched
+    ? searchBookingsMutation.error
+    : recentBookingsQuery.error;
 
-      setError("Unable to load recent bookings. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  /*
-   * Load recent bookings when the page first opens.
-   */
-  useEffect(() => {
-    // isLoading already starts as true. Defer the fetch to avoid a
-    // synchronous state update in the effect body.
-    const timeoutId = window.setTimeout(() => {
-      void loadRecentBookings(false);
-    }, 0);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [loadRecentBookings]);
-
-  /*
-   * Search bookings using the backend.
-   */
   const handleSearch = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const normalizedQuery = query.trim();
 
-    /*
-     * If the user submits an empty search,
-     * restore recent bookings instead.
-     */
     if (!normalizedQuery) {
-      setQuery("");
-      setSearchBy("all");
+      handleClear();
 
-      await loadRecentBookings();
+      await recentBookingsQuery.refetch();
 
       return;
     }
 
-    setIsLoading(true);
-    setError(null);
     setHasSearched(true);
+    searchBookingsMutation.reset();
 
     try {
-      const results = await searchBookings(normalizedQuery);
+      const results = await searchBookingsMutation.mutateAsync(normalizedQuery);
 
-      /*
-       * The current backend endpoint performs a
-       * general query search.
-       *
-       * Search By is applied as a secondary
-       * frontend filter using fields returned
-       * by the backend.
-       */
-      const filteredResults = filterBookingsByField(
-        results,
-        normalizedQuery,
-        searchBy,
+      setSearchResults(
+        filterBookingsByField(results, normalizedQuery, searchBy),
       );
-
-      setBookings(filteredResults);
-    } catch (searchError) {
-      console.error("Booking search failed:", searchError);
-
-      setBookings([]);
-
-      setError("Unable to search bookings. Please try again.");
-    } finally {
-      setIsLoading(false);
+    } catch {
+      setSearchResults([]);
     }
   };
 
-  /*
-   * Reset the form and restore recent bookings.
-   */
   const handleClear = () => {
     setQuery("");
     setSearchBy("all");
+    setHasSearched(false);
+    setSearchResults(null);
 
-    void loadRecentBookings();
+    searchBookingsMutation.reset();
   };
 
   const columns: TableColumnsType<BookingSearchItem> = [
@@ -168,9 +111,13 @@ export default function BookingSearchPage() {
 
       render: (_, booking) => (
         <div className={styles.guestCell}>
-          <span className={styles.guestName}>{booking.guestName}</span>
+          <span className={styles.guestName}>
+            {booking.guestName ?? "Guest name unavailable"}
+          </span>
 
-          <span className={styles.guestEmail}>{booking.email}</span>
+          <span className={styles.guestEmail}>
+            {booking.email ?? "No email available"}
+          </span>
         </div>
       ),
     },
@@ -254,11 +201,11 @@ export default function BookingSearchPage() {
             <div className={styles.field}>
               <label htmlFor="booking-search-by">SEARCH BY</label>
 
-              <Select
+              <Select<BookingSearchField>
                 id="booking-search-by"
                 value={searchBy}
-                options={searchByOptions}
-                onChange={(value: BookingSearchField) => setSearchBy(value)}
+                options={SEARCH_BY_OPTIONS}
+                onChange={setSearchBy}
                 disabled={isLoading}
                 className={styles.select}
               />
@@ -266,7 +213,11 @@ export default function BookingSearchPage() {
           </div>
 
           <div className={styles.formActions}>
-            <Button type="primary" htmlType="submit" loading={isLoading}>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={searchBookingsMutation.isPending}
+            >
               Search
             </Button>
 
@@ -280,7 +231,7 @@ export default function BookingSearchPage() {
           </div>
         </form>
 
-        <div className={styles.results}>
+        <div className={styles.results} aria-live="polite">
           {error ? (
             <div className={styles.stateContainer}>
               <Alert
@@ -291,7 +242,11 @@ export default function BookingSearchPage() {
                     ? "Booking search failed"
                     : "Recent bookings could not be loaded"
                 }
-                description={error}
+                description={
+                  hasSearched
+                    ? "Unable to search bookings. Please try again."
+                    : "Unable to load recent bookings. Please try again."
+                }
               />
             </div>
           ) : isLoading ? (
@@ -334,13 +289,6 @@ export default function BookingSearchPage() {
   );
 }
 
-/*
- * Apply the selected Search By filter.
- *
- * The backend currently performs the general search,
- * while this function narrows the returned records
- * to the selected field.
- */
 function filterBookingsByField(
   bookings: BookingSearchItem[],
   query: string,
@@ -355,16 +303,18 @@ function filterBookingsByField(
   return bookings.filter((booking) => {
     switch (field) {
       case "guest":
-        return booking.guestName.toLowerCase().includes(normalizedQuery);
+        return (booking.guestName ?? "")
+          .toLowerCase()
+          .includes(normalizedQuery);
 
       case "booking":
         return booking.bookingReference.toLowerCase().includes(normalizedQuery);
 
       case "email":
-        return booking.email.toLowerCase().includes(normalizedQuery);
+        return (booking.email ?? "").toLowerCase().includes(normalizedQuery);
 
       case "phone":
-        return booking.phone.toLowerCase().includes(normalizedQuery);
+        return (booking.phone ?? "").toLowerCase().includes(normalizedQuery);
 
       default:
         return true;
@@ -372,13 +322,6 @@ function filterBookingsByField(
   });
 }
 
-/*
- * Convert backend ISO date values such as:
- * 2026-09-10
- *
- * into:
- * 10 Sept 2026
- */
 function formatBookingDate(value: string) {
   const date = new Date(`${value}T00:00:00`);
 
@@ -393,15 +336,18 @@ function formatBookingDate(value: string) {
   }).format(date);
 }
 
-/*
- * Booking status presentation.
- */
 function BookingStatusTag({ status }: { status: string }) {
   const normalizedStatus = status.toUpperCase();
 
   if (normalizedStatus === "CONFIRMED" || normalizedStatus === "PENDING") {
     return (
-      <Tag className={styles.confirmedTag}>
+      <Tag
+        className={
+          normalizedStatus === "CONFIRMED"
+            ? styles.confirmedTag
+            : styles.pendingTag
+        }
+      >
         {normalizedStatus === "CONFIRMED" ? "Confirmed" : "Pending"}
       </Tag>
     );
@@ -418,13 +364,6 @@ function BookingStatusTag({ status }: { status: string }) {
   return <Tag>{status}</Tag>;
 }
 
-/*
- * Actions shown according to booking status.
- *
- * These buttons are currently UI-only.
- * Their business flows are handled by
- * their respective FDS development tasks.
- */
 function BookingActions({ status }: { status: string }) {
   const normalizedStatus = status.toUpperCase();
 
