@@ -24,19 +24,25 @@ describe("RoomStatusScreen", () => {
 
     expect(await screen.findByText("101")).toBeInTheDocument();
 
-    expect(screen.getByText("102")).toBeInTheDocument();
+    expect(screen.getByText("102").closest("article")).toHaveTextContent(
+      "OCCUPIED",
+    );
 
-    expect(screen.getByText("201")).toBeInTheDocument();
+    expect(screen.getByText("101").closest("article")).toHaveTextContent(
+      "VACANT",
+    );
 
-    expect(screen.getByText("202")).toBeInTheDocument();
+    expect(screen.getByText("201").closest("article")).toHaveTextContent(
+      "CLEANING",
+    );
 
-    /*
-     * Vacant and Occupied appear twice intentionally:
-     * once in the summary cards and once in the room table.
-     */
-    expect(screen.getAllByText("Vacant")).toHaveLength(2);
+    expect(screen.getByText("202").closest("article")).toHaveTextContent(
+      "MAINT.",
+    );
 
-    expect(screen.getAllByText("Occupied")).toHaveLength(2);
+    expect(screen.getByText("Vacant / Clean")).toBeInTheDocument();
+
+    expect(screen.getByText("Occupied")).toBeInTheDocument();
 
     expect(screen.getByText("Requires Cleaning")).toBeInTheDocument();
 
