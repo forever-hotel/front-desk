@@ -2,7 +2,9 @@ import { apiClient } from "@/lib/api/api-client";
 
 import type {
   BookingSearchItem,
+  CreateWalkInBookingRequest,
   RecentBookingsResponse,
+  WalkInBookingResult,
 } from "../types/reservation.type";
 
 export async function searchBookings(
@@ -37,4 +39,13 @@ export async function getRecentBookings(
   );
 
   return response.value;
+}
+
+export function createWalkInBooking(
+  payload: CreateWalkInBookingRequest,
+): Promise<WalkInBookingResult> {
+  return apiClient<WalkInBookingResult>("/bookings/walk-in", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }

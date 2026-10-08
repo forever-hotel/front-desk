@@ -9,3 +9,21 @@ export interface RoomStatusBoardItem {
   lastClearedAt: string | null;
   updatedAt: string;
 }
+
+export interface UpdateRoomStatusRequest {
+  targetStatus: RoomStatus;
+  notes?: string;
+}
+
+export interface RoomStatusTransitionResult {
+  roomNumber: string;
+  previousStatus: RoomStatus;
+  status: RoomStatus;
+  lastClearedAt: string | null;
+  updatedAt: string;
+}
+
+export interface UpdateRoomStatusMutation {
+  roomNumber: string;
+  payload: UpdateRoomStatusRequest;
+}

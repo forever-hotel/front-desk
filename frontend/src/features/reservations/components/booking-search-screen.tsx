@@ -47,6 +47,7 @@ const SEARCH_BY_OPTIONS = [
 
 export function BookingSearchScreen() {
   const [query, setQuery] = useState("");
+
   const [searchBy, setSearchBy] = useState<BookingSearchField>("all");
 
   const [hasSearched, setHasSearched] = useState(false);
@@ -68,6 +69,15 @@ export function BookingSearchScreen() {
     ? searchBookingsMutation.error
     : recentBookingsQuery.error;
 
+  const handleClear = () => {
+    setQuery("");
+    setSearchBy("all");
+    setHasSearched(false);
+    setSearchResults(null);
+
+    searchBookingsMutation.reset();
+  };
+
   const handleSearch = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -75,13 +85,11 @@ export function BookingSearchScreen() {
 
     if (!normalizedQuery) {
       handleClear();
-
-      await recentBookingsQuery.refetch();
-
       return;
     }
 
     setHasSearched(true);
+    setSearchResults(null);
     searchBookingsMutation.reset();
 
     try {
@@ -91,17 +99,8 @@ export function BookingSearchScreen() {
         filterBookingsByField(results, normalizedQuery, searchBy),
       );
     } catch {
-      setSearchResults([]);
+      setSearchResults(null);
     }
-  };
-
-  const handleClear = () => {
-    setQuery("");
-    setSearchBy("all");
-    setHasSearched(false);
-    setSearchResults(null);
-
-    searchBookingsMutation.reset();
   };
 
   const columns: TableColumnsType<BookingSearchItem> = [
@@ -121,7 +120,6 @@ export function BookingSearchScreen() {
         </div>
       ),
     },
-
     {
       title: "Booking Ref",
       dataIndex: "bookingReference",
@@ -131,13 +129,11 @@ export function BookingSearchScreen() {
         <span className={styles.bookingReference}>{reference}</span>
       ),
     },
-
     {
       title: "Room Type",
       dataIndex: "roomType",
       key: "roomType",
     },
-
     {
       title: "Check-In",
       dataIndex: "checkInDate",
@@ -145,7 +141,6 @@ export function BookingSearchScreen() {
 
       render: (date: string) => formatBookingDate(date),
     },
-
     {
       title: "Check-Out",
       dataIndex: "checkOutDate",
@@ -153,7 +148,6 @@ export function BookingSearchScreen() {
 
       render: (date: string) => formatBookingDate(date),
     },
-
     {
       title: "Status",
       dataIndex: "status",
@@ -161,12 +155,11 @@ export function BookingSearchScreen() {
 
       render: (status: string) => <BookingStatusTag status={status} />,
     },
-
     {
       title: "Actions",
       key: "actions",
 
-      render: (_, booking) => <BookingActions status={booking.status} />,
+      render: (_, booking) => <BookingActions booking={booking} />,
     },
   ];
 
@@ -179,7 +172,9 @@ export function BookingSearchScreen() {
           <h1>Search Booking</h1>
         </div>
 
-        <p>Search by guest name, booking reference, email or phone</p>
+        <p>
+          Search by guest name, booking reference, NIC/passport, email or phone
+        </p>
       </header>
 
       <div className={styles.searchCard}>
@@ -192,7 +187,7 @@ export function BookingSearchScreen() {
                 id="booking-search-query"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Guest name, booking ref, email or phone..."
+                placeholder="Guest name, booking ref, NIC/passport, email or phone..."
                 disabled={isLoading}
                 allowClear
               />
@@ -217,6 +212,7 @@ export function BookingSearchScreen() {
               type="primary"
               htmlType="submit"
               loading={searchBookingsMutation.isPending}
+              disabled={isLoading}
             >
               Search
             </Button>
@@ -243,9 +239,7 @@ export function BookingSearchScreen() {
                     : "Recent bookings could not be loaded"
                 }
                 description={
-                  hasSearched
-                    ? "Unable to search bookings. Please try again."
-                    : "Unable to load recent bookings. Please try again."
+                  error instanceof Error ? error.message : "Please try again."
                 }
               />
             </div>
@@ -289,11 +283,81 @@ export function BookingSearchScreen() {
   );
 }
 
+function BookingActions({ booking }: { booking: BookingSearchItem }) {
+  const status = booking.status.toUpperCase();
+
+  if (status === "CONFIRMED") {
+    return (
+      <div className={styles.actionGroup}>
+        <Button type="primary" size="small" href="/check-in">
+          Check-In
+        </Button>
+      </div>
+    );
+  }
+
+  if (status === "PENDING") {
+    return <Tag className={styles.pendingTag}>Awaiting Confirmation</Tag>;
+  }
+
+  if (status === "CHECKED_IN") {
+    return (
+      <div className={styles.actionGroup}>
+        <Button type="primary" size="small" href="/check-out">
+          Check-Out
+        </Button>
+
+        <Button size="small" href="/folio">
+          Folio
+        </Button>
+      </div>
+    );
+  }
+
+  if (status === "CHECKED_OUT") {
+    return (
+      <div className={styles.actionGroup}>
+        <Button
+          size="small"
+          disabled
+          title="Checkout receipt retrieval is not available in the current backend API."
+        >
+          Receipt
+        </Button>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+function BookingStatusTag({ status }: { status: string }) {
+  const normalizedStatus = status.toUpperCase();
+
+  if (normalizedStatus === "CONFIRMED") {
+    return <Tag className={styles.confirmedTag}>Confirmed</Tag>;
+  }
+
+  if (normalizedStatus === "PENDING") {
+    return <Tag className={styles.pendingTag}>Pending</Tag>;
+  }
+
+  if (normalizedStatus === "CHECKED_IN") {
+    return <Tag className={styles.checkedInTag}>Checked In</Tag>;
+  }
+
+  if (normalizedStatus === "CHECKED_OUT") {
+    return <Tag className={styles.checkedOutTag}>Checked Out</Tag>;
+  }
+
+  return <Tag>{status}</Tag>;
+}
+
 function filterBookingsByField(
   bookings: BookingSearchItem[],
   query: string,
   field: BookingSearchField,
-) {
+): BookingSearchItem[] {
   if (field === "all") {
     return bookings;
   }
@@ -322,7 +386,7 @@ function filterBookingsByField(
   });
 }
 
-function formatBookingDate(value: string) {
+function formatBookingDate(value: string): string {
   const date = new Date(`${value}T00:00:00`);
 
   if (Number.isNaN(date.getTime())) {
@@ -334,70 +398,4 @@ function formatBookingDate(value: string) {
     month: "short",
     year: "numeric",
   }).format(date);
-}
-
-function BookingStatusTag({ status }: { status: string }) {
-  const normalizedStatus = status.toUpperCase();
-
-  if (normalizedStatus === "CONFIRMED" || normalizedStatus === "PENDING") {
-    return (
-      <Tag
-        className={
-          normalizedStatus === "CONFIRMED"
-            ? styles.confirmedTag
-            : styles.pendingTag
-        }
-      >
-        {normalizedStatus === "CONFIRMED" ? "Confirmed" : "Pending"}
-      </Tag>
-    );
-  }
-
-  if (normalizedStatus === "CHECKED_IN") {
-    return <Tag className={styles.checkedInTag}>Checked In</Tag>;
-  }
-
-  if (normalizedStatus === "CHECKED_OUT") {
-    return <Tag className={styles.checkedOutTag}>Checked Out</Tag>;
-  }
-
-  return <Tag>{status}</Tag>;
-}
-
-function BookingActions({ status }: { status: string }) {
-  const normalizedStatus = status.toUpperCase();
-
-  if (normalizedStatus === "CONFIRMED" || normalizedStatus === "PENDING") {
-    return (
-      <div className={styles.actionGroup}>
-        <Button type="primary" size="small">
-          Check-In
-        </Button>
-
-        <Button size="small">Folio</Button>
-      </div>
-    );
-  }
-
-  if (normalizedStatus === "CHECKED_IN") {
-    return (
-      <div className={styles.actionGroup}>
-        <Button type="primary" size="small">
-          Check-Out
-        </Button>
-
-        <Button size="small">Folio</Button>
-      </div>
-    );
-  }
-
-  if (normalizedStatus === "CHECKED_OUT") {
-    return (
-      <div className={styles.actionGroup}>
-        <Button size="small">Receipt</Button>
-      </div>
-    );
-  }
-
-  return null;
 }

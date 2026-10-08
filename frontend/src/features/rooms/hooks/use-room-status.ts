@@ -3,9 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { useRealtimeStatus } from "@/hooks/use-realtime-status";
-
 import { queryKeys } from "@/lib/api/query-keys";
-
 import { REALTIME_FALLBACK_POLL_INTERVAL_MS } from "@/lib/realtime/realtime-event-names";
 
 import { getRoomStatusBoard } from "../api/rooms.api";
