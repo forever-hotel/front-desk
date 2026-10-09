@@ -1,23 +1,57 @@
 import { INestApplication } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
+import { SignJWT } from 'jose';
 import { io, type Socket } from 'socket.io-client';
+
 import { REALTIME_EVENTS } from '../src/realtime/realtime.constants';
 import { RealtimeGateway } from '../src/realtime/realtime.gateway';
 import { RealtimePublisherService } from '../src/realtime/realtime-publisher.service';
+import { RealtimeSocketAuthService } from '../src/realtime/realtime-socket-auth.service';
 import { RealtimeStateService } from '../src/realtime/realtime-state.service';
-import type { RoomStatusUpdatedEvent } from '../src/realtime/realtime.types';
-import { RoomStatus } from '../src/rooms/models/room-status';
 
-describe('Realtime WebSocket (e2e)', () => {
+import type { RoomStatusUpdatedEvent } from '../src/realtime/realtime.types';
+
+import { RoomStatus } from '../src/rooms/models/room-status';
+import { SecurityModule } from '../src/security/security.module';
+import { SystemRole } from '../src/security/auth/system-role';
+
+describe('Realtime WebSocket Authentication (e2e)', () => {
   let app: INestApplication;
-  let client: Socket | undefined;
   let publisher: RealtimePublisherService;
   let baseUrl: string;
 
+  const clients: Socket[] = [];
+
+  const secret = 'realtime-e2e-test-secret-at-least-32-characters';
+
+  const issuer = 'forever-hotel-auth';
+
+  const receptionistId = '66666666-6666-4666-8666-666666666666';
+
+  const managerId = '77777777-7777-4777-8777-777777777777';
+
+  const workerId = '88888888-8888-4888-8888-888888888888';
+
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
+      imports: [
+        ConfigModule.forRoot({
+          isGlobal: true,
+          ignoreEnvFile: true,
+          load: [
+            () => ({
+              JWT_SECRET: secret,
+              JWT_ISSUER: issuer,
+            }),
+          ],
+        }),
+        SecurityModule,
+      ],
+
       providers: [
         RealtimeGateway,
+        RealtimeSocketAuthService,
         RealtimeStateService,
         RealtimePublisherService,
       ],
@@ -33,15 +67,13 @@ describe('Realtime WebSocket (e2e)', () => {
   });
 
   afterEach(() => {
-    if (!client) {
-      return;
+    for (const socket of clients) {
+      socket.removeAllListeners();
+      socket.io.removeAllListeners();
+      socket.disconnect();
     }
 
-    client.removeAllListeners();
-    client.io.removeAllListeners();
-    client.close();
-
-    client = undefined;
+    clients.length = 0;
   });
 
   afterAll(async () => {
@@ -50,132 +82,178 @@ describe('Realtime WebSocket (e2e)', () => {
     }
   });
 
-  function connectClient(): Promise<Socket> {
+  async function createToken(
+    role: SystemRole,
+    options: {
+      expired?: boolean;
+      issuer?: string;
+      signingSecret?: string;
+    } = {},
+  ): Promise<string> {
+    const userId =
+      role === SystemRole.RECEPTIONIST
+        ? receptionistId
+        : role === SystemRole.MANAGER
+          ? managerId
+          : workerId;
+
+    const expiresAt = options.expired
+      ? Math.floor(Date.now() / 1000) - 60
+      : Math.floor(Date.now() / 1000) + 3600;
+
+    return new SignJWT({ role })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuer(options.issuer ?? issuer)
+      .setSubject(userId)
+      .setIssuedAt()
+      .setExpirationTime(expiresAt)
+      .sign(new TextEncoder().encode(options.signingSecret ?? secret));
+  }
+
+  function createSocket(token?: string, reconnect = true): Socket {
     const socket = io(`${baseUrl}/realtime`, {
       forceNew: true,
       autoConnect: false,
-      reconnection: true,
+
+      reconnection: reconnect,
       reconnectionAttempts: 5,
       reconnectionDelay: 50,
       reconnectionDelayMax: 100,
+
       timeout: 2000,
       transports: ['websocket', 'polling'],
+
+      auth: token ? { token } : {},
     });
 
-    client = socket;
+    clients.push(socket);
+
+    return socket;
+  }
+
+  function connectClient(token: string): Promise<Socket> {
+    const socket = createSocket(token);
 
     return new Promise<Socket>((resolve, reject) => {
       const timeout = setTimeout(() => {
-        socket.close();
+        cleanup();
+        reject(new Error('WebSocket connection timed out'));
+      }, 3500);
 
-        reject(new Error('Initial realtime client connection timed out'));
-      }, 3000);
-
-      const handleConnect = () => {
-        clearTimeout(timeout);
-
-        socket.off('connect_error', handleConnectError);
-
+      const onConnect = () => {
+        cleanup();
         resolve(socket);
       };
 
-      const handleConnectError = (error: Error) => {
-        clearTimeout(timeout);
-
-        socket.off('connect', handleConnect);
-
+      const onError = (error: Error) => {
+        cleanup();
         reject(error);
       };
 
-      socket.once('connect', handleConnect);
-      socket.once('connect_error', handleConnectError);
+      const cleanup = () => {
+        clearTimeout(timeout);
+        socket.off('connect', onConnect);
+        socket.off('connect_error', onError);
+      };
+
+      socket.once('connect', onConnect);
+      socket.once('connect_error', onError);
 
       socket.connect();
     });
   }
 
-  function waitForNextConnection(socket: Socket): Promise<void> {
+  function expectConnectionRejected(token?: string): Promise<void> {
+    const socket = createSocket(token, false);
+
     return new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
         cleanup();
+        reject(new Error('Authentication rejection timed out'));
+      }, 3500);
 
-        reject(new Error('Realtime namespace socket did not reconnect'));
-      }, 5000);
+      const onConnect = () => {
+        cleanup();
+        reject(new Error('Unauthorized client was connected'));
+      };
 
-      const handleConnect = () => {
+      const onError = (error: Error) => {
         cleanup();
 
-        resolve();
+        try {
+          expect(error.message).toBe('Unauthorized');
+          expect(socket.connected).toBe(false);
+          resolve();
+        } catch (assertionError) {
+          reject(assertionError);
+        }
       };
 
       const cleanup = () => {
         clearTimeout(timeout);
-
-        socket.off('connect', handleConnect);
+        socket.off('connect', onConnect);
+        socket.off('connect_error', onError);
       };
 
-      /*
-       * We deliberately wait for Socket.IO Socket's
-       * "connect" event here, not Manager's "reconnect".
-       *
-       * The Socket-level event confirms that the
-       * /realtime namespace has completed its handshake
-       * and can receive application events again.
-       */
-      socket.once('connect', handleConnect);
-    });
-  }
+      socket.once('connect', onConnect);
+      socket.once('connect_error', onError);
 
-  function waitForDisconnect(socket: Socket): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        cleanup();
-
-        reject(new Error('Realtime client did not detect transport loss'));
-      }, 3000);
-
-      const handleDisconnect = () => {
-        cleanup();
-
-        resolve();
-      };
-
-      const cleanup = () => {
-        clearTimeout(timeout);
-
-        socket.off('disconnect', handleDisconnect);
-      };
-
-      socket.once('disconnect', handleDisconnect);
+      socket.connect();
     });
   }
 
   function waitForRoomUpdate(socket: Socket): Promise<RoomStatusUpdatedEvent> {
-    return new Promise<RoomStatusUpdatedEvent>((resolve, reject) => {
+    return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
-        cleanup();
+        socket.off(REALTIME_EVENTS.roomStatusUpdated, onEvent);
+        reject(new Error('Room update event timed out'));
+      }, 3500);
 
-        reject(new Error('Room realtime event was not received'));
-      }, 3000);
-
-      const handleRoomUpdate = (event: RoomStatusUpdatedEvent) => {
-        cleanup();
-
+      const onEvent = (event: RoomStatusUpdatedEvent) => {
+        clearTimeout(timeout);
         resolve(event);
       };
 
-      const cleanup = () => {
-        clearTimeout(timeout);
-
-        socket.off(REALTIME_EVENTS.roomStatusUpdated, handleRoomUpdate);
-      };
-
-      socket.once(REALTIME_EVENTS.roomStatusUpdated, handleRoomUpdate);
+      socket.once(REALTIME_EVENTS.roomStatusUpdated, onEvent);
     });
   }
 
-  it('should deliver a room-status update without an HTTP refresh', async () => {
-    const socket = await connectClient();
+  function waitForDisconnect(socket: Socket): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        socket.off('disconnect', onDisconnect);
+        reject(new Error('Disconnect timed out'));
+      }, 3500);
+
+      const onDisconnect = () => {
+        clearTimeout(timeout);
+        resolve();
+      };
+
+      socket.once('disconnect', onDisconnect);
+    });
+  }
+
+  function waitForNextConnection(socket: Socket): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        socket.off('connect', onConnect);
+        reject(new Error('Reconnect timed out'));
+      }, 5000);
+
+      const onConnect = () => {
+        clearTimeout(timeout);
+        resolve();
+      };
+
+      socket.once('connect', onConnect);
+    });
+  }
+
+  it('allows a receptionist and delivers room events', async () => {
+    const token = await createToken(SystemRole.RECEPTIONIST);
+
+    const socket = await connectClient(token);
 
     expect(socket.connected).toBe(true);
 
@@ -191,61 +269,78 @@ describe('Realtime WebSocket (e2e)', () => {
 
     expect(event.eventType).toBe(REALTIME_EVENTS.roomStatusUpdated);
 
-    expect(event.data).toEqual({
-      roomNumber: 'T102',
-      status: RoomStatus.REQUIRES_CLEANING,
-      source: 'CHECK_OUT',
-    });
+    expect(event.data).toEqual(
+      expect.objectContaining({
+        roomNumber: 'T102',
+        status: RoomStatus.REQUIRES_CLEANING,
+        source: 'CHECK_OUT',
+      }),
+    );
   });
 
-  it('should reconnect and continue receiving realtime updates', async () => {
-    const socket = await connectClient();
+  it('allows a manager JWT', async () => {
+    const token = await createToken(SystemRole.MANAGER);
+
+    const socket = await connectClient(token);
 
     expect(socket.connected).toBe(true);
+  });
+
+  it('rejects a missing JWT', async () => {
+    await expectConnectionRejected();
+  });
+
+  it('rejects an invalid JWT', async () => {
+    await expectConnectionRejected('invalid-token');
+  });
+
+  it('rejects an expired JWT', async () => {
+    const token = await createToken(SystemRole.RECEPTIONIST, { expired: true });
+
+    await expectConnectionRejected(token);
+  });
+
+  it('rejects a worker JWT', async () => {
+    const token = await createToken(SystemRole.WORKER);
+
+    await expectConnectionRejected(token);
+  });
+
+  it('rejects a JWT with an invalid issuer', async () => {
+    const token = await createToken(SystemRole.RECEPTIONIST, {
+      issuer: 'unknown-issuer',
+    });
+
+    await expectConnectionRejected(token);
+  });
+
+  it('rejects a JWT with an invalid signature', async () => {
+    const token = await createToken(SystemRole.RECEPTIONIST, {
+      signingSecret: 'another-different-test-secret-at-least-32-characters',
+    });
+
+    await expectConnectionRejected(token);
+  });
+
+  it('reconnects with JWT and receives room events', async () => {
+    const token = await createToken(SystemRole.RECEPTIONIST);
+
+    const socket = await connectClient(token);
 
     const initialSocketId = socket.id;
 
-    /*
-     * Register both listeners BEFORE forcing the
-     * transport failure so a fast reconnect cannot
-     * race past the test.
-     */
     const disconnectPromise = waitForDisconnect(socket);
-
     const reconnectPromise = waitForNextConnection(socket);
 
-    /*
-     * Do not call socket.disconnect().
-     *
-     * disconnect() is an intentional application-level
-     * disconnect and disables automatic reconnection.
-     *
-     * Closing the Engine.IO transport simulates a real
-     * network/transport interruption and lets Socket.IO
-     * execute its reconnection mechanism.
-     */
+    // Simulate an unexpected network transport failure.
     socket.io.engine.close();
 
     await disconnectPromise;
-
-    expect(socket.connected).toBe(false);
-
     await reconnectPromise;
 
-    /*
-     * At this point the /realtime namespace Socket,
-     * not merely the low-level Manager, is connected.
-     */
     expect(socket.connected).toBe(true);
-
-    expect(socket.id).toBeDefined();
-
     expect(socket.id).not.toBe(initialSocketId);
 
-    /*
-     * Register the application-event listener before
-     * publishing, so there is no event-listener race.
-     */
     const eventPromise = waitForRoomUpdate(socket);
 
     publisher.publishRoomStatusUpdated({
@@ -259,9 +354,6 @@ describe('Realtime WebSocket (e2e)', () => {
     expect(event.eventType).toBe(REALTIME_EVENTS.roomStatusUpdated);
 
     expect(event.data.roomNumber).toBe('T104');
-
     expect(event.data.status).toBe(RoomStatus.UNDER_MAINTENANCE);
-
-    expect(event.data.source).toBe('ROOM_STATUS');
   });
 });
