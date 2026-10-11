@@ -256,14 +256,18 @@ export function CheckOutScreen({ performedBy }: CheckOutScreenProps) {
         {searchResults.length > 0 && (
           <div className={styles.tableWrapper}>
             <table className={styles.guestTable}>
-              <caption className="fds-visually-hidden">Checked-in bookings for check-out</caption>
+              <caption className="fds-visually-hidden">
+                Checked-in bookings for check-out
+              </caption>
               <thead>
                 <tr>
                   <th scope="col">GUEST</th>
                   <th scope="col">BOOKING REF</th>
                   <th scope="col">CHECK-OUT</th>
                   <th scope="col">STATUS</th>
-                  <th scope="col"><span className="fds-visually-hidden">Actions</span></th>
+                  <th scope="col">
+                    <span className="fds-visually-hidden">Actions</span>
+                  </th>
                 </tr>
               </thead>
 
@@ -367,7 +371,9 @@ export function CheckOutScreen({ performedBy }: CheckOutScreenProps) {
 
             <div className={styles.tableWrapper}>
               <table className={styles.folioTable}>
-              <caption className="fds-visually-hidden">Itemised guest folio charges</caption>
+                <caption className="fds-visually-hidden">
+                  Itemised guest folio charges
+                </caption>
                 <thead>
                   <tr>
                     <th scope="col">DATE</th>

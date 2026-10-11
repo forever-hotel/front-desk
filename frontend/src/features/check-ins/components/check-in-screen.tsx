@@ -381,7 +381,9 @@ export function CheckInScreen({ performedBy }: CheckInScreenProps) {
         {searchResults.length > 0 && (
           <div className={styles.tableWrapper}>
             <table className={styles.table}>
-              <caption className="fds-visually-hidden">Confirmed bookings for check-in</caption>
+              <caption className="fds-visually-hidden">
+                Confirmed bookings for check-in
+              </caption>
               <thead>
                 <tr>
                   <th scope="col">Guest Name</th>
@@ -390,7 +392,9 @@ export function CheckInScreen({ performedBy }: CheckInScreenProps) {
                   <th scope="col">Check-In</th>
                   <th scope="col">Check-Out</th>
                   <th scope="col">Status</th>
-                  <th scope="col"><span className="fds-visually-hidden">Actions</span></th>
+                  <th scope="col">
+                    <span className="fds-visually-hidden">Actions</span>
+                  </th>
                 </tr>
               </thead>
 

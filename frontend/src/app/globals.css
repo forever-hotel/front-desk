@@ -700,8 +700,13 @@ html::-webkit-scrollbar-thumb:hover {
   font-weight: 700;
   text-decoration: underline;
 }
-.fds-skip-link:focus-visible { transform: translateY(0); }
-.fds-nav-section-label, .fds-session-active, .fds-session-time, .fds-user-role {
+.fds-skip-link:focus-visible {
+  transform: translateY(0);
+}
+.fds-nav-section-label,
+.fds-session-active,
+.fds-session-time,
+.fds-user-role {
   color: #b8c7d6;
 }
 :where(a, button, input, textarea, select, [role="button"]):focus-visible {
@@ -722,7 +727,9 @@ html::-webkit-scrollbar-thumb:hover {
 @media (max-width: 900px) {
   .fds-sidebar {
     visibility: hidden;
-    transition: transform 180ms ease, visibility 0s linear 180ms;
+    transition:
+      transform 180ms ease,
+      visibility 0s linear 180ms;
   }
   .fds-sidebar.is-open {
     visibility: visible;
@@ -730,6 +737,9 @@ html::-webkit-scrollbar-thumb:hover {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .fds-sidebar, .fds-sidebar.is-open,
-  .fds-skip-link { transition: none !important; }
+  .fds-sidebar,
+  .fds-sidebar.is-open,
+  .fds-skip-link {
+    transition: none !important;
+  }
 }
