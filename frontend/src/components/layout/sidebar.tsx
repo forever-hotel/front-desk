@@ -73,6 +73,7 @@ export default function Sidebar({ isOpen, onNavigate }: SidebarProps) {
 
   return (
     <aside
+      id="fds-primary-navigation"
       className={`fds-sidebar ${isOpen ? "is-open" : ""}`}
       aria-label="Front Desk navigation"
     >

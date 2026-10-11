@@ -357,7 +357,7 @@ export function CheckInScreen({ performedBy }: CheckInScreenProps) {
             type="error"
             showIcon
             className={styles.stateAlert}
-            message="Booking search failed."
+            title="Booking search failed."
             description={
               searchMutation.error instanceof Error
                 ? searchMutation.error.message
@@ -381,15 +381,16 @@ export function CheckInScreen({ performedBy }: CheckInScreenProps) {
         {searchResults.length > 0 && (
           <div className={styles.tableWrapper}>
             <table className={styles.table}>
+              <caption className="fds-visually-hidden">Confirmed bookings for check-in</caption>
               <thead>
                 <tr>
-                  <th>Guest Name</th>
-                  <th>Ref #</th>
-                  <th>Room Type</th>
-                  <th>Check-In</th>
-                  <th>Check-Out</th>
-                  <th>Status</th>
-                  <th />
+                  <th scope="col">Guest Name</th>
+                  <th scope="col">Ref #</th>
+                  <th scope="col">Room Type</th>
+                  <th scope="col">Check-In</th>
+                  <th scope="col">Check-Out</th>
+                  <th scope="col">Status</th>
+                  <th scope="col"><span className="fds-visually-hidden">Actions</span></th>
                 </tr>
               </thead>
 
@@ -488,7 +489,7 @@ export function CheckInScreen({ performedBy }: CheckInScreenProps) {
               <Alert
                 type="info"
                 showIcon
-                message="The current backend records document type and verification method. It does not accept an ID-number field."
+                title="The current backend records document type and verification method. It does not accept an ID-number field."
               />
 
               <Checkbox
@@ -524,7 +525,7 @@ export function CheckInScreen({ performedBy }: CheckInScreenProps) {
               <Alert
                 type="error"
                 showIcon
-                message="Unable to load room availability."
+                title="Unable to load room availability."
               />
             </div>
           ) : roomsLoading ? (
@@ -538,7 +539,7 @@ export function CheckInScreen({ performedBy }: CheckInScreenProps) {
               <Alert
                 type="warning"
                 showIcon
-                message={`No vacant ${selectedBooking.roomType} rooms are currently available.`}
+                title={`No vacant ${selectedBooking.roomType} rooms are currently available.`}
               />
             </div>
           ) : (
@@ -571,7 +572,7 @@ export function CheckInScreen({ performedBy }: CheckInScreenProps) {
               <Alert
                 type="info"
                 showIcon
-                message="After confirmation, the assigned room becomes Occupied and FOSS activation is attempted automatically."
+                title="After confirmation, the assigned room becomes Occupied and FOSS activation is attempted automatically."
               />
             </div>
           )}
@@ -632,20 +633,20 @@ export function CheckInScreen({ performedBy }: CheckInScreenProps) {
               <Alert
                 type="warning"
                 showIcon
-                message="Check-in submission is waiting for authenticated receptionist identity integration."
+                title="Check-in submission is waiting for authenticated receptionist identity integration."
                 description="The backend requires verifiedBy to match the authenticated Front Desk receptionist. No UUID is hardcoded in the frontend."
               />
             )}
 
             {validationError && (
-              <Alert type="error" showIcon message={validationError} />
+              <Alert type="error" showIcon title={validationError} />
             )}
 
             {checkInMutation.isError && (
               <Alert
                 type="error"
                 showIcon
-                message="Guest check-in could not be completed."
+                title="Guest check-in could not be completed."
                 description={
                   checkInMutation.error instanceof Error
                     ? checkInMutation.error.message
@@ -659,14 +660,14 @@ export function CheckInScreen({ performedBy }: CheckInScreenProps) {
                 <Alert
                   type="success"
                   showIcon
-                  message={`Check-in completed. Room ${checkInResult.roomNumber} is now occupied.`}
+                  title={`Check-in completed. Room ${checkInResult.roomNumber} is now occupied.`}
                 />
 
                 {checkInResult.fossSession.status === "ACTIVATED" ? (
                   <Alert
                     type="success"
                     showIcon
-                    message="FOSS guest session activated."
+                    title="FOSS guest session activated."
                     description={`Valid until ${formatDate(
                       checkInResult.fossSession.validUntilDate,
                     )}.`}
@@ -675,7 +676,7 @@ export function CheckInScreen({ performedBy }: CheckInScreenProps) {
                   <Alert
                     type="warning"
                     showIcon
-                    message="Check-in succeeded, but FOSS activation failed."
+                    title="Check-in succeeded, but FOSS activation failed."
                     description="The hotel check-in transaction has already been committed."
                   />
                 )}
@@ -686,7 +687,7 @@ export function CheckInScreen({ performedBy }: CheckInScreenProps) {
               <Alert
                 type="error"
                 showIcon
-                message="Registration-card print request failed."
+                title="Registration-card print request failed."
                 description={
                   printMutation.error instanceof Error
                     ? printMutation.error.message
@@ -699,7 +700,7 @@ export function CheckInScreen({ performedBy }: CheckInScreenProps) {
               <Alert
                 type="success"
                 showIcon
-                message="Registration-card print request accepted."
+                title="Registration-card print request accepted."
                 description={`Print job: ${printMutation.data.printJobReference}`}
               />
             )}

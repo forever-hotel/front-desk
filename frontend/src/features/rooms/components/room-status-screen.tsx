@@ -193,7 +193,7 @@ export function RoomStatusScreen() {
           type="success"
           showIcon
           closable
-          message={successMessage}
+          title={successMessage}
           className={styles.feedback}
           onClose={() => setSuccessMessage(null)}
         />
@@ -203,7 +203,7 @@ export function RoomStatusScreen() {
         <Alert
           type="error"
           showIcon
-          message="Unable to load the room-status board."
+          title="Unable to load the room-status board."
           description="Please try again."
           className={styles.feedback}
         />
@@ -291,7 +291,7 @@ export function RoomStatusScreen() {
         centered
         width={500}
         closable={!updateRoomStatusMutation.isPending}
-        maskClosable={!updateRoomStatusMutation.isPending}
+        mask={{ closable: !updateRoomStatusMutation.isPending }}
         className={styles.maintenanceModal}
       >
         <div className={styles.modalBody}>
@@ -332,14 +332,14 @@ export function RoomStatusScreen() {
           <Alert
             type="warning"
             showIcon
-            message="This room will be blocked from guest allocation until it is cleared by a receptionist."
+            title="This room will be blocked from guest allocation until it is cleared by a receptionist."
           />
 
           {updateRoomStatusMutation.isError && (
             <Alert
               type="error"
               showIcon
-              message="Unable to mark this room under maintenance."
+              title="Unable to mark this room under maintenance."
               description={
                 updateRoomStatusMutation.error instanceof Error
                   ? updateRoomStatusMutation.error.message

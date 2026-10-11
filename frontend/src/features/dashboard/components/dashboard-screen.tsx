@@ -301,7 +301,7 @@ export function DashboardScreen() {
                 <Alert
                   type="error"
                   showIcon
-                  message="Unable to load room status."
+                  title="Unable to load room status."
                   action={
                     <Button
                       size="small"
@@ -376,7 +376,7 @@ export function DashboardScreen() {
                 <Alert
                   type="error"
                   showIcon
-                  message="Unable to load escalations."
+                  title="Unable to load escalations."
                   action={
                     <Button
                       size="small"
@@ -564,7 +564,7 @@ function BookingScheduleCard({
           <Alert
             type="error"
             showIcon
-            message={`Unable to load ${title.toLowerCase()}.`}
+            title={`Unable to load ${title.toLowerCase()}.`}
             action={
               <Button size="small" onClick={onRetry}>
                 Retry

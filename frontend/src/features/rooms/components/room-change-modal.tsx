@@ -153,7 +153,7 @@ export function RoomChangeModal({
       centered
       onCancel={handleClose}
       closable={!roomChangeMutation.isPending}
-      maskClosable={!roomChangeMutation.isPending}
+      mask={{ closable: !roomChangeMutation.isPending }}
       className={styles.modal}
     >
       <div className={styles.body}>
@@ -185,7 +185,7 @@ export function RoomChangeModal({
           <Alert
             type="error"
             showIcon
-            message="Unable to search checked-in guests."
+            title="Unable to search checked-in guests."
             description={
               searchMutation.error instanceof Error
                 ? searchMutation.error.message
@@ -264,7 +264,7 @@ export function RoomChangeModal({
                 <Alert
                   type="error"
                   showIcon
-                  message="Unable to load available rooms."
+                  title="Unable to load available rooms."
                   description={
                     availableRoomsQuery.error instanceof Error
                       ? availableRoomsQuery.error.message
@@ -312,14 +312,14 @@ export function RoomChangeModal({
             <Alert
               type="info"
               showIcon
-              message="After confirmation, the previous room becomes Requires Cleaning and the new room becomes Occupied."
+              title="After confirmation, the previous room becomes Requires Cleaning and the new room becomes Occupied."
             />
 
             {!performedBy && (
               <Alert
                 type="warning"
                 showIcon
-                message="Room-change confirmation is waiting for authenticated Front Desk staff identity integration."
+                title="Room-change confirmation is waiting for authenticated Front Desk staff identity integration."
                 description="No staff UUID is hardcoded in the frontend."
               />
             )}
@@ -328,7 +328,7 @@ export function RoomChangeModal({
               <Alert
                 type="error"
                 showIcon
-                message="Room change could not be completed."
+                title="Room change could not be completed."
                 description={
                   roomChangeMutation.error instanceof Error
                     ? roomChangeMutation.error.message

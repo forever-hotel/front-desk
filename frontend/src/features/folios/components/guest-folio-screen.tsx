@@ -171,7 +171,7 @@ export function GuestFolioScreen() {
             <Alert
               type="error"
               showIcon
-              message="Unable to search bookings."
+              title="Unable to search bookings."
               description={
                 searchMutation.error instanceof Error
                   ? searchMutation.error.message
@@ -237,7 +237,7 @@ export function GuestFolioScreen() {
           type="error"
           showIcon
           className={styles.feedback}
-          message="Unable to load the running folio."
+          title="Unable to load the running folio."
           description={
             folioQuery.error instanceof Error
               ? folioQuery.error.message

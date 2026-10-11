@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type Ref } from "react";
 import Link from "next/link";
 import { Diamond, Menu } from "lucide-react";
 
@@ -9,9 +9,15 @@ import styles from "./escalation-indicators.module.css";
 
 type HeaderProps = {
   onMenuToggle: () => void;
+  menuButtonRef?: Ref<HTMLButtonElement>;
+  expanded?: boolean;
 };
 
-export default function Header({ onMenuToggle }: HeaderProps) {
+export default function Header({
+  onMenuToggle,
+  menuButtonRef,
+  expanded = false,
+}: HeaderProps) {
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const { count, state } = useEscalationSummary();
 
@@ -53,6 +59,9 @@ export default function Header({ onMenuToggle }: HeaderProps) {
           type="button"
           className="fds-menu-button"
           onClick={onMenuToggle}
+          ref={menuButtonRef}
+          aria-controls="fds-primary-navigation"
+          aria-expanded={expanded}
           aria-label="Toggle navigation"
         >
           <Menu size={21} />

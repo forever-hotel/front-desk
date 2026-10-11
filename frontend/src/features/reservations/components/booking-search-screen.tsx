@@ -233,7 +233,7 @@ export function BookingSearchScreen() {
               <Alert
                 type="error"
                 showIcon
-                message={
+                title={
                   hasSearched
                     ? "Booking search failed"
                     : "Recent bookings could not be loaded"
