@@ -1,0 +1,15 @@
+.headerLink:focus-visible {
+  outline: 3px solid #e4aa37;
+  outline-offset: 4px;
+}
+
+.sidebarUnavailable {
+  font-size: 12px;
+  font-weight: 600;
+  color: #e4c7a8;
+}
+
+.sidebarLink:focus-visible {
+  outline: 2px solid #d9e5f0;
+  outline-offset: 2px;
+}

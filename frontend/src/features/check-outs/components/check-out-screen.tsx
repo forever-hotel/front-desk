@@ -169,7 +169,7 @@ export function CheckOutScreen({ performedBy }: CheckOutScreenProps) {
           type="success"
           showIcon
           className={styles.feedback}
-          message="Guest check-out completed successfully."
+          title="Guest check-out completed successfully."
           description={
             <div className={styles.resultDetails}>
               <span>
@@ -227,7 +227,7 @@ export function CheckOutScreen({ performedBy }: CheckOutScreenProps) {
             <Alert
               type="error"
               showIcon
-              message="Guest search failed."
+              title="Guest search failed."
               description={
                 searchMutation.error instanceof Error
                   ? searchMutation.error.message
@@ -256,13 +256,18 @@ export function CheckOutScreen({ performedBy }: CheckOutScreenProps) {
         {searchResults.length > 0 && (
           <div className={styles.tableWrapper}>
             <table className={styles.guestTable}>
+              <caption className="fds-visually-hidden">
+                Checked-in bookings for check-out
+              </caption>
               <thead>
                 <tr>
-                  <th>GUEST</th>
-                  <th>BOOKING REF</th>
-                  <th>CHECK-OUT</th>
-                  <th>STATUS</th>
-                  <th />
+                  <th scope="col">GUEST</th>
+                  <th scope="col">BOOKING REF</th>
+                  <th scope="col">CHECK-OUT</th>
+                  <th scope="col">STATUS</th>
+                  <th scope="col">
+                    <span className="fds-visually-hidden">Actions</span>
+                  </th>
                 </tr>
               </thead>
 
@@ -327,7 +332,7 @@ export function CheckOutScreen({ performedBy }: CheckOutScreenProps) {
           className={styles.feedback}
           type="error"
           showIcon
-          message="Unable to load guest folio."
+          title="Unable to load guest folio."
           description={
             folioQuery.error instanceof Error
               ? folioQuery.error.message
@@ -366,12 +371,15 @@ export function CheckOutScreen({ performedBy }: CheckOutScreenProps) {
 
             <div className={styles.tableWrapper}>
               <table className={styles.folioTable}>
+                <caption className="fds-visually-hidden">
+                  Itemised guest folio charges
+                </caption>
                 <thead>
                   <tr>
-                    <th>DATE</th>
-                    <th>DESCRIPTION</th>
-                    <th>REF</th>
-                    <th>LKR</th>
+                    <th scope="col">DATE</th>
+                    <th scope="col">DESCRIPTION</th>
+                    <th scope="col">REF</th>
+                    <th scope="col">LKR</th>
                   </tr>
                 </thead>
 
@@ -431,7 +439,7 @@ export function CheckOutScreen({ performedBy }: CheckOutScreenProps) {
                 <Alert
                   type="info"
                   showIcon
-                  message="Final payment is calculated by the backend."
+                  title="Final payment is calculated by the backend."
                   description="Completed deposits and the outstanding balance will be confirmed during checkout. The total above is not necessarily the amount due."
                 />
               </div>
@@ -444,7 +452,7 @@ export function CheckOutScreen({ performedBy }: CheckOutScreenProps) {
                 <Alert
                   type="warning"
                   showIcon
-                  message="After successful checkout"
+                  title="After successful checkout"
                   description="The room will become Requires Cleaning, a cleaning event will be sent to WKMS, and FOSS deactivation will be attempted."
                 />
 
@@ -452,20 +460,20 @@ export function CheckOutScreen({ performedBy }: CheckOutScreenProps) {
                   <Alert
                     type="warning"
                     showIcon
-                    message="Authenticated receptionist integration is required."
+                    title="Authenticated receptionist integration is required."
                     description="The backend requires performedBy to match the signed-in receptionist. No staff identity is hardcoded."
                   />
                 )}
 
                 {validationError && (
-                  <Alert type="error" showIcon message={validationError} />
+                  <Alert type="error" showIcon title={validationError} />
                 )}
 
                 {checkoutMutation.isError && (
                   <Alert
                     type="error"
                     showIcon
-                    message="Guest checkout could not be completed."
+                    title="Guest checkout could not be completed."
                     description={
                       checkoutMutation.error instanceof Error
                         ? checkoutMutation.error.message
@@ -525,20 +533,20 @@ export function CheckOutScreen({ performedBy }: CheckOutScreenProps) {
               <Alert
                 type="success"
                 showIcon
-                message={`Room ${checkoutResult.roomNumber} → Requires Cleaning`}
+                title={`Room ${checkoutResult.roomNumber} → Requires Cleaning`}
               />
 
               {checkoutResult.fossSession.status === "DEACTIVATED" ? (
                 <Alert
                   type="success"
                   showIcon
-                  message="FOSS session deactivated."
+                  title="FOSS session deactivated."
                 />
               ) : (
                 <Alert
                   type="warning"
                   showIcon
-                  message="Checkout succeeded, but FOSS deactivation failed."
+                  title="Checkout succeeded, but FOSS deactivation failed."
                   description="The core hotel checkout has already been committed."
                 />
               )}
