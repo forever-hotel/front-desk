@@ -1,0 +1,101 @@
+
+name: Front Desk Docker CI
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+      - "feature/**"
+      - "fix/**"
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "compose.fds.yaml"
+      - ".github/workflows/docker-ci.yml"
+
+  pull_request:
+    branches:
+      - develop
+      - main
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "compose.fds.yaml"
+      - ".github/workflows/docker-ci.yml"
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docker-build:
+    name: Build and Verify Docker Images
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Build Backend Docker image
+        run: |
+          docker build \
+            --pull \
+            --file backend/Dockerfile \
+            --tag forever-fds-backend:ci \
+            backend
+
+      - name: Build Frontend Docker image
+        run: |
+          docker build \
+            --pull \
+            --file frontend/Dockerfile \
+            --tag forever-fds-frontend:ci \
+            frontend
+
+      - name: Verify non-root Docker images
+        shell: bash
+        run: |
+          for image in forever-fds-backend:ci forever-fds-frontend:ci; do
+            echo "Checking $image"
+
+            test "$(docker image inspect --format '{{.Config.User}}' "$image")" = "node"
+
+            docker run --rm --entrypoint node "$image" --version
+          done
+
+      - name: Start Frontend smoke container
+        run: |
+          docker run -d \
+            --name fds-frontend-ci-smoke \
+            -p 127.0.0.1:3100:3000 \
+            forever-fds-frontend:ci
+
+      - name: Verify Frontend HTTP response
+        shell: bash
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent \
+              http://127.0.0.1:3100/ \
+              --output /dev/null; then
+
+              echo "Frontend HTTP smoke test PASS"
+              exit 0
+            fi
+
+            sleep 2
+          done
+
+          docker logs fds-frontend-ci-smoke
+          exit 1
+
+      - name: Clean up smoke container
+        if: always()
+        run: |
+          docker rm -f fds-frontend-ci-smoke 2>/dev/null || true
