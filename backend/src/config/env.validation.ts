@@ -17,6 +17,7 @@ export const envValidationSchema = Joi.object({
   DB_HOST: Joi.string().optional(),
 
   DB_PORT: Joi.number().port().default(5432),
+  FDS_ALLOWED_ORIGINS: Joi.string().trim().optional(),
 
   DB_USERNAME: Joi.string().optional(),
 
@@ -82,6 +83,42 @@ export const envValidationSchema = Joi.object({
 
     if (deploymentRequiresJwt && !value.JWT_SECRET) {
       return helpers.error('auth.jwtSecretRequired');
+    }
+    if (deploymentRequiresJwt && value.DB_SYNCHRONIZE === true) {
+      return helpers.message({
+        custom: 'DB_SYNCHRONIZE must be false in staging and production',
+      });
+    }
+
+    const origins = value.FDS_ALLOWED_ORIGINS
+      ? String(value.FDS_ALLOWED_ORIGINS)
+          .split(',')
+          .map((origin) => origin.trim())
+      : [];
+
+    if (deploymentRequiresJwt && origins.length === 0) {
+      return helpers.message({
+        custom: 'FDS_ALLOWED_ORIGINS is required in staging and production',
+      });
+    }
+
+    const invalidOrigin = origins.some((origin) => {
+      try {
+        const parsed = new URL(origin);
+
+        return (
+          !['http:', 'https:'].includes(parsed.protocol) ||
+          parsed.origin !== origin
+        );
+      } catch {
+        return true;
+      }
+    });
+
+    if (invalidOrigin) {
+      return helpers.message({
+        custom: 'FDS_ALLOWED_ORIGINS contains an invalid origin',
+      });
     }
 
     if (value.RABBITMQ_ENABLED === true && !value.RABBITMQ_URL) {
