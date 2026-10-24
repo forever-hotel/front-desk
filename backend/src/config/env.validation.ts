@@ -31,6 +31,16 @@ export const envValidationSchema = Joi.object({
 
   DB_LOGGING: Joi.boolean().truthy('true').falsy('false').default(false),
 
+  // Central Auth contract is proposed; opt in only after the auth team agrees.
+  FDS_AUTH_PROVIDER: Joi.string().valid('legacy', 'central').default('legacy'),
+  CENTRAL_AUTH_ISSUER: Joi.string()
+    .uri({ scheme: ['https'] })
+    .optional(),
+  CENTRAL_AUTH_AUDIENCE: Joi.string().valid('fds').optional(),
+  CENTRAL_AUTH_JWKS_URL: Joi.string()
+    .uri({ scheme: ['https'] })
+    .optional(),
+
   JWT_SECRET: Joi.string().min(32).optional(),
 
   JWT_ISSUER: Joi.string().trim().min(3).max(100).default('forever-hotel-auth'),
@@ -81,9 +91,27 @@ export const envValidationSchema = Joi.object({
     const deploymentRequiresJwt =
       value.NODE_ENV === 'staging' || value.NODE_ENV === 'production';
 
-    if (deploymentRequiresJwt && !value.JWT_SECRET) {
+    if (
+      deploymentRequiresJwt &&
+      value.FDS_AUTH_PROVIDER === 'legacy' &&
+      !value.JWT_SECRET
+    ) {
       return helpers.error('auth.jwtSecretRequired');
     }
+    if (value.FDS_AUTH_PROVIDER === 'central') {
+      const missing = [
+        'CENTRAL_AUTH_ISSUER',
+        'CENTRAL_AUTH_AUDIENCE',
+        'CENTRAL_AUTH_JWKS_URL',
+      ].find((name) => !value[name]);
+
+      if (missing) {
+        return helpers.message({
+          custom: `${missing} is required when FDS_AUTH_PROVIDER is central`,
+        });
+      }
+    }
+
     if (deploymentRequiresJwt && value.DB_SYNCHRONIZE === true) {
       return helpers.message({
         custom: 'DB_SYNCHRONIZE must be false in staging and production',

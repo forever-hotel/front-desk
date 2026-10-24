@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthenticatedPrincipalGuard } from './auth/authenticated-principal.guard';
+import { createConfiguredPrincipalResolver } from './auth/configured-principal.resolver';
 import { JwtPrincipalResolver } from './auth/jwt-principal.resolver';
 import { PrincipalResolver } from './auth/principal-resolver';
 import { RolesGuard } from './auth/roles.guard';
@@ -12,7 +13,8 @@ import { RolesGuard } from './auth/roles.guard';
     JwtPrincipalResolver,
     {
       provide: PrincipalResolver,
-      useExisting: JwtPrincipalResolver,
+      useFactory: createConfiguredPrincipalResolver,
+      inject: [ConfigService, JwtPrincipalResolver],
     },
     AuthenticatedPrincipalGuard,
     RolesGuard,

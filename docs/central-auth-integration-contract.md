@@ -36,3 +36,35 @@ proposed token profile. It is **not wired into production authentication yet**.
 Existing FDS HS256 JWT handling remains unchanged until the above contract is
 approved and integration is implemented. Tests use local keys and do not need a
 running Central Authentication Service.
+
+## Phase A2: backend verifier adapter (proposed)
+
+The FDS backend now supports an **explicit** runtime selection:
+
+- `FDS_AUTH_PROVIDER=legacy` (default): existing HS256 JWT verifier. This is
+  retained for existing local Docker and CI scenarios only; it is **not** a
+  central authentication integration.
+- `FDS_AUTH_PROVIDER=central`: select the RS256 verifier backed by a trusted
+  HTTPS JWKS URL. The backend requires all three values below:
+
+```dotenv
+FDS_AUTH_PROVIDER=central
+CENTRAL_AUTH_ISSUER=https://auth.example.invalid
+CENTRAL_AUTH_AUDIENCE=fds
+CENTRAL_AUTH_JWKS_URL=https://auth.example.invalid/.well-known/jwks.json
+```
+
+The URLs above are placeholders, not working service endpoints. Never copy them
+into a live deployment. Central mode requires agreed real values and **never
+falls back to the legacy HS256 secret** if central verification fails.
+
+REST Bearer token validation and Socket.IO token validation both use the same
+`PrincipalResolver`. No login, frontend session or logout implementation is
+created by this phase. An RS256 JWT's signature/expiry is validated, but this
+alone does not implement instant session revocation; align token TTL and
+revocation expectations with Central Auth before going live.
+
+The JWKS URL comes only from trusted server environment configuration, not the
+unverified token. The verifier rejects tokens for other audiences, issuers or
+roles. HTTPS JWKS availability, certificate trust, staff revocation semantics,
+key rotation and access-token claim format require live service testing.
