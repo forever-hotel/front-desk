@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Diamond, Menu } from "lucide-react";
 
 import { useEscalationSummary } from "@/features/escalations/hooks/use-escalation-summary";
+import { useOptionalCentralAuthSession } from "@/features/auth/providers/central-auth-session-provider";
 import styles from "./escalation-indicators.module.css";
 
 type HeaderProps = {
@@ -20,6 +21,22 @@ export default function Header({
 }: HeaderProps) {
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const { count, state } = useEscalationSummary();
+  const auth = useOptionalCentralAuthSession();
+  const staff = auth?.status === "authenticated" ? auth.session : null;
+  const staffName = staff?.displayName ?? "Demo mode";
+  const staffRole = staff
+    ? staff.role === "RECEPTIONIST"
+      ? "Receptionist"
+      : "Manager"
+    : "Identity not verified";
+  const initials = staff
+    ? staff.displayName
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((part) => part.charAt(0))
+        .join("")
+        .toUpperCase()
+    : "—";
 
   useEffect(() => {
     const updateTime = () => setCurrentTime(new Date());
@@ -81,12 +98,11 @@ export default function Header({
           {currentTime ? formatDateTime(currentTime) : "—"}
         </div>
 
-        {/* Existing placeholder staff presentation; real Auth UI is separate work. */}
         <div className="fds-user">
-          <div className="fds-user-avatar">RC</div>
+          <div className="fds-user-avatar">{initials}</div>
           <div className="fds-user-details">
-            <span className="fds-user-name">R. Chandra</span>
-            <span className="fds-user-role">Receptionist</span>
+            <span className="fds-user-name">{staffName}</span>
+            <span className="fds-user-role">{staffRole}</span>
           </div>
         </div>
 
