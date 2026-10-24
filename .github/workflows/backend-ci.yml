@@ -124,6 +124,5 @@ jobs:
       - name: Run end-to-end tests
         run: npm run test:e2e
 
-      - name: Run dependency security scan
-        continue-on-error: true
+      - name: Enforce dependency security
         run: npm audit --audit-level=high

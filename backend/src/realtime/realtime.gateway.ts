@@ -15,6 +15,7 @@ import {
 } from './realtime.constants';
 
 import { RealtimeSocketAuthService } from './realtime-socket-auth.service';
+import { getAllowedOrigins } from '../config/cors.config';
 
 import type {
   RealtimeReadyEvent,
@@ -25,7 +26,15 @@ import type {
 @WebSocketGateway({
   namespace: REALTIME_NAMESPACE,
   cors: {
-    origin: 'http://localhost:3000',
+    origin: (requestOrigin, callback) => {
+      if (!requestOrigin) {
+        callback(null, true);
+        return;
+      }
+
+      const allowed = getAllowedOrigins().includes(requestOrigin);
+      callback(null, allowed);
+    },
     credentials: true,
   },
 })

@@ -72,6 +72,9 @@ jobs:
       - name: Build Next.js frontend
         run: npm run build
 
-      - name: Run dependency security scan
+      - name: Enforce production dependency security
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Report all dependency vulnerabilities
         continue-on-error: true
         run: npm audit --audit-level=high

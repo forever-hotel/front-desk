@@ -1,0 +1,36 @@
+
+# Dependencies
+node_modules
+.pnp
+.yarn
+
+# Build output
+.next
+out
+build
+coverage
+
+# Environment and credentials
+.env
+.env.*
+.npmrc
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Git metadata and archives
+.git
+.git.*
+*.zip
+
+# Development files
+.vscode
+.idea
+.vercel
+*.log
+npm-debug.log*
+*.tsbuildinfo
+
+# Documentation
+README.md

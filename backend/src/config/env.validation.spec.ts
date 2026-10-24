@@ -23,6 +23,7 @@ describe('Environment validation', () => {
       DB_SSL: true,
       DB_SYNCHRONIZE: false,
       DB_LOGGING: false,
+      FDS_ALLOWED_ORIGINS: 'https://frontdesk.example.com',
     });
 
     expect(error).toBeUndefined();
@@ -67,6 +68,37 @@ describe('Environment validation', () => {
 
     expect(error?.message).toContain('JWT_SECRET');
   });
+  it('rejects database synchronization in production', () => {
+    const { error } = envValidationSchema.validate({
+      NODE_ENV: 'production',
+      DATABASE_URL: 'postgresql://user:pass@example.com/db',
+      JWT_SECRET: 'a'.repeat(32),
+      FDS_ALLOWED_ORIGINS: 'https://frontdesk.example.com',
+      DB_SYNCHRONIZE: true,
+    });
+
+    expect(error).toBeDefined();
+  });
+
+  it('requires CORS origins in production', () => {
+    const { error } = envValidationSchema.validate({
+      NODE_ENV: 'production',
+      DATABASE_URL: 'postgresql://user:pass@example.com/db',
+      JWT_SECRET: 'a'.repeat(32),
+    });
+
+    expect(error).toBeDefined();
+  });
+
+  it('rejects wildcard CORS origins', () => {
+    const { error } = envValidationSchema.validate({
+      NODE_ENV: 'development',
+      DATABASE_URL: 'postgresql://user:pass@example.com/db',
+      FDS_ALLOWED_ORIGINS: '*',
+    });
+
+    expect(error).toBeDefined();
+  });
 
   it('should require JWT_SECRET in production', () => {
     const { error } = envValidationSchema.validate({
@@ -95,6 +127,7 @@ describe('Environment validation', () => {
       DATABASE_URL: 'postgresql://user:password@example.com:5432/forever_hotel',
       JWT_SECRET: 'production-test-secret-at-least-32-characters',
       JWT_ISSUER: 'forever-hotel-auth',
+      FDS_ALLOWED_ORIGINS: 'https://frontdesk.example.com',
     });
 
     expect(error).toBeUndefined();
