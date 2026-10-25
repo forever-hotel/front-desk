@@ -7,6 +7,28 @@ The Front Desk System supports receptionist-facing hotel operations including
 reservation lookup, walk-in booking, guest check-in, room lifecycle management,
 room reassignment, running folio viewing, and transactional checkout.
 
+## Plan 20 — build, security and staging readiness (2026-10-25)
+
+**Verification is partial, not a production readiness sign-off.** The latest
+feature branch includes frontend/backend security hardening, Docker images,
+Gateway routing, an RS256/JWKS-based *proposed* central-auth verifier, and a
+frontend session UI adapter. The central identity provider and production
+session BFF have not been connected.
+
+- [Plan 20 evidence and acceptance matrix](docs/plan20-closeout-evidence.md)
+- [Deployment and safe smoke-test runbook](docs/plan20-deployment-runbook.md)
+- [Critical workflow test register](docs/plan20-staging-test-register.md)
+- [Final review and integration handoff](docs/plan20-review-handoff.md)
+- [Central Auth backend contract](docs/central-auth-integration-contract.md)
+- [Central Auth frontend contract](docs/frontend-central-auth-session-contract.md)
+
+**Verified:** latest applicable Backend/Frontend/Docker CI runs and the five
+read-only local smoke checks stored at `evidence/plan20-local-smoke.json`.
+**Not verified:** real Central Auth login/logout, authenticated Socket.IO,
+FDS-to-RabbitMQ messaging, public HTTPS staging and live cross-subsystem flows.
+Keep the frontend auth gate disabled until its secure BFF is available; never
+interpret Demo mode as authenticated access.
+
 ## Current Front Desk Backend Scope
 
 Implemented backend capabilities currently include:
