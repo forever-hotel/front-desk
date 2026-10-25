@@ -70,7 +70,31 @@ export function CentralAuthSessionProvider({
   }, []);
 
   useEffect(() => {
-    void refreshSession();
+    let active = true;
+    const requestGeneration = ++generation.current;
+
+    // Load the initial session asynchronously.
+    // Do not synchronously update React state inside this effect.
+    void getCentralAuthSession().then(
+      (session) => {
+        if (!active || generation.current !== requestGeneration) {
+          return;
+        }
+
+        setState(
+          session
+            ? { status: "authenticated", session }
+            : { status: "unauthenticated", session: null },
+        );
+      },
+      () => {
+        if (!active || generation.current !== requestGeneration) {
+          return;
+        }
+
+        setState({ status: "unavailable", session: null });
+      },
+    );
 
     const onUnauthorized = () => {
       ++generation.current;
@@ -78,11 +102,12 @@ export function CentralAuthSessionProvider({
     };
 
     window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+
     return () => {
-      ++generation.current;
+      active = false;
       window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
     };
-  }, [refreshSession]);
+  }, []);
 
   useEffect(() => {
     if (state.status !== "authenticated") return;
