@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 
 import "./globals.css";
+import "./forever-modern.css";
+import "./screen-refinements.css";
 
 import { AppProviders } from "@/providers/app-providers";
 
