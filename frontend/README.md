@@ -1,4 +1,36 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Forever Hotel — Front Desk Frontend
+
+Next.js client for receptionist-facing workflows. The REST API is served by the
+shared API Gateway at `/fds`, while Socket.IO currently connects directly to
+FDS because the gateway does not proxy WebSocket upgrades.
+
+## Plan 20 local configuration
+
+For local Next.js dev with Gateway on `127.0.0.1:8080` and FDS backend on
+`127.0.0.1:4200`, create `frontend/.env.local` (do not commit it):
+
+```env
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8080/fds
+NEXT_PUBLIC_WS_URL=http://127.0.0.1:4200
+NEXT_PUBLIC_FDS_CENTRAL_AUTH_ENABLED=false
+```
+
+From `frontend/` run `npm ci`, `npm run dev`, `npm run format:check`,
+`npm run lint`, `npm run test:cov`, `npm run build` and
+`npm audit --omit=dev --audit-level=high` as needed.
+
+**Authentication status:** the frontend session adapter currently expects a
+future same-origin `GET /api/fds-auth/session` BFF. That endpoint is not yet
+implemented. The gate flag must stay **false** until the identity service,
+BFF, secure cookies and REST/Socket.IO forwarding are actually tested.
+Demo mode does not imply authenticated identity.
+
+For Docker builds, see the repository-root `compose.fds.yaml` and
+`docs/plan20-deployment-runbook.md`. Do not use localhost build arguments for
+public deployments: browser-reachable gateway, backend, auth and WebSocket
+origins must be configured specifically for staging/production.
+
+## Legacy create-next-app notes
 
 ## Getting Started
 

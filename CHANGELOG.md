@@ -4,6 +4,18 @@ All notable changes to the Front Desk System will be documented in this file.
 
 ## [Unreleased]
 
+### Plan 20 — verified local closeout (2026-10-25)
+
+- Hardened backend dependency versions and frontend Zod advisory; retained CI security audit gates.
+- Added Dockerfile/Compose workflows and CI image builds, including non-root container smoke verification.
+- Routed Front Desk REST calls through the shared API Gateway `/fds` prefix.
+- Added proposed Central Auth RS256/JWKS verification and a configurable provider selection without fallback to legacy tokens.
+- Added the frontend session contract, protected UI gate and staff identity display foundation (the real session BFF remains unimplemented).
+- Fixed the React session provider effect lint error and restored successful Frontend CI.
+- Captured five read-only local smoke checks (frontend 200, backend readiness 200, Gateway readiness 200, no-token rooms 401, RabbitMQ ping).
+- Added Plan 20 deployment guidance, review handoff and critical workflow/staging test register.
+- **Outstanding, not yet accepted:** public HTTPS staging, live centralized login/logout, authenticated realtime, FDS RabbitMQ publish/consume, full live FOSS/WKMS flows and staging smoke evidence. This is not a production-ready release statement.
+
 ### Added
 
 - Initial NestJS backend application scaffold for the Front Desk System.
