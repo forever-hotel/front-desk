@@ -47,16 +47,50 @@ export class WkmsHttpClient extends WkmsClient {
   async assignTask(
     input: AssignWkmsTaskInput,
   ): Promise<WkmsTaskAssignmentResult> {
-    return this.request<WkmsTaskAssignmentResult>(
-      `/wkms/internal/tasks/${encodeURIComponent(input.taskId)}/assign`,
+    // Trust only a server-side credential. Never accept it from browser input.
+    const token = this.configService.get<string>('FDS_WKMS_SERVICE_TOKEN');
+
+    if (typeof token !== 'string' || token.length < 32) {
+      throw new ServiceUnavailableException(
+        'WKMS service authentication is not configured',
+      );
+    }
+
+    // WKMS DDP-198 owns this authenticated endpoint. The FDS principal is
+    // checked at our controller; WKMS must not trust an assignedBy body field.
+    const raw: unknown = await this.request<unknown>(
+      `/wkms/tasks/${encodeURIComponent(input.taskId)}/manual-assign`,
       {
         method: 'POST',
-        body: JSON.stringify({
-          workerId: input.workerId,
-          assignedBy: input.assignedBy,
-        }),
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ workerId: input.workerId }),
       },
     );
+
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      throw new BadGatewayException('WKMS returned an invalid task assignment');
+    }
+
+    const result = raw as Record<string, unknown>;
+
+    if (
+      result.task_id !== input.taskId ||
+      result.assigned_worker_id !== input.workerId ||
+      result.status !== 'ASSIGNED'
+    ) {
+      throw new BadGatewayException(
+        'WKMS returned a mismatched task assignment',
+      );
+    }
+
+    const assignedAt = result.updated_at;
+
+    return {
+      taskId: input.taskId,
+      status: 'ASSIGNED',
+      assignedWorkerId: input.workerId,
+      ...(typeof assignedAt === 'string' ? { assignedAt } : {}),
+    };
   }
 
   private async request<T>(path: string, init: RequestInit): Promise<T> {

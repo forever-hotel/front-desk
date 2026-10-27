@@ -19,6 +19,8 @@ type RabbitMqServiceInternals = {
   };
   ensureConnected(): Promise<void>;
   connectAndInitialize(): Promise<void>;
+  restoreSubscriptions(channel: Channel): Promise<void>;
+  scheduleReconnect(): void;
   assertTopology(channel: Channel): Promise<void>;
   assertMessagingEnabled(): void;
   errorMessage(error: unknown): string;
@@ -462,5 +464,54 @@ describe('RabbitMqService', () => {
 
     expect(internals.errorMessage(new Error('boom'))).toBe('boom');
     expect(internals.errorMessage('boom')).toBe('boom');
+  });
+  it('restores a registered consumer after RabbitMQ channel replacement', async () => {
+    const { service, internals } = createService();
+    const { consumerChannel } = attachConnectedState(internals);
+    const handler = jest.fn().mockResolvedValue(undefined);
+
+    await service.consume(RABBITMQ_TOPOLOGY.queues.taskEscalation, handler);
+    expect(consumerChannel.consume).toHaveBeenCalledTimes(1);
+
+    const replacement = createConsumerChannel();
+    await internals.restoreSubscriptions(replacement);
+    expect(replacement.consume).toHaveBeenCalledTimes(1);
+    expect(replacement.consume).toHaveBeenCalledWith(
+      RABBITMQ_TOPOLOGY.queues.taskEscalation,
+      expect.any(Function),
+      { noAck: false },
+    );
+  });
+
+  it('retries connection after a transient RabbitMQ outage and stops on shutdown', async () => {
+    jest.useFakeTimers();
+    try {
+      const { service, internals } = createService();
+      const ensure = jest
+        .spyOn(internals, 'ensureConnected')
+        .mockRejectedValueOnce(new Error('broker temporarily unavailable'))
+        .mockResolvedValue(undefined);
+
+      internals.scheduleReconnect();
+      await jest.advanceTimersByTimeAsync(1000);
+      expect(ensure).toHaveBeenCalledTimes(1);
+      await jest.advanceTimersByTimeAsync(2000);
+      expect(ensure).toHaveBeenCalledTimes(2);
+
+      await service.onApplicationShutdown();
+      await jest.advanceTimersByTimeAsync(15000);
+      expect(ensure).toHaveBeenCalledTimes(2);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('refuses a duplicate consumer registration for the same queue', async () => {
+    const { service, internals } = createService();
+    attachConnectedState(internals);
+    await service.consume('fds.task-escalation.v1', jest.fn());
+    await expect(
+      service.consume('fds.task-escalation.v1', jest.fn()),
+    ).rejects.toThrow('already subscribed');
   });
 });

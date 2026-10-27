@@ -97,7 +97,9 @@ describe("socket-client", () => {
 
         reconnection: true,
 
-        reconnectionAttempts: 5,
+        reconnectionAttempts: Infinity,
+
+        reconnectionDelayMax: 5000,
 
         transports: ["websocket", "polling"],
       }),

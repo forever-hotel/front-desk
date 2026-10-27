@@ -34,6 +34,14 @@ export class RabbitMqService implements OnModuleInit, OnApplicationShutdown {
   private connectionPromise: Promise<void> | null = null;
   private shuttingDown = false;
 
+  // Registered handlers survive transport loss and can be attached to a new channel.
+  private readonly subscriptions = new Map<
+    string,
+    (message: ConsumeMessage) => Promise<void> | void
+  >();
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconnectAttempt = 0;
+
   constructor(
     @Inject(RABBITMQ_CONFIG)
     private readonly config: RabbitMqRuntimeConfig,
@@ -100,15 +108,29 @@ export class RabbitMqService implements OnModuleInit, OnApplicationShutdown {
     queue: string,
     handler: (message: ConsumeMessage) => Promise<void> | void,
   ): Promise<string> {
-    const channel = await this.getConsumerChannel();
+    // Keep only one handler per queue. Multiple consumers of the same queue
+    // would compete for deliveries and make reconnect behavior unpredictable.
+    if (this.subscriptions.has(queue)) {
+      throw new Error(`RabbitMQ queue ${queue} is already subscribed`);
+    }
 
+    const channel = await this.getConsumerChannel();
+    const consumerTag = await this.subscribeToQueue(channel, queue, handler);
+
+    // Register only after RabbitMQ confirmed the original subscription.
+    this.subscriptions.set(queue, handler);
+    return consumerTag;
+  }
+
+  private async subscribeToQueue(
+    channel: Channel,
+    queue: string,
+    handler: (message: ConsumeMessage) => Promise<void> | void,
+  ): Promise<string> {
     const result = await channel.consume(
       queue,
       (message) => {
-        if (!message) {
-          return;
-        }
-
+        if (!message) return;
         void Promise.resolve(handler(message)).catch((error: unknown) => {
           this.logger.error(
             `Unhandled RabbitMQ consumer callback error for queue ${queue}`,
@@ -116,11 +138,8 @@ export class RabbitMqService implements OnModuleInit, OnApplicationShutdown {
           );
         });
       },
-      {
-        noAck: false,
-      },
+      { noAck: false },
     );
-
     return result.consumerTag;
   }
 
@@ -141,6 +160,7 @@ export class RabbitMqService implements OnModuleInit, OnApplicationShutdown {
   }
 
   async close(): Promise<void> {
+    this.cancelReconnectTimer();
     const consumerChannel = this.consumerChannel;
     const publisherChannel = this.publisherChannel;
     const connection = this.connection;
@@ -249,12 +269,15 @@ export class RabbitMqService implements OnModuleInit, OnApplicationShutdown {
     });
 
     connection.on('close', () => {
+      // Ignore delayed close notifications from an older connection.
+      if (this.connection !== connection) return;
       this.connection = null;
       this.publisherChannel = null;
       this.consumerChannel = null;
 
       if (!this.shuttingDown) {
         this.logger.warn('RabbitMQ connection closed unexpectedly');
+        this.scheduleReconnect();
       }
     });
 
@@ -271,10 +294,21 @@ export class RabbitMqService implements OnModuleInit, OnApplicationShutdown {
       this.publisherChannel = publisherChannel;
       this.consumerChannel = consumerChannel;
 
+      // A new connection does NOT preserve the old channel's consumers.
+      // Restore subscriptions before advertising recovery as successful.
+      await this.restoreSubscriptions(consumerChannel);
+      this.reconnectAttempt = 0;
+      this.cancelReconnectTimer();
+
       this.logger.log(
         `RabbitMQ connected using durable exchange ${this.config.exchange}`,
       );
     } catch (error) {
+      if (this.connection === connection) {
+        this.connection = null;
+        this.publisherChannel = null;
+        this.consumerChannel = null;
+      }
       try {
         await connection.close();
       } catch {
@@ -283,6 +317,41 @@ export class RabbitMqService implements OnModuleInit, OnApplicationShutdown {
 
       throw error;
     }
+  }
+
+  private async restoreSubscriptions(channel: Channel): Promise<void> {
+    for (const [queue, handler] of this.subscriptions) {
+      const tag = await this.subscribeToQueue(channel, queue, handler);
+      this.logger.log(`RabbitMQ consumer restored for ${queue}: ${tag}`);
+    }
+  }
+
+  private scheduleReconnect(): void {
+    if (this.shuttingDown || this.connection || this.reconnectTimer) return;
+
+    // Bounded exponential backoff: 1s, 2s, 4s, then at most 8s.
+    const delayMs = Math.min(
+      1000 * 2 ** Math.min(this.reconnectAttempt, 3),
+      8000,
+    );
+    this.reconnectAttempt += 1;
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      if (this.shuttingDown || this.connection) return;
+      void this.ensureConnected().catch((error: unknown) => {
+        if (this.shuttingDown) return;
+        this.logger.warn(
+          `RabbitMQ reconnect failed: ${this.errorMessage(error)}`,
+        );
+        this.scheduleReconnect();
+      });
+    }, delayMs);
+    this.reconnectTimer.unref?.();
+  }
+
+  private cancelReconnectTimer(): void {
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
   }
 
   private async assertTopology(channel: Channel): Promise<void> {
