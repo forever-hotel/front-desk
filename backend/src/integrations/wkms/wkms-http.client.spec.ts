@@ -156,55 +156,97 @@ describe('WkmsHttpClient', () => {
     );
   });
 
-  it('should assign a task through WKMS', async () => {
+  it('maps authenticated WKMS DDP-198 manual assignment to the FDS contract', async () => {
     const taskId = '11111111-1111-4111-8111-111111111111';
-
     const workerId = '77777777-7777-4777-8777-777777777777';
-
     const assignedBy = '66666666-6666-4666-8666-666666666666';
-
-    const assignment = {
-      taskId,
-      status: 'ASSIGNED',
-      assignedWorkerId: workerId,
-      assignedAt: '2030-01-10T12:05:00.000Z',
-    };
+    const serviceToken =
+      'fds-wkms-integration-test-credential-minimum-32-chars';
 
     const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
-      status: 200,
-      json: jest.fn(async () => assignment),
+      status: 201,
+      json: jest.fn(async () => ({
+        task_id: taskId,
+        assigned_worker_id: workerId,
+        status: 'ASSIGNED',
+        updated_at: '2030-01-10T12:05:00.000Z',
+      })),
     } as unknown as Response);
 
     const client = createClient({
       WKMS_INTEGRATION_ENABLED: true,
       WKMS_BASE_URL: 'http://localhost:3002',
+      FDS_WKMS_SERVICE_TOKEN: serviceToken,
     });
 
     await expect(
-      client.assignTask({
-        taskId,
-        workerId,
-        assignedBy,
-      }),
-    ).resolves.toEqual(assignment);
+      client.assignTask({ taskId, workerId, assignedBy }),
+    ).resolves.toEqual({
+      taskId,
+      status: 'ASSIGNED',
+      assignedWorkerId: workerId,
+      assignedAt: '2030-01-10T12:05:00.000Z',
+    });
 
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url, options] = fetchSpy.mock.calls[0];
-
     expect(String(url)).toBe(
-      `http://localhost:3002/wkms/internal/tasks/${taskId}/assign`,
+      `http://localhost:3002/wkms/tasks/${taskId}/manual-assign`,
     );
-
     expect(options).toEqual(
       expect.objectContaining({
         method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${serviceToken}`,
+        },
       }),
     );
+    expect(JSON.parse(String(options?.body))).toEqual({ workerId });
+    expect(String(options?.body)).not.toContain(assignedBy);
+  });
 
-    expect(JSON.parse(String(options?.body))).toEqual({
-      workerId,
-      assignedBy,
+  it('fails closed when the WKMS service credential is missing or too short', async () => {
+    const fetchSpy = jest.spyOn(globalThis, 'fetch');
+    const client = createClient({
+      WKMS_INTEGRATION_ENABLED: true,
+      WKMS_BASE_URL: 'http://localhost:3002',
     });
+    await expect(
+      client.assignTask({
+        taskId: '11111111-1111-4111-8111-111111111111',
+        workerId: '77777777-7777-4777-8777-777777777777',
+        assignedBy: '66666666-6666-4666-8666-666666666666',
+      }),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('rejects a mismatched WKMS task assignment response', async () => {
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: jest.fn(async () => ({
+        task_id: '11111111-1111-4111-8111-111111111111',
+        assigned_worker_id: '99999999-9999-4999-8999-999999999999',
+        status: 'ASSIGNED',
+      })),
+    } as unknown as Response);
+    const client = createClient({
+      WKMS_INTEGRATION_ENABLED: true,
+      WKMS_BASE_URL: 'http://localhost:3002',
+      FDS_WKMS_SERVICE_TOKEN:
+        'fds-wkms-integration-test-credential-minimum-32-chars',
+    });
+    await expect(
+      client.assignTask({
+        taskId: '11111111-1111-4111-8111-111111111111',
+        workerId: '77777777-7777-4777-8777-777777777777',
+        assignedBy: '66666666-6666-4666-8666-666666666666',
+      }),
+    ).rejects.toBeInstanceOf(BadGatewayException);
   });
 
   it('should convert a non-success WKMS response to BadGatewayException', async () => {

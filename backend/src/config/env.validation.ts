@@ -79,6 +79,9 @@ export const envValidationSchema = Joi.object({
     })
     .optional(),
 
+  // Trusted backend-to-backend credential used by WKMS DDP-198.
+  FDS_WKMS_SERVICE_TOKEN: Joi.string().min(32).optional(),
+
   WKMS_REQUEST_TIMEOUT_MS: Joi.number()
     .integer()
     .min(500)
