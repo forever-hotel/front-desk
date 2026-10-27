@@ -12,6 +12,20 @@ audit logging.
 The service uses PostgreSQL for Front Desk-owned persistence and keeps
 cross-subsystem responsibilities behind explicit integration contracts.
 
+## Plan 20 — current authentication and staging boundary
+
+FDS supports **two explicitly selected JWT validators**: legacy HS256 for the
+existing local/test flow and a proposed Central Auth RS256/JWKS verifier for
+future integration. Configuration is documented in `backend/.env.example` and
+`../docs/central-auth-integration-contract.md`. The shared API Gateway **routes**
+requests; it does not authenticate staff or issue tokens. Invalid Central Auth
+tokens never fall back to the legacy verifier.
+
+The local Compose setup uses `RABBITMQ_ENABLED=false`, even if the RabbitMQ
+broker responds to a ping. External FOSS/WKMS adapters and printing contracts
+must not be presented as verified physical integrations. See
+`../docs/plan20-deployment-runbook.md` and `../docs/plan20-closeout-evidence.md`.
+
 ---
 
 # Current Backend Scope
