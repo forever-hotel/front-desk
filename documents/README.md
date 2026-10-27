@@ -1,34 +1,30 @@
 # Front Desk (FDS) - Final QA Evidence
 
-Issue: [DDP-183 / #84](https://github.com/forever-hotel/front-desk/issues/84)
+DDP-183 / [Issue #84](https://github.com/forever-hotel/front-desk/issues/84)
 
-This folder contains **FDS subsystem-only** evidence. The independent `forever-hotel/documents` repository will hold final consolidated six-subsystem artifacts.
+These reports cover the **Front Desk subsystem**, not the consolidated six-subsystem evaluation. Latest QA evidence was checked on 27 October 2026. The baseline unit, integration and E2E CI runs predate the evidence-only commit `a6050dd`; exact commits are stated per run.
 
-## University deliverables (FDS contribution)
+## Included reports
 
-| File | Current verification status |
-|---|---|
-| `testing/coverage-sprint8.pdf` | Historical CI verified, final branch rerun needed |
-| `testing/test-register.pdf` | Source-traced selected cases; live cross-service acceptance pending |
-| `security/owasp-checklist.pdf` | Partial control evidence; high-severity development dependency finding identified |
-| `testing/performance-report.pdf` | **Not Tested** - planned scenarios; no load measurements |
+- `testing/coverage-sprint8.pdf`: CI counts and unit coverage, plus local verification summary.
+- `testing/test-register.pdf`: 43 original cases retained by ID with updated standalone local-execution addendum.
+- `security/owasp-checklist.pdf`: A01-A10 evidence and status, including corrected `undici` finding on QA branch.
+- `testing/performance-report.pdf`: actual local, read-only 1,800-request benchmark on 27 October 2026.
 
-Supporting editable material: `testing/test-register-source.csv`, `testing/coverage-notes.md`, and `security/owasp-notes.md`.  Do not claim the report set is final or fully compliant until open gaps are closed.
+Original detailed test-case fields remain in `testing/test-register-source.csv` and must not be deleted/overwritten by this patch. Phase verification markdown and performance raw evidence remain under `evidence/`.
 
-## Evidence snapshot
+## Verified CI
 
-- CI date: 2026-10-24 UTC
-- Tested SHA: `503465b7eb2c29b56cc2ec0d329d91d6b40853d4`
-- Backend CI: https://github.com/forever-hotel/front-desk/actions/runs/40057114169
-- Frontend CI: https://github.com/forever-hotel/front-desk/actions/runs/40057114175
-- FDS evidence branch: `feature/84-fds-final-qa-evidence`. Current CI measurements are from `develop`, not that evidence branch.
+- Backend (e590326): https://github.com/forever-hotel/front-desk/actions/runs/40530366600
+- Frontend (1065617): https://github.com/forever-hotel/front-desk/actions/runs/40534533200
+- Docker (1065617): https://github.com/forever-hotel/front-desk/actions/runs/40534533251
 
-## Finalization checklist
+## Open sign-off boundaries
 
-- [ ] Re-run CI on final reviewed SHA and update all reports.
-- [ ] Download/archive expiring coverage artifacts.
-- [ ] Map **every** API endpoint to at least one integration test and measure new-code coverage.
-- [ ] Capture signed/actual acceptance results for live FOSS, WKMS, payment and printing.
-- [ ] Remediate or document the high-severity full dependency audit finding.
-- [ ] Run safe load and realtime performance tests in isolated staging.
-- [ ] Review reports, open a PR against `develop`, link `Closes #84`, and obtain peer approval.
+- Central Auth end-to-end session/login and public HTTPS staging acceptance require real evidence.
+- FOSS activation, real payment settlement and physical printing remain unverified.
+- WKMS assignment was locally demonstrated for an existing task; service-task creation and worker availability remain blocked.
+- No staging/production load test or contract-specific NFR compliance conclusion is claimed.
+- Recheck Dependabot default-branch issue after merging the `undici` fix.
+
+A reviewed pull request to `develop` and explicit outstanding integration handoff are still required.

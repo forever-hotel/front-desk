@@ -1,64 +1,24 @@
-# FDS OWASP Checklist - Editable Notes
+# FDS OWASP Checklist - Source Notes
 
-## A01 Broken Access Control
-Status: **PARTIALLY EVIDENCED**
-Evidence: JWT, RBAC read/write roles and 401/403 E2E tests available. Not an audited guarantee for every endpoint.
-Test/source: backend/test/bookings-rbac.e2e-spec.ts; backend/test/check-in-rbac.e2e-spec.ts; backend/test/rooms-rbac.e2e-spec.ts
-Next action: Produce endpoint/role access matrix; negative tests for every protected endpoint.
+DDP-183, updated 27 October 2026. Evidence applies to the tested Front Desk feature branch and isolated local validations only. No overall OWASP compliance certification is made.
 
-## A02 Cryptographic Failures
-Status: **NOT FULLY VERIFIED**
-Evidence: JWT signature and issuer tests exist; password hashing with bcrypt cost >=12 and production TLS/hashed refresh tokens are central-auth/deployment responsibilities, not established by FDS CI.
-Test/source: backend/src/security/auth/jwt-principal.resolver.spec.ts; backend/src/config/env.validation.spec.ts
-Next action: Obtain central auth evidence for bcrypt >=12, token handling and actual staging HTTPS/TLS.
+| Category | Status | Evidence | Remaining work |
+|---|---|---|---|
+| A01 Broken Access Control | PARTIALLY EVIDENCED | JWT authorization, read/write RBAC, 401/403 E2E checks, invalid actor and real WKMS assignment permission tests. | Complete endpoint-by-role matrix, negative authorization checks on every protected route, public staging review. |
+| A02 Cryptographic Failures | NOT FULLY VERIFIED | JWT signature and issuer unit tests; local test-only JWTs used for evidence. | Central identity password storage (bcrypt >=12), refresh-token controls, staging HTTPS/TLS and deployed secret handling. |
+| A03 Injection | PARTIALLY EVIDENCED | PostgreSQL parameter binding, DTO validation, text sanitization tests. | Targeted route-level injection and fuzzing review. |
+| A04 Insecure Design | NOT FULLY VERIFIED | Database transaction rollback and append-only audit tests. | Approved threat model, sign-off of cross-service trust/security design. |
+| A05 Security Misconfiguration | PARTIALLY EVIDENCED | Joi production/staging configuration validation, DB_SYNC guard, origins checks, CI/Docker checks. | Actual public staging configuration and error-disclosure testing. |
+| A06 Vulnerable and Outdated Components | REMEDIATED IN TESTED FEATURE BRANCH | undici dev dependency upgraded to 8.12.2 in commit 1065617. Frontend CI full audit = 0 vulnerabilities; production-only = 0; backend CI audit = 0. | Merge fix into default branch and recheck Dependabot alert #24 and independent supply-chain risks. |
+| A07 Identification and Authentication Failures | PARTIALLY EVIDENCED | Bad/expired/wrong-issuer JWT rejection tested; Socket.IO authentication checks. | Central Auth login, session rotation, account lockout, rate limits with live identity provider. |
+| A08 Software and Data Integrity Failures | PARTIALLY EVIDENCED | npm ci, lockfiles, append-only audit trigger with PostgreSQL tests; protected GitHub CI. | Signed release artifacts, provenance and production deployment integrity review. |
+| A09 Security Logging and Monitoring Failures | PARTIALLY EVIDENCED | Audit records for check-in, room updates, assignments; redacting logger and append-only DB. | Staging alerting/monitoring, logs for authentication failures and actual retention. |
+| A10 Server-Side Request Forgery | NOT FULLY VERIFIED | WKMS outbound HTTP integration uses configured service URL, with local secured assignment integration verification. | Outbound URL allowlist and SSRF negative tests in deployed environment. |
 
-## A03 Injection
-Status: **PARTIALLY EVIDENCED**
-Evidence: PostgreSQL repository uses parameter placeholders; DTO and text sanitation tests present. Exhaustive injection fuzzing not shown.
-Test/source: backend/src/reservations/repositories/postgres-booking.repository.ts; backend/src/security/sanitization/sanitize-plain-text.spec.ts
-Next action: Perform targeted SQL/NoSQL injection and input validation tests per route.
+## Dependency audit correction
 
-## A04 Insecure Design
-Status: **NOT VERIFIED**
-Evidence: Transaction/audit protections have code and tests; signed threat model/design security review not verified from CI.
-Test/source: backend/test/database/postgres-checkout.repository.integration-spec.ts; backend/test/database/audit-append-only.integration-spec.ts
-Next action: Link reviewed SDS threat model and architecture/security review decisions.
+Old HIGH finding in the `undici` development dependency has been remediated on the feature branch by commit `1065617` (version 8.12.2). Full frontend and production-only npm audits returned **zero vulnerabilities** in https://github.com/forever-hotel/front-desk/actions/runs/40534533200. Backend audit passed at https://github.com/forever-hotel/front-desk/actions/runs/40530366600. GitHub default-branch Dependabot #24 should be checked after merging; it was still reported at feature-branch push.
 
-## A05 Security Misconfiguration
-Status: **PARTIALLY EVIDENCED**
-Evidence: Staging/production env validation checks JWT secrets, wildcard origins and DB_SYNCHRONIZE; deployed error handling / default credentials not verified.
-Test/source: backend/src/config/env.validation.spec.ts; backend/src/config/env.validation.ts
-Next action: Run hardened staging configuration test and production error disclosure review.
+## Cross-service limitations
 
-## A06 Vulnerable Components
-Status: **OPEN FINDING**
-Evidence: Backend high-level dependency audit passed (0 findings). Frontend production-only audit passed (0). Nonblocking full frontend audit found 1 HIGH in dev-dependency undici 8.0.0-8.12.1.
-Test/source: Backend CI 40057114169; Frontend CI 40057114175
-Next action: Remediate/update undici as feasible, rerun full audit, document accepted residual risk before sign-off.
-
-## A07 Authentication Failures
-Status: **PARTIALLY EVIDENCED**
-Evidence: JWT invalid/expired/issuer/signature denial tested; centralized login rate limiting/account lockout not evidenced in FDS.
-Test/source: backend/src/security/auth/jwt-principal.resolver.spec.ts; backend/test/realtime.e2e-spec.ts
-Next action: Obtain central authentication service lockout/session rotation tests.
-
-## A08 Software and Data Integrity Failures
-Status: **PARTIALLY EVIDENCED**
-Evidence: package-lock.json present; npm ci used in CI; append-only audit DB trigger tested. Full artifact signing / supply chain provenance not verified.
-Test/source: backend/package-lock.json; frontend/package-lock.json; .github/workflows/backend-ci.yml
-Next action: Review dependency provenance/build integrity and migration/change control.
-
-## A09 Security Logging and Monitoring Failures
-Status: **PARTIALLY EVIDENCED**
-Evidence: Audit logging and PII/secret redaction tests exist; comprehensive auth-failure/data access logging and monitoring not proven.
-Test/source: backend/src/security/redaction/log-redactor.spec.ts; backend/test/database/audit-append-only.integration-spec.ts
-Next action: Verify staged auth/authorization failure logging with redacted records and alerting.
-
-## A10 Server-Side Request Forgery
-Status: **NOT VERIFIED**
-Evidence: WKMS HTTP integration client exists; no dedicated SSRF/URL allow-list test was located in reviewed evidence.
-Test/source: backend/src/integrations/wkms/wkms-http.client.spec.ts
-Next action: Verify fixed trusted service endpoint and outbound allowlist; test rejected untrusted URLs.
-
-
-Current open finding: frontend full dev audit reports 1 high vulnerability in `undici` (Oct 24 2026); frontend prod-only audit is zero. Recheck after remediation.
+Real local WKMS checkout consumption/outbox, FDS/WKMS reconnection and manual assignment were demonstrated in bounded disposable environments. Central Auth, public staging, FOSS activation, real payment and printing remain separate acceptance dependencies. Worker discovery/task creation WKMS endpoints remain blocked.
