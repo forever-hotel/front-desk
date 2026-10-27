@@ -1,0 +1,16 @@
+﻿case_id,description,endpoint,concurrency,measured_requests,p50_ms,p95_ms,rps,errors,result
+PERF-01-C1,Database readiness,/health/ready,1,120,3.89,10.30,177.09,0,PASS
+PERF-01-C5,Database readiness,/health/ready,5,120,8.29,32.93,393.07,0,PASS
+PERF-01-C10,Database readiness,/health/ready,10,120,20.80,41.77,347.52,0,PASS
+PERF-02-C1,Room status board,/rooms/status,1,120,5.64,14.38,129.74,0,PASS
+PERF-02-C5,Room status board,/rooms/status,5,120,10.19,30.21,384.83,0,PASS
+PERF-02-C10,Room status board,/rooms/status,10,120,21.44,44.89,418.67,0,PASS
+PERF-03-C1,Recent bookings,/bookings/recent?limit=5,1,120,4.17,8.77,180.79,0,PASS
+PERF-03-C5,Recent bookings,/bookings/recent?limit=5,5,120,9.71,16.76,478.06,0,PASS
+PERF-03-C10,Recent bookings,/bookings/recent?limit=5,10,120,64.92,153.23,136.87,0,PASS
+PERF-04-C1,Booking search,/bookings/search?query=CI,1,120,4.93,13.90,148.36,0,PASS
+PERF-04-C5,Booking search,/bookings/search?query=CI,5,120,9.35,23.73,444.58,0,PASS
+PERF-04-C10,Booking search,/bookings/search?query=CI,10,120,18.95,58.15,426.10,0,PASS
+PERF-05-C1,Realtime contract,/realtime/contract,1,120,1.67,4.87,466.30,0,PASS
+PERF-05-C5,Realtime contract,/realtime/contract,5,120,4.39,8.30,1016.85,0,PASS
+PERF-05-C10,Realtime contract,/realtime/contract,10,120,12.28,23.54,679.97,0,PASS

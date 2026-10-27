@@ -1,0 +1,44 @@
+﻿test_id,requirement,original_scenario,original_status,evidence_note
+TC-FDS-001,FD-01,Valid receptionist JWT resolves to trusted principal,CI PASS,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-002,FD-01,Manager-provisioned receptionist login - end to end,NOT TESTED,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-003,FD-02,Confirmed arrivals returned for selected date,CI PASS,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-004,FD-02,Checked-in departures returned for selected date,CI PASS,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-005,FD-03,Search persisted bookings by guest name,CI PASS,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-006,FD-03,Search persisted bookings by identity field,CI PASS,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-007,FD-04,Walk-in cash booking and payment transaction,CI PASS,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-008,FD-04,Walk-in booking rolls back on payment persistence failure,CI PASS,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-009,FD-05,Check-in with physical-document verification,CI PASS,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-010,FD-05,Check-in with scanned-copy metadata,CI PASS,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-011,FD-06,Occupied room assignment rejected,CI PASS,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-012,FD-06,Confirmed booking checked in and room assigned,CI PASS,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-013,FD-07,FOSS activation called by service mock after check-in,CI PASS - MOCK,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-014,FD-07,Live FOSS activation from FDS check-in,NOT TESTED,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-015,FD-08,Registration print gateway accepts mocked job,CI PASS - MOCK,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-016,FD-08,Physical registration card or receipt printing,NOT TESTED,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-017,FD-09,"Checkout transaction persists payment, status, audit and cleaning",CI PASS,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-018,FD-09,Real payment-provider settlement at checkout,NOT TESTED,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-019,FD-10,Room cleaning status and checkout audit transaction,CI PASS,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-020,FD-10,Live checkout-to-WKMS and FOSS deactivation chain,NOT TESTED,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-021,FD-11,Checked-in guest room reassignment is atomic and audited,CI PASS,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-022,FD-11,Reject reassignment to under-maintenance room,CI PASS,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-023,FD-12,Persisted room board contains supported statuses,CI PASS,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-024,FD-12,Authenticated Socket.IO receives room update,CI PASS,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-025,FD-13,Maintenance block transition and audit semantics,CI PASS,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-026,FD-13,Maintenance clear transition,CI PASS,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-027,FD-14,Mocked WKMS service task creation request,CI PASS - MOCK,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-028,FD-14,Live WKMS service request creates worker task,NOT TESTED,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-029,FD-15,Persisted checked-in booking folio context,CI PASS,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-030,FD-15,Mock external charges return empty list,CI PASS - MOCK,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-031,FD-16,Append-only audit record UPDATE rejected,CI PASS,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-032,FD-16,Append-only audit record DELETE rejected,CI PASS,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-033,FD-16,Receptionist authorized audit list,CI PASS,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-034,FD-17,"Escalation validation, push and ack using mocked broker",CI PASS - MOCK,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-035,FD-17,Real WKMS 15-minute escalation timer policy,NOT TESTED,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-036,FD-18,Manual assignment mock writes audit and removes escalation,CI PASS - MOCK,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-037,FD-18,Real WKMS manual assignment - original cross-service case,NOT TESTED - SEE ADDENDUM,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-038,FD-19,Mocked escalation queue subscription,CI PASS - MOCK,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-039,FD-19,Escalation header indicators update from mock event,CI PASS,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-040,FD-19,Live WKMS RabbitMQ event displayed in receptionist UI - original case,NOT TESTED - SEE ADDENDUM,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-041,NFR-12,Worker role denied booking read,CI PASS,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-042,NFR-12,Reject raw card data in checkout DTO,CI PASS,Historical suite status; later local validation in corresponding verification.md where applicable
+TC-FDS-043,NFR-12,Wrong-issuer JWT refused by Socket.IO,CI PASS,Historical suite status; later local validation in corresponding verification.md where applicable
