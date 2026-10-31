@@ -150,6 +150,24 @@ export class PostgresWalkInBookingRepository extends WalkInBookingRepository {
 
       const payment = paymentRows[0];
 
+      // Persist the receptionist's guest details independently of any guest login account.
+      // This insert is part of the booking/payment transaction; failures roll everything back.
+      await queryRunner.query(
+        `
+        INSERT INTO fds_walk_in_guest_details (
+          booking_id, full_name, email, nic_or_passport, phone
+        )
+        VALUES ($1, $2, $3, $4, $5)
+        `,
+        [
+          booking.bookingId,
+          input.guest.fullName,
+          input.guest.email,
+          input.guest.nicOrPassport ?? null,
+          input.guest.phone ?? null,
+        ],
+      );
+
       await queryRunner.commitTransaction();
 
       return {

@@ -23,9 +23,9 @@ export class PostgresBookingRepository extends BookingRepository {
       SELECT
         b.booking_id::text AS "bookingId",
         b.booking_id::text AS "bookingReference",
-        g.full_name AS "guestName",
-        g.email AS "email",
-        g.phone AS "phone",
+        COALESCE(wg.full_name, g.full_name) AS "guestName",
+        COALESCE(wg.email, g.email) AS "email",
+        COALESCE(wg.phone, g.phone) AS "phone",
         rt.type_name AS "roomType",
         b.check_in_date::text AS "checkInDate",
         b.check_out_date::text AS "checkOutDate",
@@ -33,6 +33,8 @@ export class PostgresBookingRepository extends BookingRepository {
       FROM bookings b
       LEFT JOIN guests g
         ON g.guest_id = b.guest_id
+      LEFT JOIN fds_walk_in_guest_details wg
+        ON wg.booking_id = b.booking_id
       INNER JOIN room_types rt
         ON rt.room_type_id = b.room_type_id
       WHERE
@@ -41,6 +43,10 @@ export class PostgresBookingRepository extends BookingRepository {
         OR g.nic_or_passport ILIKE $1
         OR g.email ILIKE $1
         OR g.phone ILIKE $1
+        OR wg.full_name ILIKE $1
+        OR wg.email ILIKE $1
+        OR wg.nic_or_passport ILIKE $1
+        OR wg.phone ILIKE $1
       ORDER BY
         b.check_in_date ASC,
         b.created_at DESC
@@ -57,9 +63,9 @@ export class PostgresBookingRepository extends BookingRepository {
       SELECT
         b.booking_id::text AS "bookingId",
         b.booking_id::text AS "bookingReference",
-        g.full_name AS "guestName",
-        g.email AS "email",
-        g.phone AS "phone",
+        COALESCE(wg.full_name, g.full_name) AS "guestName",
+        COALESCE(wg.email, g.email) AS "email",
+        COALESCE(wg.phone, g.phone) AS "phone",
         rt.type_name AS "roomType",
         b.check_in_date::text AS "checkInDate",
         b.check_out_date::text AS "checkOutDate",
@@ -67,6 +73,8 @@ export class PostgresBookingRepository extends BookingRepository {
       FROM bookings b
       LEFT JOIN guests g
         ON g.guest_id = b.guest_id
+      LEFT JOIN fds_walk_in_guest_details wg
+        ON wg.booking_id = b.booking_id
       INNER JOIN room_types rt
         ON rt.room_type_id = b.room_type_id
       ORDER BY b.created_at DESC
@@ -84,9 +92,9 @@ export class PostgresBookingRepository extends BookingRepository {
       SELECT
         b.booking_id::text AS "bookingId",
         b.booking_id::text AS "bookingReference",
-        g.full_name AS "guestName",
-        g.email AS "email",
-        g.phone AS "phone",
+        COALESCE(wg.full_name, g.full_name) AS "guestName",
+        COALESCE(wg.email, g.email) AS "email",
+        COALESCE(wg.phone, g.phone) AS "phone",
         rt.type_name AS "roomType",
         b.check_in_date::text AS "checkInDate",
         b.check_out_date::text AS "checkOutDate",
@@ -94,6 +102,8 @@ export class PostgresBookingRepository extends BookingRepository {
       FROM bookings b
       LEFT JOIN guests g
         ON g.guest_id = b.guest_id
+      LEFT JOIN fds_walk_in_guest_details wg
+        ON wg.booking_id = b.booking_id
       INNER JOIN room_types rt
         ON rt.room_type_id = b.room_type_id
       WHERE
@@ -114,9 +124,9 @@ export class PostgresBookingRepository extends BookingRepository {
       SELECT
         b.booking_id::text AS "bookingId",
         b.booking_id::text AS "bookingReference",
-        g.full_name AS "guestName",
-        g.email AS "email",
-        g.phone AS "phone",
+        COALESCE(wg.full_name, g.full_name) AS "guestName",
+        COALESCE(wg.email, g.email) AS "email",
+        COALESCE(wg.phone, g.phone) AS "phone",
         rt.type_name AS "roomType",
         b.check_in_date::text AS "checkInDate",
         b.check_out_date::text AS "checkOutDate",
@@ -124,6 +134,8 @@ export class PostgresBookingRepository extends BookingRepository {
       FROM bookings b
       LEFT JOIN guests g
         ON g.guest_id = b.guest_id
+      LEFT JOIN fds_walk_in_guest_details wg
+        ON wg.booking_id = b.booking_id
       INNER JOIN room_types rt
         ON rt.room_type_id = b.room_type_id
       WHERE

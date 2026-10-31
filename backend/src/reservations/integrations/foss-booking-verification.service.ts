@@ -47,10 +47,11 @@ export class FossBookingVerificationService {
           r.status::text AS "roomStatus",
           b.check_in_date::text AS "checkInDate",
           b.check_out_date::text AS "checkOutDate",
-          g.full_name AS "guestName"
+          COALESCE(wg.full_name, g.full_name) AS "guestName"
         FROM bookings b
         LEFT JOIN rooms r ON r.room_number = b.room_number
         LEFT JOIN guests g ON g.guest_id = b.guest_id
+        LEFT JOIN fds_walk_in_guest_details wg ON wg.booking_id = b.booking_id
         WHERE b.booking_id = $1
         LIMIT 1
       `,
