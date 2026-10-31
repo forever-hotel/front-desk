@@ -713,7 +713,9 @@ export function CheckInScreen({ performedBy }: CheckInScreenProps) {
 
             <div className={styles.confirmActions}>
               {checkInResult && (
-                <FossGuestQrActions bookingReference={checkInResult.bookingReference} />
+                <FossGuestQrActions
+                  bookingReference={checkInResult.bookingReference}
+                />
               )}
               <Button
                 disabled={!checkInResult}
@@ -743,7 +745,9 @@ export function CheckInScreen({ performedBy }: CheckInScreenProps) {
         )}
       </section>
       <section className={styles.card}>
-        <div className={styles.cardHeader}>FOSS QR â€” EXISTING CHECKED-IN BOOKING</div>
+        <div className={styles.cardHeader}>
+          FOSS QR â€” EXISTING CHECKED-IN BOOKING
+        </div>
         <FossGuestQrLookup />
       </section>
     </section>

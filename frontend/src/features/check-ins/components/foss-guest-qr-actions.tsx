@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { Alert, Button, Modal, QRCode } from 'antd';
-import { useFossGuestQr } from '../hooks/use-foss-guest-qr';
-import styles from './foss-guest-qr-actions.module.css';
+import { Alert, Button, Modal, QRCode } from "antd";
+import { useFossGuestQr } from "../hooks/use-foss-guest-qr";
+import styles from "./foss-guest-qr-actions.module.css";
 
 type Props = { bookingReference: string };
 
@@ -29,7 +29,11 @@ export function FossGuestQrActions({ bookingReference }: Props) {
           type="error"
           showIcon
           title="Unable to issue a FOSS guest QR."
-          description={issueMutation.error instanceof Error ? issueMutation.error.message : 'Please try again.'}
+          description={
+            issueMutation.error instanceof Error
+              ? issueMutation.error.message
+              : "Please try again."
+          }
         />
       )}
 
@@ -40,7 +44,11 @@ export function FossGuestQrActions({ bookingReference }: Props) {
         footer={
           <>
             <Button onClick={close}>Close</Button>
-            <Button type="primary" onClick={() => window.print()} disabled={!data}>
+            <Button
+              type="primary"
+              onClick={() => window.print()}
+              disabled={!data}
+            >
               Open Print Dialog
             </Button>
           </>
@@ -63,9 +71,19 @@ export function FossGuestQrActions({ bookingReference }: Props) {
               aria-label="FOSS guest activation QR code"
             />
             <p>Scan this QR using your phone camera to open the guest app.</p>
-            <p>Keep this paper private. QR access expires at {new Date(data.expiresAt).toLocaleString()}.</p>
-            {data.demo && <strong className={styles.demo}>DEMO ONLY — NOT VALID FOR GUEST LOGIN</strong>}
-            <p className={styles.small}>Printing opens your browser's print dialog; paper delivery cannot be confirmed automatically.</p>
+            <p>
+              Keep this paper private. QR access expires at{" "}
+              {new Date(data.expiresAt).toLocaleString()}.
+            </p>
+            {data.demo && (
+              <strong className={styles.demo}>
+                DEMO ONLY — NOT VALID FOR GUEST LOGIN
+              </strong>
+            )}
+            <p className={styles.small}>
+              Printing opens your browser&apos;s print dialog; paper delivery
+              cannot be confirmed automatically.
+            </p>
           </div>
         )}
       </Modal>
