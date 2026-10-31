@@ -68,6 +68,15 @@ export const envValidationSchema = Joi.object({
     .max(300000)
     .default(5000),
 
+  FOSS_QR_MODE: Joi.string()
+    .valid('disabled', 'mock', 'http')
+    .default('disabled'),
+  FOSS_QR_ISSUE_URL: Joi.string()
+    .uri({ scheme: ['http', 'https'] })
+    .optional(),
+  FOSS_QR_SERVICE_TOKEN: Joi.string().min(32).optional(),
+  FOSS_QR_TIMEOUT_MS: Joi.number().integer().min(500).max(30000).default(5000),
+
   WKMS_INTEGRATION_ENABLED: Joi.boolean()
     .truthy('true')
     .falsy('false')
@@ -79,6 +88,12 @@ export const envValidationSchema = Joi.object({
     })
     .optional(),
 
+  // Shared with the FOSS backend only; never included in a browser bundle.
+  FDS_FOSS_BOOKING_API_KEY: Joi.string().min(32).optional(),
+  // Checkout cutoff is policy dependent; explicit value required when service enabled in staging/prod.
+  FDS_FOSS_CHECKOUT_TIME_LOCAL: Joi.string()
+    .pattern(/^([01]\d|2[0-3]):[0-5]\d$/)
+    .optional(),
   // Trusted backend-to-backend credential used by WKMS DDP-198.
   FDS_WKMS_SERVICE_TOKEN: Joi.string().min(32).optional(),
 
@@ -115,6 +130,16 @@ export const envValidationSchema = Joi.object({
       }
     }
 
+    if (
+      deploymentRequiresJwt &&
+      value.FDS_FOSS_BOOKING_API_KEY &&
+      !value.FDS_FOSS_CHECKOUT_TIME_LOCAL
+    ) {
+      return helpers.message({
+        custom:
+          'FDS_FOSS_CHECKOUT_TIME_LOCAL is required with FOSS booking integration in staging/production',
+      });
+    }
     if (deploymentRequiresJwt && value.DB_SYNCHRONIZE === true) {
       return helpers.message({
         custom: 'DB_SYNCHRONIZE must be false in staging and production',
@@ -160,6 +185,29 @@ export const envValidationSchema = Joi.object({
       return helpers.error('wkms.urlRequired');
     }
 
+    if (
+      value.FOSS_QR_MODE === 'http' &&
+      (!value.FOSS_QR_ISSUE_URL || !value.FOSS_QR_SERVICE_TOKEN)
+    ) {
+      return helpers.message({
+        custom:
+          'FOSS QR HTTP mode requires FOSS_QR_ISSUE_URL and FOSS_QR_SERVICE_TOKEN',
+      });
+    }
+    if (deploymentRequiresJwt && value.FOSS_QR_MODE === 'mock') {
+      return helpers.message({
+        custom: 'QR mock mode is forbidden in staging/production',
+      });
+    }
+    if (
+      deploymentRequiresJwt &&
+      value.FOSS_QR_MODE === 'http' &&
+      !value.FOSS_QR_ISSUE_URL.startsWith('https://')
+    ) {
+      return helpers.message({
+        custom: 'FOSS_QR_ISSUE_URL must use HTTPS in staging/production',
+      });
+    }
     return value;
   })
   .messages({
