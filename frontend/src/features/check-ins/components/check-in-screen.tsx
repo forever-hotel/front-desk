@@ -23,6 +23,8 @@ import type {
   IdentityDocumentType,
 } from "../types/check-in.type";
 
+import { FossGuestQrActions } from "./foss-guest-qr-actions";
+import { FossGuestQrLookup } from "./foss-guest-qr-lookup";
 import styles from "./check-in-screen.module.css";
 
 const SEARCH_BY_OPTIONS = [
@@ -710,6 +712,11 @@ export function CheckInScreen({ performedBy }: CheckInScreenProps) {
             )}
 
             <div className={styles.confirmActions}>
+              {checkInResult && (
+                <FossGuestQrActions
+                  bookingReference={checkInResult.bookingReference}
+                />
+              )}
               <Button
                 disabled={!checkInResult}
                 loading={printMutation.isPending}
@@ -736,6 +743,12 @@ export function CheckInScreen({ performedBy }: CheckInScreenProps) {
             </div>
           </div>
         )}
+      </section>
+      <section className={styles.card}>
+        <div className={styles.cardHeader}>
+          FOSS QR â€” EXISTING CHECKED-IN BOOKING
+        </div>
+        <FossGuestQrLookup />
       </section>
     </section>
   );

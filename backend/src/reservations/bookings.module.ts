@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { SecurityModule } from '../security/security.module';
 import { BookingsController } from './bookings.controller';
+import { FossBookingVerificationController } from './integrations/foss-booking-verification.controller';
+import { FossBookingServiceGuard } from './integrations/foss-booking-service.guard';
+import { FossBookingVerificationService } from './integrations/foss-booking-verification.service';
 import { BookingsService } from './bookings.service';
 import { BookingRepository } from './repositories/booking.repository';
 import { PostgresBookingRepository } from './repositories/postgres-booking.repository';
@@ -10,10 +13,12 @@ import { WalkInBookingRepository } from './repositories/walk-in-booking.reposito
 @Module({
   imports: [SecurityModule],
 
-  controllers: [BookingsController],
+  controllers: [BookingsController, FossBookingVerificationController],
 
   providers: [
     BookingsService,
+    FossBookingServiceGuard,
+    FossBookingVerificationService,
     {
       provide: BookingRepository,
       useClass: PostgresBookingRepository,
