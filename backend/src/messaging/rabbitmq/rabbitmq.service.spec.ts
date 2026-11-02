@@ -48,6 +48,8 @@ describe('RabbitMqService', () => {
 
   function createPublisherChannel(): jest.Mocked<ConfirmChannel> {
     return {
+      on: jest.fn(),
+      off: jest.fn(),
       publish: jest.fn().mockReturnValue(true),
       waitForConfirms: jest.fn().mockResolvedValue(undefined),
       assertExchange: jest
@@ -205,6 +207,31 @@ describe('RabbitMqService', () => {
       }),
     );
     expect(publisherChannel.waitForConfirms).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not confirm an outbox event when the destination queue is not bound yet', async () => {
+    const { service, internals } = createService();
+    const { publisherChannel } = attachConnectedState(internals);
+    let returned:
+      ((message: { properties: { messageId: string } }) => void) | undefined;
+    publisherChannel.on.mockImplementation((name, handler) => {
+      if (name === 'return') returned = handler as typeof returned;
+      return publisherChannel;
+    });
+    publisherChannel.publish.mockImplementation(() => {
+      returned?.({ properties: { messageId: 'event' } });
+      return true;
+    });
+    await expect(
+      service.publishJson(
+        'fds.checkout.completed.v1',
+        {},
+        { messageId: 'event' },
+      ),
+    ).rejects.toThrow('unroutable');
+    expect(publisherChannel.publish.mock.calls[0][3]).toMatchObject({
+      mandatory: true,
+    });
   });
 
   it('consumes with manual acknowledgement and invokes the handler', async () => {

@@ -11,6 +11,9 @@ export class HealthService {
   }> {
     try {
       await this.dataSource.query('SELECT 1');
+      await this.dataSource.query(
+        'SELECT event_id FROM public.fds_event_outbox LIMIT 0',
+      );
 
       return {
         status: 'ready',

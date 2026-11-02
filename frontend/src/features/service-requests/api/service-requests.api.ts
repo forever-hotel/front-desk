@@ -10,6 +10,12 @@ export function createServiceRequest(
 ): Promise<ServiceRequestResult> {
   return apiClient<ServiceRequestResult>("/service-requests", {
     method: "POST",
-    body: JSON.stringify(payload),
+    headers: { "Idempotency-Key": payload.requestId ?? crypto.randomUUID() },
+    body: JSON.stringify({
+      bookingReference: payload.bookingReference,
+      category: payload.category,
+      description: payload.description,
+      performedBy: payload.performedBy,
+    }),
   });
 }

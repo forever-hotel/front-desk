@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, useRef, type FormEvent } from "react";
 
 import { Alert, Button, Input, Select } from "antd";
 import { ConciergeBell } from "lucide-react";
@@ -50,6 +50,9 @@ export function ServiceRequestsScreen({
 
   const bookingSearch = useSearchBookings();
   const createRequest = useCreateServiceRequest();
+  const requestDraft = useRef<{ fingerprint: string; key: string } | undefined>(
+    undefined,
+  );
   const actorId = performedBy ?? developmentActorId;
 
   useEffect(() => {
@@ -122,8 +125,17 @@ export function ServiceRequestsScreen({
       return;
     }
 
+    const fingerprint = JSON.stringify([
+      selectedBooking.bookingReference,
+      category,
+      cleanDescription,
+      actorId,
+    ]);
+    if (requestDraft.current?.fingerprint !== fingerprint)
+      requestDraft.current = { fingerprint, key: crypto.randomUUID() };
     try {
       await createRequest.mutateAsync({
+        requestId: requestDraft.current.key,
         bookingReference: selectedBooking.bookingReference,
         category,
         description: cleanDescription || undefined,
@@ -135,6 +147,7 @@ export function ServiceRequestsScreen({
   }
 
   function resetForNewRequest() {
+    requestDraft.current = undefined;
     setSelectedBooking(null);
     setSearchText("");
     setHasSearched(false);

@@ -18,7 +18,13 @@ describe('WkmsHttpClient', () => {
   }
 
   function createClient(values: Record<string, unknown> = {}): WkmsHttpClient {
-    return new WkmsHttpClient(createConfigService(values));
+    return new WkmsHttpClient(
+      createConfigService({
+        FDS_WKMS_SERVICE_TOKEN:
+          'test-service-token-with-at-least-32-characters',
+        ...values,
+      }),
+    );
   }
 
   afterEach(() => {
@@ -34,6 +40,7 @@ describe('WkmsHttpClient', () => {
 
     await expect(
       client.createServiceTask({
+        requestId: '22222222-2222-4222-8222-222222222222',
         roomNumber: 'T102',
         category: ServiceRequestCategory.EXTRA_TOWELS,
         requestedBy: '66666666-6666-4666-8666-666666666666',
@@ -52,6 +59,7 @@ describe('WkmsHttpClient', () => {
 
     await expect(
       client.createServiceTask({
+        requestId: '22222222-2222-4222-8222-222222222222',
         roomNumber: 'T102',
         category: ServiceRequestCategory.MAINTENANCE,
         requestedBy: '66666666-6666-4666-8666-666666666666',
@@ -84,6 +92,7 @@ describe('WkmsHttpClient', () => {
     });
 
     const result = await client.createServiceTask({
+      requestId: '22222222-2222-4222-8222-222222222222',
       roomNumber: 'T102',
       category: ServiceRequestCategory.EXTRA_TOWELS,
       description: 'Please send two towels',
@@ -104,17 +113,14 @@ describe('WkmsHttpClient', () => {
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',
+          Authorization:
+            'Bearer test-service-token-with-at-least-32-characters',
         },
       }),
     );
 
     expect(JSON.parse(String(options?.body))).toEqual({
-      source: 'FRONT_DESK',
-      roomNumber: 'T102',
-      category: 'EXTRA_TOWELS',
-      description: 'Please send two towels',
-      priority: 'NORMAL',
-      requestedBy: '66666666-6666-4666-8666-666666666666',
+      requestId: '22222222-2222-4222-8222-222222222222',
     });
 
     expect(options?.signal).toBeInstanceOf(AbortSignal);
@@ -213,6 +219,7 @@ describe('WkmsHttpClient', () => {
     const client = createClient({
       WKMS_INTEGRATION_ENABLED: true,
       WKMS_BASE_URL: 'http://localhost:3002',
+      FDS_WKMS_SERVICE_TOKEN: '',
     });
     await expect(
       client.assignTask({
@@ -263,6 +270,7 @@ describe('WkmsHttpClient', () => {
 
     await expect(
       client.createServiceTask({
+        requestId: '22222222-2222-4222-8222-222222222222',
         roomNumber: 'T102',
         category: ServiceRequestCategory.OTHER,
         requestedBy: '66666666-6666-4666-8666-666666666666',

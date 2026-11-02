@@ -17,6 +17,7 @@ import {
 interface StaffRow {
   workerId: string;
   role: string;
+  roles?: string[];
   isActive: boolean;
 }
 
@@ -68,6 +69,7 @@ export class PostgresCheckoutRepository extends CheckoutRepository {
       SELECT
         worker_id::text AS "workerId",
         role::text AS "role",
+          roles AS "roles",
         is_active AS "isActive"
       FROM staff_users
       WHERE worker_id = $1
@@ -159,6 +161,7 @@ export class PostgresCheckoutRepository extends CheckoutRepository {
         SELECT
           worker_id::text AS "workerId",
           role::text AS "role",
+          roles AS "roles",
           is_active AS "isActive"
         FROM staff_users
         WHERE worker_id = $1
@@ -412,7 +415,9 @@ export class PostgresCheckoutRepository extends CheckoutRepository {
   private validateReceptionist(staffRows: StaffRow[]): void {
     if (
       staffRows.length === 0 ||
-      staffRows[0].role !== 'RECEPTIONIST' ||
+      !(staffRows[0].roles ?? [staffRows[0].role]).some(
+        (role) => role === 'RECEPTIONIST' || role === 'ROOT',
+      ) ||
       staffRows[0].isActive !== true
     ) {
       throw new BadRequestException(
