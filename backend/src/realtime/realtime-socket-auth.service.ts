@@ -28,6 +28,7 @@ export class RealtimeSocketAuthService {
 
       // Only Front Desk users can receive realtime events.
       if (
+        principal.role !== SystemRole.ROOT &&
         principal.role !== SystemRole.RECEPTIONIST &&
         principal.role !== SystemRole.MANAGER
       ) {

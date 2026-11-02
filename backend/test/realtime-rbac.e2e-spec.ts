@@ -1,3 +1,5 @@
+import { testPrincipalResolver } from './helpers/central-principal.stub';
+import { PrincipalResolver } from '../src/security/auth/principal-resolver';
 import { INestApplication } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
@@ -80,7 +82,10 @@ describe('Realtime RBAC (e2e)', () => {
           useValue: realtimeStateService,
         },
       ],
-    }).compile();
+    })
+      .overrideProvider(PrincipalResolver)
+      .useValue(testPrincipalResolver(secret, issuer))
+      .compile();
 
     app = moduleRef.createNestApplication();
 

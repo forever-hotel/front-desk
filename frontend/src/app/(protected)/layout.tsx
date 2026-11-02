@@ -16,11 +16,6 @@ export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
     </RealtimeProvider>
   );
 
-  // The future same-origin session BFF must exist before enabling this gate.
-  if (process.env.NEXT_PUBLIC_FDS_CENTRAL_AUTH_ENABLED !== "true") {
-    return content;
-  }
-
   return (
     <CentralAuthSessionProvider>
       <CentralAuthGate>{content}</CentralAuthGate>

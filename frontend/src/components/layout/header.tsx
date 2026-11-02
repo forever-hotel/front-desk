@@ -19,6 +19,8 @@ export default function Header({
   menuButtonRef,
   expanded = false,
 }: HeaderProps) {
+  const [logoutError, setLogoutError] = useState("");
+  const [signingOut, setSigningOut] = useState(false);
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const { count, state } = useEscalationSummary();
   const auth = useOptionalCentralAuthSession();
@@ -27,7 +29,9 @@ export default function Header({
   const staffRole = staff
     ? staff.role === "RECEPTIONIST"
       ? "Receptionist"
-      : "Manager"
+      : staff.role === "ROOT"
+        ? "Root Administrator"
+        : "Manager"
     : "Identity not verified";
   const initials = staff
     ? staff.displayName
@@ -98,6 +102,35 @@ export default function Header({
           {currentTime ? formatDateTime(currentTime) : "—"}
         </div>
 
+        <button
+          type="button"
+          className="fds-logout-button"
+          disabled={signingOut}
+          onClick={async () => {
+            setSigningOut(true);
+            setLogoutError("");
+            try {
+              const response = await fetch("/api/auth/logout", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: "{}",
+              });
+              if (!response.ok && response.status !== 401) throw new Error();
+              window.location.assign("/login");
+            } catch {
+              setLogoutError("Unable to sign out. Please retry.");
+            } finally {
+              setSigningOut(false);
+            }
+          }}
+        >
+          {signingOut ? "Signing out..." : "Log out"}
+        </button>
+        {logoutError && (
+          <span role="alert" style={{ color: "var(--danger, #8b1a1a)" }}>
+            {logoutError}
+          </span>
+        )}
         <div className="fds-user">
           <div className="fds-user-avatar">{initials}</div>
           <div className="fds-user-details">

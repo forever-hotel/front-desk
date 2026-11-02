@@ -68,6 +68,7 @@ describe('RealtimeGateway', () => {
       },
       data: {},
       emit: jest.fn(),
+      once: jest.fn(),
     } as unknown as Socket;
   }
 
@@ -103,7 +104,7 @@ describe('RealtimeGateway', () => {
 
     await middleware(client, next);
 
-    expect(authenticate).toHaveBeenCalledWith(undefined);
+    expect(authenticate).not.toHaveBeenCalled();
 
     expect(next).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -190,6 +191,8 @@ describe('RealtimeGateway', () => {
     const client = createClient('valid-token');
 
     gateway.handleConnection(client);
+    const cleanup = jest.mocked(client.once).mock.calls[0][1] as () => void;
+    cleanup();
 
     expect(client.emit).toHaveBeenCalledWith(
       REALTIME_EVENTS.ready,

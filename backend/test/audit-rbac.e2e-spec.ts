@@ -1,3 +1,5 @@
+import { testPrincipalResolver } from './helpers/central-principal.stub';
+import { PrincipalResolver } from '../src/security/auth/principal-resolver';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
@@ -79,7 +81,10 @@ describe('Audit log RBAC (e2e)', () => {
           useValue: auditLogService,
         },
       ],
-    }).compile();
+    })
+      .overrideProvider(PrincipalResolver)
+      .useValue(testPrincipalResolver(secret, issuer))
+      .compile();
 
     app = moduleRef.createNestApplication();
 

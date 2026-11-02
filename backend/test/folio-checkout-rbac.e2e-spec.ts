@@ -1,3 +1,5 @@
+import { testPrincipalResolver } from './helpers/central-principal.stub';
+import { PrincipalResolver } from '../src/security/auth/principal-resolver';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
@@ -169,7 +171,10 @@ describe('Folio and Checkout RBAC (e2e)', () => {
           useValue: checkOutService,
         },
       ],
-    }).compile();
+    })
+      .overrideProvider(PrincipalResolver)
+      .useValue(testPrincipalResolver(secret, issuer))
+      .compile();
 
     app = moduleRef.createNestApplication();
 

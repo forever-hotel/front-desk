@@ -46,7 +46,7 @@ describe('Environment validation', () => {
 
     expect(error).toBeUndefined();
 
-    expect(value.JWT_ISSUER).toBe('forever-hotel-auth');
+    expect(value.AUTH_SERVICE_URL).toBe('http://localhost:8080');
   });
 
   it('should allow JWT configuration to remain absent during tests', () => {
@@ -58,21 +58,18 @@ describe('Environment validation', () => {
     expect(error).toBeUndefined();
   });
 
-  it('should require JWT_SECRET in staging', () => {
+  it('uses gateway verification in staging without a local staff secret', () => {
     const { error } = envValidationSchema.validate({
       NODE_ENV: 'staging',
-      DATABASE_URL: 'postgresql://user:password@example.com:5432/forever_hotel',
+      DATABASE_URL: 'postgresql://user:pass@localhost/db',
+      FDS_ALLOWED_ORIGINS: 'https://frontdesk.example.com',
     });
-
-    expect(error).toBeDefined();
-
-    expect(error?.message).toContain('JWT_SECRET');
+    expect(error).toBeUndefined();
   });
   it('rejects database synchronization in production', () => {
     const { error } = envValidationSchema.validate({
       NODE_ENV: 'production',
       DATABASE_URL: 'postgresql://user:pass@example.com/db',
-      JWT_SECRET: 'a'.repeat(32),
       FDS_ALLOWED_ORIGINS: 'https://frontdesk.example.com',
       DB_SYNCHRONIZE: true,
     });
@@ -84,7 +81,6 @@ describe('Environment validation', () => {
     const { error } = envValidationSchema.validate({
       NODE_ENV: 'production',
       DATABASE_URL: 'postgresql://user:pass@example.com/db',
-      JWT_SECRET: 'a'.repeat(32),
     });
 
     expect(error).toBeDefined();
@@ -100,39 +96,35 @@ describe('Environment validation', () => {
     expect(error).toBeDefined();
   });
 
-  it('should require JWT_SECRET in production', () => {
+  it('uses gateway verification in production without a local staff secret', () => {
     const { error } = envValidationSchema.validate({
       NODE_ENV: 'production',
-      DATABASE_URL: 'postgresql://user:password@example.com:5432/forever_hotel',
+      DATABASE_URL: 'postgresql://user:pass@localhost/db',
+      FDS_ALLOWED_ORIGINS: 'https://frontdesk.example.com',
     });
-
-    expect(error).toBeDefined();
-
-    expect(error?.message).toContain('JWT_SECRET');
+    expect(error).toBeUndefined();
   });
 
-  it('should reject a JWT secret shorter than 32 characters', () => {
+  it('rejects a non-HTTP gateway origin', () => {
     const { error } = envValidationSchema.validate({
       NODE_ENV: 'development',
       DATABASE_URL: 'postgresql://user:password@example.com:5432/forever_hotel',
-      JWT_SECRET: 'too-short',
+      AUTH_SERVICE_URL: 'file:///tmp/auth',
     });
 
     expect(error).toBeDefined();
   });
 
-  it('should accept valid production JWT configuration', () => {
+  it('accepts valid production gateway configuration', () => {
     const { error, value } = envValidationSchema.validate({
       NODE_ENV: 'production',
       DATABASE_URL: 'postgresql://user:password@example.com:5432/forever_hotel',
-      JWT_SECRET: 'production-test-secret-at-least-32-characters',
-      JWT_ISSUER: 'forever-hotel-auth',
       FDS_ALLOWED_ORIGINS: 'https://frontdesk.example.com',
     });
 
     expect(error).toBeUndefined();
 
-    expect(value.JWT_ISSUER).toBe('forever-hotel-auth');
+    expect(value.AUTH_SERVICE_URL).toBe('http://localhost:8080');
   });
 
   it('should allow RabbitMQ to remain disabled without broker credentials', () => {

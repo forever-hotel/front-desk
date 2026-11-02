@@ -1,3 +1,5 @@
+import { testPrincipalResolver } from './helpers/central-principal.stub';
+import { PrincipalResolver } from '../src/security/auth/principal-resolver';
 import { INestApplication } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
@@ -47,7 +49,10 @@ describe('FDS FOSS QR endpoint authorization (e2e)', () => {
       ],
       controllers: [FossGuestQrController],
       providers: [{ provide: FossGuestQrService, useValue: qrService }],
-    }).compile();
+    })
+      .overrideProvider(PrincipalResolver)
+      .useValue(testPrincipalResolver(secret, issuer))
+      .compile();
     app = module.createNestApplication();
     await app.init();
   });

@@ -55,7 +55,19 @@ export class RealtimeGateway
   afterInit(server: Namespace): void {
     server.use(async (client, next) => {
       try {
-        const token: unknown = client.handshake.auth?.token;
+        const origin = client.handshake.headers?.origin;
+        if (
+          (origin && !getAllowedOrigins().includes(origin)) ||
+          (!origin && !client.handshake.auth?.token)
+        )
+          throw new Error('Unapproved socket origin');
+        const token: unknown =
+          client.handshake.auth?.token ??
+          client.handshake.headers.cookie
+            ?.split(';')
+            .map((value) => value.trim())
+            .find((value) => value.startsWith('fds_session='))
+            ?.slice(12);
 
         const principal = await this.socketAuthService.authenticate(token);
 
@@ -66,6 +78,7 @@ export class RealtimeGateway
 
         // Store the verified identity for future handlers.
         client.data.principal = principal;
+        client.data.staffToken = token;
 
         next();
       } catch {
@@ -75,6 +88,15 @@ export class RealtimeGateway
   }
 
   handleConnection(client: Socket): void {
+    const revalidate = setInterval(() => {
+      void this.socketAuthService
+        .authenticate(client.data.staffToken)
+        .then((principal) => {
+          if (!principal) client.disconnect(true);
+        });
+    }, 5000);
+    revalidate.unref();
+    client.once('disconnect', () => clearInterval(revalidate));
     const readyEvent: RealtimeReadyEvent = {
       eventType: REALTIME_EVENTS.ready,
       contractVersion: REALTIME_CONTRACT_VERSION,

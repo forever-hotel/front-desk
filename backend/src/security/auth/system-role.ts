@@ -1,4 +1,5 @@
 export enum SystemRole {
+  ROOT = 'ROOT',
   GUEST = 'GUEST',
   RECEPTIONIST = 'RECEPTIONIST',
   KITCHEN_STAFF = 'KITCHEN_STAFF',
