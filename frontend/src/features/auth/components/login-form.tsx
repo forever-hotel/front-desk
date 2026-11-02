@@ -1,5 +1,6 @@
 "use client";
 import { Alert, Button, Form, Input } from "antd";
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -116,6 +117,20 @@ export default function LoginForm({ change = false }: { change?: boolean }) {
             {change ? "Change password" : "Sign in"}
           </Button>
         </Form>
+        {!change && (
+          <Link
+            href="/reset-password"
+            style={{
+              display: "block",
+              marginTop: 16,
+              textAlign: "center",
+              color: "var(--navy)",
+              textDecoration: "underline",
+            }}
+          >
+            Forgot password?
+          </Link>
+        )}
       </section>
     </main>
   );
