@@ -87,21 +87,22 @@ describe("socket-client", () => {
 
     const [realtimeUrl, options] = ioMock.mock.calls[0];
 
-    expect(realtimeUrl).toContain("/realtime");
+    expect(realtimeUrl).toBeUndefined(); // Relative configuration uses the current gateway origin.
+    expect(options?.path).toBe("/realtime/socket.io");
 
     expect(options).toEqual(
       expect.objectContaining({
         autoConnect: false,
 
-        withCredentials: true,
+        withCredentials: false,
 
         reconnection: true,
 
-        reconnectionAttempts: Infinity,
+        reconnectionAttempts: 5,
 
         reconnectionDelayMax: 5000,
 
-        transports: ["websocket", "polling"],
+        transports: ["websocket"],
       }),
     );
   });

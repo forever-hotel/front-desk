@@ -18,6 +18,9 @@ export class RealtimeController {
     return {
       version: REALTIME_CONTRACT_VERSION,
       namespace: REALTIME_NAMESPACE,
+      path: '/realtime/socket.io',
+      authentication: 'single-use-ticket',
+      payloads: 'invalidation-only',
       events: REALTIME_EVENTS,
       reconnect: {
         enabled: true,

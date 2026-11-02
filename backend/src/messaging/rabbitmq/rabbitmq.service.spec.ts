@@ -96,6 +96,32 @@ describe('RabbitMqService', () => {
     return { publisherChannel, consumerChannel, connection };
   }
 
+  it('confirms safe realtime invalidations on the shared exchange', async () => {
+    const { service, internals } = createService();
+    const { publisherChannel } = attachConnectedState(internals);
+    publisherChannel.publish.mockImplementation(
+      (_exchange, _key, _body, _options, callback) => {
+        callback?.(null, undefined);
+        return true;
+      },
+    );
+    await service.publishRealtime('fds', 'room.status.updated');
+    expect(publisherChannel.assertExchange).toHaveBeenCalledWith(
+      'hotel.realtime',
+      'topic',
+      { durable: true },
+    );
+    expect(publisherChannel.publish).toHaveBeenCalledWith(
+      'hotel.realtime',
+      'fds.room.status.updated',
+      Buffer.from(
+        JSON.stringify({ subsystem: 'fds', name: 'room.status.updated' }),
+      ),
+      expect.objectContaining({ expiration: '60000', persistent: true }),
+      expect.any(Function),
+    );
+  });
+
   it('exposes runtime configuration values', () => {
     const { service } = createService();
 

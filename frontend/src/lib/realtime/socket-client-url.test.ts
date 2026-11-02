@@ -63,7 +63,7 @@ afterEach(() => {
 });
 
 describe("socket-client URL normalization", () => {
-  it("Given a WebSocket base URL with a trailing slash, when the socket is created, then the trailing slash is removed before adding the realtime namespace", async () => {
+  it("Given a WebSocket base URL with a trailing slash, when the socket is created, then the gateway origin is normalized", async () => {
     const { socketClient, ioMock } = await loadSocketClient(
       "http://localhost:3001/",
     );
@@ -71,14 +71,14 @@ describe("socket-client URL normalization", () => {
     socketClient.getRealtimeSocket();
 
     expect(ioMock).toHaveBeenCalledWith(
-      "http://localhost:3001/realtime",
+      "http://localhost:3001",
       expect.any(Object),
     );
 
     socketClient.disconnectRealtimeSocket();
   });
 
-  it("Given a WebSocket base URL without a trailing slash, when the socket is created, then the URL is preserved before adding the realtime namespace", async () => {
+  it("Given a WebSocket base URL without a trailing slash, when the socket is created, then the gateway origin is preserved", async () => {
     const { socketClient, ioMock } = await loadSocketClient(
       "http://localhost:3001",
     );
@@ -86,7 +86,7 @@ describe("socket-client URL normalization", () => {
     socketClient.getRealtimeSocket();
 
     expect(ioMock).toHaveBeenCalledWith(
-      "http://localhost:3001/realtime",
+      "http://localhost:3001",
       expect.any(Object),
     );
 

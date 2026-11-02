@@ -7,7 +7,7 @@ jest.mock("socket.io-client", () => ({
     io: { removeAllListeners: jest.fn() },
   })),
 }));
-describe("Cookie-authenticated FDS sockets", () => {
+describe("Ticket-authenticated FDS sockets", () => {
   afterEach(() => {
     disconnectRealtimeSocket();
     jest.clearAllMocks();
@@ -18,11 +18,14 @@ describe("Cookie-authenticated FDS sockets", () => {
     expect(io).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({
-        withCredentials: true,
+        withCredentials: false,
         reconnectionAttempts: 5,
       }),
     );
-    expect(jest.mocked(io).mock.calls[0][1]).not.toHaveProperty("auth");
+    expect(jest.mocked(io).mock.calls[0][1]?.auth).toEqual(
+      expect.any(Function),
+    );
+    expect(jest.mocked(io).mock.calls[0][1]?.path).toBe("/realtime/socket.io");
     sessionStorage.removeItem("fds:dev-test-jwt");
   });
 });

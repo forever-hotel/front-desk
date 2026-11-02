@@ -80,6 +80,32 @@ export class RabbitMqService implements OnModuleInit, OnApplicationShutdown {
     return this.config.retryDelayMs;
   }
 
+  async publishRealtime(subsystem: string, name: string): Promise<void> {
+    const channel = await this.getPublisherChannel();
+    if (!channel) throw new Error('Realtime publisher unavailable');
+    await channel.assertExchange('hotel.realtime', 'topic', { durable: true });
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(
+        () => reject(new Error('Realtime publish timed out')),
+        5000,
+      );
+      channel.publish(
+        'hotel.realtime',
+        subsystem + '.' + name,
+        Buffer.from(JSON.stringify({ subsystem, name })),
+        {
+          persistent: true,
+          contentType: 'application/json',
+          expiration: '60000',
+        },
+        (error) => {
+          clearTimeout(timeout);
+          error ? reject(error) : resolve();
+        },
+      );
+    });
+  }
+
   async publishJson(
     routingKey: string,
     payload: unknown,
