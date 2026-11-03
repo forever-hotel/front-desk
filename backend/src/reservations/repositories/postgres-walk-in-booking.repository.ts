@@ -1,3 +1,9 @@
+import {
+  encryptPii,
+  piiEnabled,
+  emailLookup,
+  piiSearchTokens,
+} from '../../security/guest-pii';
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import type {
@@ -56,10 +62,14 @@ export class PostgresWalkInBookingRepository extends WalkInBookingRepository {
         SELECT
           guest_id::text AS "guestId"
         FROM guests
-        WHERE LOWER(email) = LOWER($1)
+        WHERE ${piiEnabled() ? 'email_lookup=$1 OR (email_lookup IS NULL AND LOWER(email)=LOWER($2))' : 'LOWER(email) = LOWER($1)'}
         LIMIT 1
         `,
-        [input.guest.email.trim()],
+        [
+          ...(piiEnabled()
+            ? [emailLookup(input.guest.email), input.guest.email.trim()]
+            : [input.guest.email.trim()]),
+        ],
       );
 
       const guestId =
@@ -155,16 +165,27 @@ export class PostgresWalkInBookingRepository extends WalkInBookingRepository {
       await queryRunner.query(
         `
         INSERT INTO fds_walk_in_guest_details (
-          booking_id, full_name, email, nic_or_passport, phone
+          booking_id, full_name, email, nic_or_passport, phone${piiEnabled() ? ', email_lookup, search_tokens' : ''}
         )
-        VALUES ($1, $2, $3, $4, $5)
+        VALUES ($1, $2, $3, $4, $5${piiEnabled() ? ', $6, $7' : ''})
         `,
         [
           booking.bookingId,
-          input.guest.fullName,
-          input.guest.email,
-          input.guest.nicOrPassport ?? null,
-          input.guest.phone ?? null,
+          encryptPii(input.guest.fullName, 'full_name'),
+          encryptPii(input.guest.email, 'email'),
+          encryptPii(input.guest.nicOrPassport ?? null, 'nic_or_passport'),
+          encryptPii(input.guest.phone ?? null, 'phone'),
+          ...(piiEnabled()
+            ? [
+                emailLookup(input.guest.email),
+                piiSearchTokens([
+                  input.guest.fullName,
+                  input.guest.email,
+                  input.guest.nicOrPassport,
+                  input.guest.phone,
+                ]),
+              ]
+            : []),
         ],
       );
 

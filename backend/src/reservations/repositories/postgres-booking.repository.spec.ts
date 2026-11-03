@@ -1,3 +1,4 @@
+import { encryptPii, piiSearchQuery } from '../../security/guest-pii';
 import { DataSource } from 'typeorm';
 import { PostgresBookingRepository } from './postgres-booking.repository';
 
@@ -59,6 +60,9 @@ describe('PostgresBookingRepository', () => {
         {
           bookingId: '33333333-3333-4333-8333-333333333333',
           bookingReference: '33333333-3333-4333-8333-333333333333',
+          guestName: null,
+          email: null,
+          phone: null,
         },
       ];
 
@@ -81,6 +85,9 @@ describe('PostgresBookingRepository', () => {
         {
           bookingId: 'arrival-001',
           bookingReference: 'arrival-001',
+          guestName: null,
+          email: null,
+          phone: null,
           status: 'CONFIRMED',
           checkInDate: '2030-01-10',
         },
@@ -105,6 +112,9 @@ describe('PostgresBookingRepository', () => {
         {
           bookingId: 'departure-001',
           bookingReference: 'departure-001',
+          guestName: null,
+          email: null,
+          phone: null,
           status: 'CHECKED_IN',
           checkOutDate: '2030-01-12',
         },
@@ -121,5 +131,48 @@ describe('PostgresBookingRepository', () => {
         ['2030-01-12'],
       );
     });
+  });
+});
+
+describe('encrypted booking lookup', () => {
+  it('uses keyed search and never exposes ciphertext or the identity-search field', async () => {
+    const previous = { ...process.env };
+    process.env.GUEST_PII_ENABLED = 'true';
+    process.env.GUEST_PII_KEY = Buffer.alloc(32, 9).toString('base64');
+    const query = jest.fn().mockResolvedValue([
+      {
+        bookingId: 'one',
+        bookingReference: 'one',
+        guestName: encryptPii('Test Guest', 'full_name'),
+        email: encryptPii('test@example.com', 'email'),
+        phone: null,
+        searchIdentity: encryptPii('123456789V', 'nic_or_passport'),
+      },
+      {
+        bookingId: 'two',
+        bookingReference: 'two',
+        guestName: encryptPii('Other Name', 'full_name'),
+        email: null,
+        phone: null,
+        searchIdentity: null,
+      },
+    ]);
+    try {
+      const result = await new PostgresBookingRepository({
+        query,
+      } as unknown as DataSource).search('Guest');
+      expect(query).toHaveBeenCalledWith(
+        expect.stringContaining('search_tokens @>'),
+        ['%Guest%', piiSearchQuery('Guest')],
+      );
+      expect(result).toHaveLength(1);
+      expect(result[0].guestName).toBe('Test Guest');
+      expect(result[0]).not.toHaveProperty('searchIdentity');
+    } finally {
+      for (const name of ['GUEST_PII_ENABLED', 'GUEST_PII_KEY']) {
+        if (previous[name] === undefined) delete process.env[name];
+        else process.env[name] = previous[name];
+      }
+    }
   });
 });

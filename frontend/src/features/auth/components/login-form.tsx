@@ -72,11 +72,14 @@ export default function LoginForm({ change = false }: { change?: boolean }) {
         <Form layout="vertical" onFinish={submit} requiredMark={false}>
           {!change && (
             <Form.Item
-              label="Username or email"
+              label="Email"
               name="username"
-              rules={[{ required: true }]}
+              rules={[
+                { required: true, message: "Email is required." },
+                { type: "email", message: "Enter a valid email address." },
+              ]}
             >
-              <Input autoComplete="username" />
+              <Input type="email" autoComplete="email" maxLength={320} />
             </Form.Item>
           )}
           <Form.Item

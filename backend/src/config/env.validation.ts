@@ -1,3 +1,4 @@
+import { validateGuestPiiConfig } from '../security/guest-pii';
 import * as Joi from 'joi';
 import { RABBITMQ_TOPOLOGY } from '../messaging/messaging.constants';
 
@@ -108,9 +109,10 @@ export const envValidationSchema = Joi.object({
           'FDS_FOSS_CHECKOUT_TIME_LOCAL is required with FOSS booking integration in staging/production',
       });
     }
-    if (deploymentRequiresJwt && value.DB_SYNCHRONIZE === true) {
+    if (value.DB_SYNCHRONIZE === true) {
       return helpers.message({
-        custom: 'DB_SYNCHRONIZE must be false in staging and production',
+        custom:
+          'DB_SYNCHRONIZE must be false; shared schema changes are manual',
       });
     }
 
@@ -175,6 +177,11 @@ export const envValidationSchema = Joi.object({
       return helpers.message({
         custom: 'FOSS_QR_ISSUE_URL must use HTTPS in staging/production',
       });
+    }
+    try {
+      validateGuestPiiConfig(value);
+    } catch {
+      return helpers.message({ custom: 'Invalid guest PII configuration' });
     }
     return value;
   })
