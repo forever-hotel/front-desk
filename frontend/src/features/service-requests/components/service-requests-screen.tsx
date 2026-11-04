@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, type FormEvent } from "react";
+import { useState, useRef, type FormEvent } from "react";
 
 import { Alert, Button, Input, Select } from "antd";
 import { ConciergeBell } from "lucide-react";
@@ -11,7 +11,7 @@ import {
 } from "@/features/reservations";
 
 import { useCreateServiceRequest } from "../hooks/use-create-service-request";
-import { getLocalDevelopmentReceptionistId } from "../lib/development-actor";
+import { useCentralAuthSession } from "@/features/auth/providers/central-auth-session-provider";
 import type { ServiceRequestCategory } from "../types/service-request.type";
 
 import styles from "./service-requests-screen.module.css";
@@ -27,17 +27,16 @@ const categoryOptions: Array<{
   { value: "OTHER", label: "Other service" },
 ];
 
-type ServiceRequestsScreenProps = {
-  /** Auth Service/session-provided receptionist ID, when available. */
-  performedBy?: string;
-};
-
-export function ServiceRequestsScreen({
-  performedBy,
-}: ServiceRequestsScreenProps) {
-  const [developmentActorId, setDevelopmentActorId] = useState<string | null>(
-    null,
-  );
+export function ServiceRequestsScreen() {
+  const auth = useCentralAuthSession();
+  const session = auth.status === "authenticated" ? auth.session : null;
+  const actorId =
+    session &&
+    !session.passwordChangeRequired &&
+    ["RECEPTIONIST", "ROOT"].includes(session.role) &&
+    Date.parse(session.expiresAt) > Date.now()
+      ? session.userId
+      : null;
   const [searchText, setSearchText] = useState("");
   const [hasSearched, setHasSearched] = useState(false);
   const [bookings, setBookings] = useState<BookingSearchItem[]>([]);
@@ -53,17 +52,6 @@ export function ServiceRequestsScreen({
   const requestDraft = useRef<{ fingerprint: string; key: string } | undefined>(
     undefined,
   );
-  const actorId = performedBy ?? developmentActorId;
-
-  useEffect(() => {
-    // Development-only bridge. NOT a verified production session.
-    const timer = window.setTimeout(() => {
-      setDevelopmentActorId(getLocalDevelopmentReceptionistId());
-    }, 0);
-
-    return () => window.clearTimeout(timer);
-  }, []);
-
   async function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -333,7 +321,7 @@ export function ServiceRequestsScreen({
                 type="warning"
                 showIcon
                 title="Authenticated receptionist identity is required"
-                description="Submission remains unavailable until a receptionist session is provided. Local development may use a valid temporary RECEPTIONIST JWT; a MANAGER token is read-only for this operation."
+                description="Sign in with an active receptionist or ROOT account to create a service request."
               />
             </div>
           )}
