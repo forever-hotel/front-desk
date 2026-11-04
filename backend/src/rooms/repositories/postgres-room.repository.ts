@@ -192,12 +192,14 @@ export class PostgresRoomRepository extends RoomRepository {
         );
       }
 
-      /*
-       * Maintenance blocking/clearing is
-       * audited in the SAME transaction as
-       * the room-state change.
-       */
-      if (maintenanceAuditAction && input.performedBy) {
+      // Keep release comments in the existing audit table, atomically with the room change.
+      const auditAction =
+        maintenanceAuditAction ??
+        (currentRoom.status === RoomStatus.REQUIRES_CLEANING &&
+        input.targetStatus === RoomStatus.VACANT
+          ? 'ROOM_CLEANING_CLEARED'
+          : null);
+      if (auditAction && input.performedBy) {
         const auditDetails = {
           previousStatus: currentRoom.status,
           targetStatus: input.targetStatus,
@@ -227,7 +229,7 @@ export class PostgresRoomRepository extends RoomRepository {
           `,
           [
             input.performedBy,
-            maintenanceAuditAction,
+            auditAction,
             input.roomNumber,
             JSON.stringify(auditDetails),
           ],

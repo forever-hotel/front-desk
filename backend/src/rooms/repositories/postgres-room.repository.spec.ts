@@ -323,6 +323,46 @@ describe('PostgresRoomRepository', () => {
     expect(queryRunner.query).toHaveBeenCalledTimes(2);
   });
 
+  it('stores the cleaning release comment in the existing audit transaction', async () => {
+    queryRunner.query
+      .mockResolvedValueOnce([
+        { roomNumber: 'T105', status: RoomStatus.REQUIRES_CLEANING },
+      ])
+      .mockResolvedValueOnce([
+        {
+          roomNumber: 'T105',
+          status: RoomStatus.VACANT,
+          lastClearedAt: '2032-01-10T13:00:00Z',
+          updatedAt: '2032-01-10T13:00:00Z',
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    await repository.transitionStatus({
+      roomNumber: 'T105',
+      targetStatus: RoomStatus.VACANT,
+      allowedCurrentStatuses: [RoomStatus.REQUIRES_CLEANING],
+      performedBy: 'receptionist-1',
+      notes: 'Cleaning checked',
+    });
+
+    expect(queryRunner.query).toHaveBeenNthCalledWith(
+      3,
+      expect.stringContaining('INSERT INTO audit_logs'),
+      [
+        'receptionist-1',
+        'ROOM_CLEANING_CLEARED',
+        'T105',
+        JSON.stringify({
+          previousStatus: RoomStatus.REQUIRES_CLEANING,
+          targetStatus: RoomStatus.VACANT,
+          notes: 'Cleaning checked',
+        }),
+      ],
+    );
+    expect(queryRunner.commitTransaction).toHaveBeenCalledTimes(1);
+  });
+
   it('should require performedBy for a maintenance transition', async () => {
     queryRunner.query.mockResolvedValueOnce([
       {
