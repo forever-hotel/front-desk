@@ -33,7 +33,26 @@
 .small {
   font-size: 10px !important;
 }
+.manualAccess {
+  margin: 16px auto;
+  padding: 12px;
+  border: 1px solid #ccc;
+  max-width: 100%;
+  font-size: 12px;
+}
+.accessCode {
+  margin: 10px 0 !important;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+.accessCode code {
+  white-space: normal;
+  word-break: break-all;
+}
 @media print {
+  .accessCode :global(.ant-typography-copy) {
+    display: none;
+  }
   :global(body *) {
     visibility: hidden !important;
   }
