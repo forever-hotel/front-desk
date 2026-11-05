@@ -24,12 +24,34 @@ describe("FossGuestQrActions", () => {
     renderWithProviders(<FossGuestQrActions bookingReference={reference} />);
     await user.click(screen.getByRole("button", { name: "Print FOSS QR" }));
     expect(await screen.findByText("Room 101")).toBeInTheDocument();
+    expect(screen.getByText("Guest access code")).toBeInTheDocument();
+    expect(screen.getByText("DEMO-123")).toBeInTheDocument();
     expect(
       screen.getByText("DEMO ONLY — NOT VALID FOR GUEST LOGIN"),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Open Print Dialog" }),
     ).toBeEnabled();
+  });
+
+  it("shows the actual activation token for manual entry, not the room or booking ID", async () => {
+    const token = "single-use-guest-activation-token";
+    server.use(
+      http.post("*/check-in/:bookingReference/foss-qr", () =>
+        HttpResponse.json({
+          roomNumber: "101",
+          activationUrl: `http://localhost:3004/activate?token=${token}`,
+          expiresAt: "2030-10-31T10:00:00.000Z",
+          demo: false,
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<FossGuestQrActions bookingReference={reference} />);
+    expect(screen.queryByText(token)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Print FOSS QR" }));
+    expect(await screen.findByText(token)).toBeInTheDocument();
+    expect(screen.getByText(/It can be used only once/)).toBeInTheDocument();
   });
 
   it("shows backend errors without pretending check-in failed", async () => {

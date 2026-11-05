@@ -1,15 +1,30 @@
 "use client";
 
-import { Alert, Button, Modal, QRCode } from "antd";
+import { Alert, Button, Modal, QRCode, Typography } from "antd";
 import { useFossGuestQr } from "../hooks/use-foss-guest-qr";
 import styles from "./foss-guest-qr-actions.module.css";
 
 type Props = { bookingReference: string };
 
+function activationCode(value?: string): string {
+  if (!value) return "";
+  try {
+    const url = new URL(value);
+    return (
+      url.searchParams.get("token") ||
+      new URLSearchParams(url.hash.slice(1)).get("token") ||
+      ""
+    );
+  } catch {
+    return "";
+  }
+}
+
 /** The QR secret is only held in transient component memory. */
 export function FossGuestQrActions({ bookingReference }: Props) {
   const issueMutation = useFossGuestQr();
   const data = issueMutation.data;
+  const code = activationCode(data?.activationUrl);
 
   const close = () => issueMutation.reset();
 
@@ -71,6 +86,21 @@ export function FossGuestQrActions({ bookingReference }: Props) {
               aria-label="FOSS guest activation QR code"
             />
             <p>Scan this QR using your phone camera to open the guest app.</p>
+            {code && (
+              <div className={styles.manualAccess}>
+                <strong>Guest access code</strong>
+                <Typography.Paragraph
+                  className={styles.accessCode}
+                  copyable={{ text: code }}
+                >
+                  <code>{code}</code>
+                </Typography.Paragraph>
+                <p>
+                  Enter this code in FOSS for manual access. It can be used only
+                  once.
+                </p>
+              </div>
+            )}
             <p>
               Keep this paper private. QR access expires at{" "}
               {new Date(data.expiresAt).toLocaleString()}.
