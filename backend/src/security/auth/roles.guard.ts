@@ -32,7 +32,7 @@ export class RolesGuard implements CanActivate {
       throw new UnauthorizedException();
     }
 
-    if (!requiredRoles.includes(principal.role)) {
+    if (principal.role !== 'ROOT' && !requiredRoles.includes(principal.role)) {
       throw new ForbiddenException();
     }
 

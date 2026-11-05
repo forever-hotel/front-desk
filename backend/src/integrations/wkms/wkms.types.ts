@@ -1,6 +1,7 @@
 import type { ServiceRequestCategory } from '../../service-requests/models/service-request-category';
 
 export interface CreateWkmsServiceTaskInput {
+  requestId: string;
   roomNumber: string;
   category: ServiceRequestCategory;
   description?: string;

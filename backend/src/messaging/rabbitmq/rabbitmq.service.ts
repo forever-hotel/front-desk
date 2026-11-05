@@ -6,6 +6,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { connect } from 'amqplib';
+import { randomUUID } from 'node:crypto';
 import type {
   Channel,
   ChannelModel,
@@ -80,13 +81,43 @@ export class RabbitMqService implements OnModuleInit, OnApplicationShutdown {
     return this.config.retryDelayMs;
   }
 
+  async publishRealtime(subsystem: string, name: string): Promise<void> {
+    const channel = await this.getPublisherChannel();
+    if (!channel) throw new Error('Realtime publisher unavailable');
+    await channel.assertExchange('hotel.realtime', 'topic', { durable: true });
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(
+        () => reject(new Error('Realtime publish timed out')),
+        5000,
+      );
+      channel.publish(
+        'hotel.realtime',
+        subsystem + '.' + name,
+        Buffer.from(JSON.stringify({ subsystem, name })),
+        {
+          persistent: true,
+          contentType: 'application/json',
+          expiration: '60000',
+        },
+        (error) => {
+          clearTimeout(timeout);
+          error ? reject(error) : resolve();
+        },
+      );
+    });
+  }
+
   async publishJson(
     routingKey: string,
     payload: unknown,
     options: RabbitMqPublishOptions = {},
+    exchange = this.config.exchange,
   ): Promise<void> {
     const channel = await this.getPublisherChannel();
 
+    if (!['hotel.events', this.config.exchange].includes(exchange))
+      throw new Error('Unapproved exchange');
+    await channel.assertExchange(exchange, 'topic', { durable: true });
     const body = Buffer.from(JSON.stringify(payload), 'utf8');
 
     const publishOptions: Options.Publish = {
@@ -94,14 +125,35 @@ export class RabbitMqService implements OnModuleInit, OnApplicationShutdown {
       contentType: 'application/json',
       contentEncoding: 'utf-8',
       timestamp: Date.now(),
-      messageId: options.messageId,
+      messageId: options.messageId ?? randomUUID(),
+      mandatory: true,
       type: options.type,
       headers: options.headers,
     };
 
-    channel.publish(this.config.exchange, routingKey, body, publishOptions);
-
-    await channel.waitForConfirms();
+    let returned = false;
+    const onReturned = (message: { properties: { messageId?: string } }) => {
+      if (message.properties.messageId === publishOptions.messageId)
+        returned = true;
+    };
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    channel.on('return', onReturned);
+    try {
+      channel.publish(exchange, routingKey, body, publishOptions);
+      await Promise.race([
+        channel.waitForConfirms(),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(
+            () => reject(new Error('RabbitMQ confirmation timed out')),
+            5000,
+          );
+        }),
+      ]);
+      if (returned) throw new Error('RabbitMQ message was unroutable');
+    } finally {
+      clearTimeout(timeout);
+      channel.off('return', onReturned);
+    }
   }
 
   async consume(

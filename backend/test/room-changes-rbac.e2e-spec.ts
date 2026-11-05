@@ -1,3 +1,5 @@
+import { testPrincipalResolver } from './helpers/central-principal.stub';
+import { PrincipalResolver } from '../src/security/auth/principal-resolver';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
@@ -104,7 +106,10 @@ describe('Room Changes RBAC (e2e)', () => {
           useValue: roomChangesService,
         },
       ],
-    }).compile();
+    })
+      .overrideProvider(PrincipalResolver)
+      .useValue(testPrincipalResolver(secret, issuer))
+      .compile();
 
     app = moduleRef.createNestApplication();
 

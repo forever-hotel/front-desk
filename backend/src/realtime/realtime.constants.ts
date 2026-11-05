@@ -1,4 +1,4 @@
-export const REALTIME_NAMESPACE = '/realtime';
+export const REALTIME_NAMESPACE = '/';
 
 export const REALTIME_CONTRACT_VERSION = 1;
 

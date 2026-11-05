@@ -1,7 +1,10 @@
+import { isUUID } from 'class-validator';
 import {
   Body,
   Controller,
   Get,
+  Headers,
+  BadRequestException,
   Param,
   ParseUUIDPipe,
   Post,
@@ -36,13 +39,19 @@ export class ServiceRequestsController {
 
     @CurrentPrincipal()
     principal: AuthenticatedPrincipal,
+    @Headers('idempotency-key') requestId?: string,
   ): Promise<ServiceRequestResult> {
     requireMatchingActor(dto.performedBy, principal);
+    if (requestId && !isUUID(requestId, '4'))
+      throw new BadRequestException('Invalid request key');
 
-    return this.serviceRequestsService.create({
-      ...dto,
-      performedBy: principal.userId,
-    });
+    return this.serviceRequestsService.create(
+      {
+        ...dto,
+        performedBy: principal.userId,
+      },
+      requestId,
+    );
   }
 
   @Get('available-workers')

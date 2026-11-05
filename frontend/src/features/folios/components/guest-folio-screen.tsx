@@ -425,8 +425,9 @@ function formatChargeDate(value: string) {
 
 function formatMoney(amount: number, currency: "LKR", includeCurrency = true) {
   const formatted = new Intl.NumberFormat("en-LK", {
-    maximumFractionDigits: 0,
-  }).format(amount);
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount / 100);
 
   return includeCurrency ? `${currency} ${formatted}` : formatted;
 }

@@ -13,7 +13,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
         const commonOptions = {
           type: 'postgres' as const,
           autoLoadEntities: true,
-          synchronize: configService.get<boolean>('DB_SYNCHRONIZE', false),
+          synchronize: false,
+          migrationsRun: false,
           logging: configService.get<boolean>('DB_LOGGING', false),
         };
 

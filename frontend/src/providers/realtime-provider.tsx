@@ -19,13 +19,7 @@ import {
   getRealtimeSocket,
 } from "@/lib/realtime/socket-client";
 
-import type {
-  RealtimeConnectionState,
-  RoomStatusUpdatedEvent,
-  TaskEscalatedEvent,
-} from "@/lib/realtime/realtime.type";
-
-import type { RoomStatusBoardItem } from "@/features/rooms";
+import type { RealtimeConnectionState } from "@/lib/realtime/realtime.type";
 
 export type RealtimeContextValue = {
   connectionState: RealtimeConnectionState;
@@ -79,40 +73,20 @@ export function RealtimeProvider({ children }: RealtimeProviderProps) {
       setConnectionState("fallback");
     };
 
-    const handleRoomStatusUpdated = (event: RoomStatusUpdatedEvent) => {
-      queryClient.setQueryData<RoomStatusBoardItem[]>(
-        queryKeys.rooms.status,
-        (currentRooms) => {
-          if (!currentRooms) {
-            return currentRooms;
-          }
-
-          return currentRooms.map((room) =>
-            room.roomNumber === event.data.roomNumber
-              ? {
-                  ...room,
-                  status: event.data.status,
-                  updatedAt: event.occurredAt,
-                }
-              : room,
-          );
-        },
-      );
+    // Shared sockets deliver safe invalidations, never room/worker records.
+    const handleRoomStatusUpdated = () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.rooms.status });
     };
-
-    const handleTaskEscalated = (event: TaskEscalatedEvent) => {
-      queryClient.setQueryData<TaskEscalatedEvent[]>(
-        queryKeys.escalations.recent,
-        (currentEscalations = []) => {
-          const withoutExistingTask = currentEscalations.filter(
-            (item) => item.data.taskId !== event.data.taskId,
-          );
-
-          return [event, ...withoutExistingTask].slice(0, 100);
-        },
-      );
+    const handleTaskEscalated = () => {
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.escalations.recent,
+      });
     };
-
+    const handleTransport = (status: { healthy?: boolean }) => {
+      if (status?.healthy === true) handleConnect();
+      else setConnectionState("fallback");
+    };
+    socket.on("realtime.status", handleTransport);
     socket.on("connect", handleConnect);
     socket.on("disconnect", handleDisconnect);
     socket.on("connect_error", handleConnectError);
@@ -123,10 +97,20 @@ export function RealtimeProvider({ children }: RealtimeProviderProps) {
     socket.on(REALTIME_EVENTS.roomStatusUpdated, handleRoomStatusUpdated);
 
     socket.on(REALTIME_EVENTS.taskEscalated, handleTaskEscalated);
+    socket.on("task.changed", handleTaskEscalated);
 
     socket.connect();
+    // Recover a missed invalidation without polling session validation.
+    const resync = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        handleRoomStatusUpdated();
+        handleTaskEscalated();
+      }
+    }, 30000);
 
     return () => {
+      clearInterval(resync);
+      socket.off("realtime.status", handleTransport);
       socket.off("connect", handleConnect);
       socket.off("disconnect", handleDisconnect);
       socket.off("connect_error", handleConnectError);
@@ -138,6 +122,7 @@ export function RealtimeProvider({ children }: RealtimeProviderProps) {
       socket.off(REALTIME_EVENTS.roomStatusUpdated, handleRoomStatusUpdated);
 
       socket.off(REALTIME_EVENTS.taskEscalated, handleTaskEscalated);
+      socket.off("task.changed", handleTaskEscalated);
 
       disconnectRealtimeSocket();
     };

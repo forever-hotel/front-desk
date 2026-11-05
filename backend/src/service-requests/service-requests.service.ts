@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import {
   ConflictException,
   Injectable,
@@ -24,7 +25,10 @@ export class ServiceRequestsService {
     private readonly realtimeStateService: RealtimeStateService,
   ) {}
 
-  async create(dto: CreateServiceRequestDto): Promise<ServiceRequestResult> {
+  async create(
+    dto: CreateServiceRequestDto,
+    requestId: string = randomUUID(),
+  ): Promise<ServiceRequestResult> {
     const stay = await this.serviceRequestRepository.findStay(
       dto.bookingReference,
     );
@@ -45,7 +49,17 @@ export class ServiceRequestsService {
       );
     }
 
+    const persistedRequestId =
+      await this.serviceRequestRepository.createFrontDeskRequest({
+        requestId,
+        performedBy: dto.performedBy,
+        bookingReference: stay.bookingReference,
+        roomNumber: stay.roomNumber,
+        category: dto.category,
+        description: dto.description?.trim() || undefined,
+      });
     const task = await this.wkmsClient.createServiceTask({
+      requestId: persistedRequestId,
       roomNumber: stay.roomNumber,
 
       category: dto.category,

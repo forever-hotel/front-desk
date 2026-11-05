@@ -136,6 +136,7 @@ export class PostgresRoomRepository extends RoomRepository {
             SELECT
               worker_id::text AS "workerId",
               role::text AS "role",
+          roles AS "roles",
               is_active AS "isActive"
             FROM staff_users
             WHERE worker_id = $1
@@ -147,7 +148,9 @@ export class PostgresRoomRepository extends RoomRepository {
 
         if (
           staffRows.length === 0 ||
-          staffRows[0].role !== 'RECEPTIONIST' ||
+          !(staffRows[0].roles ?? [staffRows[0].role]).some(
+            (role: string) => role === 'RECEPTIONIST' || role === 'ROOT',
+          ) ||
           staffRows[0].isActive !== true
         ) {
           throw new BadRequestException(
@@ -189,12 +192,14 @@ export class PostgresRoomRepository extends RoomRepository {
         );
       }
 
-      /*
-       * Maintenance blocking/clearing is
-       * audited in the SAME transaction as
-       * the room-state change.
-       */
-      if (maintenanceAuditAction && input.performedBy) {
+      // Keep release comments in the existing audit table, atomically with the room change.
+      const auditAction =
+        maintenanceAuditAction ??
+        (currentRoom.status === RoomStatus.REQUIRES_CLEANING &&
+        input.targetStatus === RoomStatus.VACANT
+          ? 'ROOM_CLEANING_CLEARED'
+          : null);
+      if (auditAction && input.performedBy) {
         const auditDetails = {
           previousStatus: currentRoom.status,
           targetStatus: input.targetStatus,
@@ -224,7 +229,7 @@ export class PostgresRoomRepository extends RoomRepository {
           `,
           [
             input.performedBy,
-            maintenanceAuditAction,
+            auditAction,
             input.roomNumber,
             JSON.stringify(auditDetails),
           ],

@@ -6,7 +6,6 @@ import { SecurityModule } from '../security/security.module';
 import { RealtimeController } from './realtime.controller';
 import { RealtimeGateway } from './realtime.gateway';
 import { RealtimePublisherService } from './realtime-publisher.service';
-import { RealtimeSocketAuthService } from './realtime-socket-auth.service';
 import { RealtimeStateService } from './realtime-state.service';
 import { TaskEscalationConsumer } from './task-escalation.consumer';
 
@@ -17,7 +16,6 @@ import { TaskEscalationConsumer } from './task-escalation.consumer';
 
   providers: [
     RealtimeGateway,
-    RealtimeSocketAuthService,
     RealtimeStateService,
     RealtimePublisherService,
     TaskEscalationConsumer,

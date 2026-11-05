@@ -19,7 +19,7 @@ COPY . .
 
 # Public configuration is embedded at build time
 ARG NEXT_PUBLIC_API_BASE_URL=/fds
-ARG NEXT_PUBLIC_WS_URL=/
+ARG NEXT_PUBLIC_WS_URL=http://localhost:8080
 
 ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
 ENV NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL}
@@ -33,7 +33,7 @@ FROM node:24-bookworm-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV PORT=3000
+ENV PORT=3001
 ENV HOSTNAME=0.0.0.0
 
 # Copy standalone output and static assets
@@ -43,9 +43,9 @@ COPY --from=builder --chown=node:node /app/public ./public
 
 USER node
 
-EXPOSE 3000
+EXPOSE 3001
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD node -e "fetch('http://127.0.0.1:3000/').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+    CMD node -e "fetch('http://127.0.0.1:' + (process.env.PORT || 3001) + '/').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
 
 CMD ["node", "server.js"]

@@ -1,3 +1,5 @@
+import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import { jest } from "@jest/globals";
 import { render, screen } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 
@@ -6,13 +8,25 @@ import { CENTRAL_AUTH_SESSION_PATH } from "../api/central-auth-session.api";
 import { CentralAuthSessionProvider } from "../providers/central-auth-session-provider";
 import { CentralAuthGate } from "./central-auth-gate";
 
+const router = {
+  bfcacheId: "staff-auth-test",
+  back: jest.fn(),
+  forward: jest.fn(),
+  push: jest.fn(),
+  replace: jest.fn(),
+  refresh: jest.fn(),
+  hmrRefresh: jest.fn(),
+  prefetch: jest.fn(),
+};
 function renderGate() {
   return render(
-    <CentralAuthSessionProvider>
-      <CentralAuthGate>
-        <p>Protected dashboard content</p>
-      </CentralAuthGate>
-    </CentralAuthSessionProvider>,
+    <AppRouterContext.Provider value={router}>
+      <CentralAuthSessionProvider>
+        <CentralAuthGate>
+          <p>Protected dashboard content</p>
+        </CentralAuthGate>
+      </CentralAuthSessionProvider>
+    </AppRouterContext.Provider>,
   );
 }
 

@@ -1,3 +1,4 @@
+import { validateGuestPiiConfig } from '../security/guest-pii';
 import * as Joi from 'joi';
 import { RABBITMQ_TOPOLOGY } from '../messaging/messaging.constants';
 
@@ -6,7 +7,7 @@ export const envValidationSchema = Joi.object({
     .valid('development', 'test', 'staging', 'production')
     .default('development'),
 
-  PORT: Joi.number().port().default(3000),
+  PORT: Joi.number().port().default(4001),
 
   DATABASE_URL: Joi.string()
     .uri({
@@ -31,19 +32,9 @@ export const envValidationSchema = Joi.object({
 
   DB_LOGGING: Joi.boolean().truthy('true').falsy('false').default(false),
 
-  // Central Auth contract is proposed; opt in only after the auth team agrees.
-  FDS_AUTH_PROVIDER: Joi.string().valid('legacy', 'central').default('legacy'),
-  CENTRAL_AUTH_ISSUER: Joi.string()
-    .uri({ scheme: ['https'] })
-    .optional(),
-  CENTRAL_AUTH_AUDIENCE: Joi.string().valid('fds').optional(),
-  CENTRAL_AUTH_JWKS_URL: Joi.string()
-    .uri({ scheme: ['https'] })
-    .optional(),
-
-  JWT_SECRET: Joi.string().min(32).optional(),
-
-  JWT_ISSUER: Joi.string().trim().min(3).max(100).default('forever-hotel-auth'),
+  AUTH_SERVICE_URL: Joi.string()
+    .uri({ scheme: ['http', 'https'] })
+    .default('http://localhost:8080'),
 
   RABBITMQ_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
 
@@ -108,28 +99,6 @@ export const envValidationSchema = Joi.object({
   .custom((value, helpers) => {
     const deploymentRequiresJwt =
       value.NODE_ENV === 'staging' || value.NODE_ENV === 'production';
-
-    if (
-      deploymentRequiresJwt &&
-      value.FDS_AUTH_PROVIDER === 'legacy' &&
-      !value.JWT_SECRET
-    ) {
-      return helpers.error('auth.jwtSecretRequired');
-    }
-    if (value.FDS_AUTH_PROVIDER === 'central') {
-      const missing = [
-        'CENTRAL_AUTH_ISSUER',
-        'CENTRAL_AUTH_AUDIENCE',
-        'CENTRAL_AUTH_JWKS_URL',
-      ].find((name) => !value[name]);
-
-      if (missing) {
-        return helpers.message({
-          custom: `${missing} is required when FDS_AUTH_PROVIDER is central`,
-        });
-      }
-    }
-
     if (
       deploymentRequiresJwt &&
       value.FDS_FOSS_BOOKING_API_KEY &&
@@ -140,9 +109,10 @@ export const envValidationSchema = Joi.object({
           'FDS_FOSS_CHECKOUT_TIME_LOCAL is required with FOSS booking integration in staging/production',
       });
     }
-    if (deploymentRequiresJwt && value.DB_SYNCHRONIZE === true) {
+    if (value.DB_SYNCHRONIZE === true) {
       return helpers.message({
-        custom: 'DB_SYNCHRONIZE must be false in staging and production',
+        custom:
+          'DB_SYNCHRONIZE must be false; shared schema changes are manual',
       });
     }
 
@@ -208,12 +178,14 @@ export const envValidationSchema = Joi.object({
         custom: 'FOSS_QR_ISSUE_URL must use HTTPS in staging/production',
       });
     }
+    try {
+      validateGuestPiiConfig(value);
+    } catch {
+      return helpers.message({ custom: 'Invalid guest PII configuration' });
+    }
     return value;
   })
   .messages({
-    'auth.jwtSecretRequired':
-      '"JWT_SECRET" is required in staging and production',
-
     'rabbitmq.urlRequired':
       '"RABBITMQ_URL" is required when "RABBITMQ_ENABLED" is true',
 

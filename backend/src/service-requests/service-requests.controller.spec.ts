@@ -77,10 +77,13 @@ describe('ServiceRequestsController', () => {
 
     await expect(controller.create(dto, principal)).resolves.toEqual(result);
 
-    expect(service.create).toHaveBeenCalledWith({
-      ...dto,
-      performedBy: receptionistId,
-    });
+    expect(service.create).toHaveBeenCalledWith(
+      {
+        ...dto,
+        performedBy: receptionistId,
+      },
+      undefined,
+    );
   });
 
   it('should reject service-request actor impersonation', () => {

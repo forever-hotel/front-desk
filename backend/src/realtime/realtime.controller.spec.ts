@@ -15,7 +15,8 @@ describe('RealtimeController', () => {
     expect(controller.getContract()).toEqual(
       expect.objectContaining({
         version: 1,
-        namespace: '/realtime',
+        namespace: '/',
+        path: '/realtime/socket.io',
         reconnect: {
           enabled: true,
           fullResyncAfterReconnect: true,

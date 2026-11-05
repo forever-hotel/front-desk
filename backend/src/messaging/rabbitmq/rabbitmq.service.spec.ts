@@ -48,6 +48,8 @@ describe('RabbitMqService', () => {
 
   function createPublisherChannel(): jest.Mocked<ConfirmChannel> {
     return {
+      on: jest.fn(),
+      off: jest.fn(),
       publish: jest.fn().mockReturnValue(true),
       waitForConfirms: jest.fn().mockResolvedValue(undefined),
       assertExchange: jest
@@ -95,6 +97,32 @@ describe('RabbitMqService', () => {
 
     return { publisherChannel, consumerChannel, connection };
   }
+
+  it('confirms safe realtime invalidations on the shared exchange', async () => {
+    const { service, internals } = createService();
+    const { publisherChannel } = attachConnectedState(internals);
+    publisherChannel.publish.mockImplementation(
+      (_exchange, _key, _body, _options, callback) => {
+        callback?.(null, undefined);
+        return true;
+      },
+    );
+    await service.publishRealtime('fds', 'room.status.updated');
+    expect(publisherChannel.assertExchange).toHaveBeenCalledWith(
+      'hotel.realtime',
+      'topic',
+      { durable: true },
+    );
+    expect(publisherChannel.publish).toHaveBeenCalledWith(
+      'hotel.realtime',
+      'fds.room.status.updated',
+      Buffer.from(
+        JSON.stringify({ subsystem: 'fds', name: 'room.status.updated' }),
+      ),
+      expect.objectContaining({ expiration: '60000', persistent: true }),
+      expect.any(Function),
+    );
+  });
 
   it('exposes runtime configuration values', () => {
     const { service } = createService();
@@ -179,6 +207,31 @@ describe('RabbitMqService', () => {
       }),
     );
     expect(publisherChannel.waitForConfirms).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not confirm an outbox event when the destination queue is not bound yet', async () => {
+    const { service, internals } = createService();
+    const { publisherChannel } = attachConnectedState(internals);
+    let returned:
+      ((message: { properties: { messageId: string } }) => void) | undefined;
+    publisherChannel.on.mockImplementation((name, handler) => {
+      if (name === 'return') returned = handler as typeof returned;
+      return publisherChannel;
+    });
+    publisherChannel.publish.mockImplementation(() => {
+      returned?.({ properties: { messageId: 'event' } });
+      return true;
+    });
+    await expect(
+      service.publishJson(
+        'fds.checkout.completed.v1',
+        {},
+        { messageId: 'event' },
+      ),
+    ).rejects.toThrow('unroutable');
+    expect(publisherChannel.publish.mock.calls[0][3]).toMatchObject({
+      mandatory: true,
+    });
   });
 
   it('consumes with manual acknowledgement and invokes the handler', async () => {

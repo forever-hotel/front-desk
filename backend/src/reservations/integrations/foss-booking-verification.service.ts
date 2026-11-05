@@ -1,3 +1,4 @@
+import { decryptPii } from '../../security/guest-pii';
 import {
   ForbiddenException,
   Injectable,
@@ -114,7 +115,9 @@ export class FossBookingVerificationService {
       status: 'CHECKED_IN',
       stayStart: start.toISOString(),
       stayEnd: end.toISOString(),
-      ...(record.guestName ? { guestName: record.guestName } : {}),
+      ...(record.guestName
+        ? { guestName: decryptPii(record.guestName, 'full_name')! }
+        : {}),
     };
   }
 }

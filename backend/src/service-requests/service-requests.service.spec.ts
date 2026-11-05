@@ -33,6 +33,9 @@ describe('ServiceRequestsService', () => {
   beforeEach(async () => {
     const repositoryMock = {
       findStay: jest.fn(),
+      createFrontDeskRequest: jest
+        .fn()
+        .mockResolvedValue('22222222-2222-4222-8222-222222222222'),
     };
 
     const wkmsClientMock = {
@@ -146,6 +149,7 @@ describe('ServiceRequestsService', () => {
     });
 
     expect(wkmsClient.createServiceTask).toHaveBeenCalledWith({
+      requestId: '22222222-2222-4222-8222-222222222222',
       roomNumber: 'T102',
 
       category: ServiceRequestCategory.EXTRA_TOWELS,
@@ -248,6 +252,7 @@ describe('ServiceRequestsService', () => {
     });
 
     expect(wkmsClient.createServiceTask).toHaveBeenCalledWith({
+      requestId: '22222222-2222-4222-8222-222222222222',
       roomNumber: 'T102',
 
       category: ServiceRequestCategory.WATER_BOTTLES,

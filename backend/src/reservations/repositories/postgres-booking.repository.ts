@@ -1,3 +1,8 @@
+import {
+  decryptPii,
+  piiEnabled,
+  piiSearchQuery,
+} from '../../security/guest-pii';
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import type { BookingSearchResult } from '../models/booking-search-result';
@@ -18,6 +23,7 @@ export class PostgresBookingRepository extends BookingRepository {
 
     const searchTerm = `%${normalizedQuery}%`;
 
+    const encrypted = piiEnabled();
     const rows = await this.dataSource.query(
       `
       SELECT
@@ -26,6 +32,7 @@ export class PostgresBookingRepository extends BookingRepository {
         COALESCE(wg.full_name, g.full_name) AS "guestName",
         COALESCE(wg.email, g.email) AS "email",
         COALESCE(wg.phone, g.phone) AS "phone",
+        COALESCE(wg.nic_or_passport,g.nic_or_passport) AS "searchIdentity",
         rt.type_name AS "roomType",
         b.check_in_date::text AS "checkInDate",
         b.check_out_date::text AS "checkOutDate",
@@ -47,14 +54,48 @@ export class PostgresBookingRepository extends BookingRepository {
         OR wg.email ILIKE $1
         OR wg.nic_or_passport ILIKE $1
         OR wg.phone ILIKE $1
+        ${encrypted ? 'OR g.search_tokens @> $2::text[] OR wg.search_tokens @> $2::text[]' : ''}
       ORDER BY
         b.check_in_date ASC,
         b.created_at DESC
     `,
-      [searchTerm],
+      [searchTerm, ...(encrypted ? [piiSearchQuery(normalizedQuery)] : [])],
     );
 
-    return rows as BookingSearchResult[];
+    return rows
+      .map((row: BookingSearchResult & { searchIdentity?: string | null }) => {
+        const identity = decryptPii(
+          row.searchIdentity ?? null,
+          'nic_or_passport',
+        );
+        const { searchIdentity: _identity, ...publicRow } = row;
+        const decoded = {
+          ...publicRow,
+          guestName: decryptPii(row.guestName, 'full_name'),
+          email: decryptPii(row.email, 'email'),
+          phone: decryptPii(row.phone, 'phone'),
+        };
+        return { decoded, identity };
+      })
+      .filter(
+        ({
+          decoded,
+          identity,
+        }: {
+          decoded: BookingSearchResult;
+          identity: string | null;
+        }) =>
+          [
+            decoded.bookingId,
+            decoded.guestName,
+            decoded.email,
+            decoded.phone,
+            identity,
+          ].some((value) =>
+            value?.toLowerCase().includes(normalizedQuery.toLowerCase()),
+          ),
+      )
+      .map(({ decoded }: { decoded: BookingSearchResult }) => decoded);
   }
 
   async findRecent(limit: number): Promise<BookingSearchResult[]> {
@@ -66,6 +107,7 @@ export class PostgresBookingRepository extends BookingRepository {
         COALESCE(wg.full_name, g.full_name) AS "guestName",
         COALESCE(wg.email, g.email) AS "email",
         COALESCE(wg.phone, g.phone) AS "phone",
+        COALESCE(wg.nic_or_passport,g.nic_or_passport) AS "searchIdentity",
         rt.type_name AS "roomType",
         b.check_in_date::text AS "checkInDate",
         b.check_out_date::text AS "checkOutDate",
@@ -83,7 +125,17 @@ export class PostgresBookingRepository extends BookingRepository {
       [limit],
     );
 
-    return rows as BookingSearchResult[];
+    return rows.map(
+      (row: BookingSearchResult & { searchIdentity?: string | null }) => {
+        const { searchIdentity: _identity, ...publicRow } = row;
+        return {
+          ...publicRow,
+          guestName: decryptPii(row.guestName, 'full_name'),
+          email: decryptPii(row.email, 'email'),
+          phone: decryptPii(row.phone, 'phone'),
+        };
+      },
+    );
   }
 
   async findArrivals(date: string): Promise<BookingSearchResult[]> {
@@ -95,6 +147,7 @@ export class PostgresBookingRepository extends BookingRepository {
         COALESCE(wg.full_name, g.full_name) AS "guestName",
         COALESCE(wg.email, g.email) AS "email",
         COALESCE(wg.phone, g.phone) AS "phone",
+        COALESCE(wg.nic_or_passport,g.nic_or_passport) AS "searchIdentity",
         rt.type_name AS "roomType",
         b.check_in_date::text AS "checkInDate",
         b.check_out_date::text AS "checkOutDate",
@@ -115,7 +168,17 @@ export class PostgresBookingRepository extends BookingRepository {
       [date],
     );
 
-    return rows as BookingSearchResult[];
+    return rows.map(
+      (row: BookingSearchResult & { searchIdentity?: string | null }) => {
+        const { searchIdentity: _identity, ...publicRow } = row;
+        return {
+          ...publicRow,
+          guestName: decryptPii(row.guestName, 'full_name'),
+          email: decryptPii(row.email, 'email'),
+          phone: decryptPii(row.phone, 'phone'),
+        };
+      },
+    );
   }
 
   async findDepartures(date: string): Promise<BookingSearchResult[]> {
@@ -127,6 +190,7 @@ export class PostgresBookingRepository extends BookingRepository {
         COALESCE(wg.full_name, g.full_name) AS "guestName",
         COALESCE(wg.email, g.email) AS "email",
         COALESCE(wg.phone, g.phone) AS "phone",
+        COALESCE(wg.nic_or_passport,g.nic_or_passport) AS "searchIdentity",
         rt.type_name AS "roomType",
         b.check_in_date::text AS "checkInDate",
         b.check_out_date::text AS "checkOutDate",
@@ -147,6 +211,16 @@ export class PostgresBookingRepository extends BookingRepository {
       [date],
     );
 
-    return rows as BookingSearchResult[];
+    return rows.map(
+      (row: BookingSearchResult & { searchIdentity?: string | null }) => {
+        const { searchIdentity: _identity, ...publicRow } = row;
+        return {
+          ...publicRow,
+          guestName: decryptPii(row.guestName, 'full_name'),
+          email: decryptPii(row.email, 'email'),
+          phone: decryptPii(row.phone, 'phone'),
+        };
+      },
+    );
   }
 }

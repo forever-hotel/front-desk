@@ -41,10 +41,9 @@ const publicEnvSchema = z.object({
   NEXT_PUBLIC_API_BASE_URL: publicUrlSchema.default("/fds"),
 
   /*
-   * Kept separately from the REST base URL because the current
-   * shared API Gateway does not yet proxy WebSocket upgrades.
+   * Shared browser sockets connect through the API Gateway upgrade endpoint.
    */
-  NEXT_PUBLIC_WS_URL: publicUrlSchema.default("/"),
+  NEXT_PUBLIC_WS_URL: publicUrlSchema.default("http://localhost:8080"),
 });
 
 export type PublicEnv = z.infer<typeof publicEnvSchema>;

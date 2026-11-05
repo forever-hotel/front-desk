@@ -43,6 +43,59 @@ export function RoomStatusScreen() {
 
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  const [releaseStatus, setReleaseStatus] = useState<
+    "UNDER_MAINTENANCE" | "REQUIRES_CLEANING" | null
+  >(null);
+  const [releaseRoomNumber, setReleaseRoomNumber] = useState<string>();
+  const [releaseNotes, setReleaseNotes] = useState("");
+  const releaseRooms = rooms
+    .filter((room) => room.status === releaseStatus)
+    .sort((a, b) =>
+      a.roomNumber.localeCompare(b.roomNumber, undefined, { numeric: true }),
+    );
+  const selectedReleaseRoom = releaseRooms.find(
+    (room) => room.roomNumber === releaseRoomNumber,
+  );
+
+  const openReleaseModal = (
+    status: "UNDER_MAINTENANCE" | "REQUIRES_CLEANING",
+  ) => {
+    setSuccessMessage(null);
+    updateRoomStatusMutation.reset();
+    setReleaseRoomNumber(undefined);
+    setReleaseNotes("");
+    setReleaseStatus(status);
+  };
+
+  const closeReleaseModal = () => {
+    if (updateRoomStatusMutation.isPending) return;
+    setReleaseStatus(null);
+    setReleaseRoomNumber(undefined);
+    setReleaseNotes("");
+    updateRoomStatusMutation.reset();
+  };
+
+  const handleReleaseSubmit = async () => {
+    if (!selectedReleaseRoom) return;
+    try {
+      await updateRoomStatusMutation.mutateAsync({
+        roomNumber: selectedReleaseRoom.roomNumber,
+        payload: {
+          targetStatus: "VACANT",
+          notes: releaseNotes.trim() || undefined,
+        },
+      });
+      setSuccessMessage(
+        `Room ${selectedReleaseRoom.roomNumber} is now vacant and available.`,
+      );
+      setReleaseStatus(null);
+      setReleaseRoomNumber(undefined);
+      setReleaseNotes("");
+    } catch {
+      // Keep the dialog open so the server's rejection is visible.
+    }
+  };
+
   const roomsByFloor = useMemo(() => {
     const grouped = new Map<number, RoomStatusBoardItem[]>();
 
@@ -184,6 +237,28 @@ export function RoomStatusScreen() {
             disabled={isLoading || vacantRooms.length === 0}
           >
             Mark Maintenance
+          </Button>
+          <Button
+            danger
+            type="primary"
+            onClick={() => openReleaseModal("UNDER_MAINTENANCE")}
+            disabled={
+              isLoading ||
+              !rooms.some((room) => room.status === "UNDER_MAINTENANCE")
+            }
+          >
+            Clear Maintenance
+          </Button>
+          <Button
+            danger
+            type="primary"
+            onClick={() => openReleaseModal("REQUIRES_CLEANING")}
+            disabled={
+              isLoading ||
+              !rooms.some((room) => room.status === "REQUIRES_CLEANING")
+            }
+          >
+            Mark Cleaned
           </Button>
         </div>
       </header>
@@ -367,6 +442,75 @@ export function RoomStatusScreen() {
             Mark Under Maintenance
           </Button>
         </div>
+      </Modal>
+
+      <Modal
+        open={releaseStatus !== null}
+        title={
+          releaseStatus === "UNDER_MAINTENANCE"
+            ? "Clear maintenance"
+            : "Confirm room cleaned"
+        }
+        onCancel={closeReleaseModal}
+        onOk={() => void handleReleaseSubmit()}
+        okText="Mark vacant"
+        confirmLoading={updateRoomStatusMutation.isPending}
+        okButtonProps={{ danger: true, disabled: !selectedReleaseRoom }}
+        cancelButtonProps={{ disabled: updateRoomStatusMutation.isPending }}
+        closable={!updateRoomStatusMutation.isPending}
+        mask={{ closable: !updateRoomStatusMutation.isPending }}
+        centered
+        width={500}
+      >
+        <div className={styles.modalBody}>
+          <div className={styles.formField}>
+            <label htmlFor="release-room">ROOM NUMBER</label>
+            <Select
+              id="release-room"
+              value={selectedReleaseRoom?.roomNumber}
+              onChange={(value) => {
+                setReleaseRoomNumber(value);
+                updateRoomStatusMutation.reset();
+              }}
+              placeholder="Select room"
+              className={styles.fullWidth}
+              options={releaseRooms.map((room) => ({
+                value: room.roomNumber,
+                label: `${room.roomNumber} - ${room.roomTypeName}`,
+              }))}
+              disabled={updateRoomStatusMutation.isPending}
+            />
+          </div>
+          <div className={styles.formField}>
+            <label htmlFor="release-notes">COMMENT (OPTIONAL)</label>
+            <Input.TextArea
+              id="release-notes"
+              value={releaseNotes}
+              onChange={(event) => setReleaseNotes(event.target.value)}
+              placeholder="Add completion details..."
+              rows={4}
+              maxLength={500}
+              disabled={updateRoomStatusMutation.isPending}
+            />
+          </div>
+          <Alert
+            type="warning"
+            showIcon
+            title="Confirm the selected room is clean, work is complete and it is ready for guests. This makes it vacant and available for allocation."
+          />
+        </div>
+        {updateRoomStatusMutation.isError && (
+          <Alert
+            type="error"
+            showIcon
+            title="Unable to release this room."
+            description={
+              updateRoomStatusMutation.error instanceof Error
+                ? updateRoomStatusMutation.error.message
+                : "Please try again."
+            }
+          />
+        )}
       </Modal>
 
       <RoomChangeModal

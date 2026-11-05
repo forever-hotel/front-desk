@@ -216,7 +216,7 @@ describe("CheckInScreen", () => {
 
     expect(
       screen.getByText(
-        "Check-in submission is waiting for authenticated receptionist identity integration.",
+        "An active receptionist or ROOT session is required to confirm check-in.",
       ),
     ).toBeInTheDocument();
 

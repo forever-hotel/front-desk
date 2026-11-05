@@ -53,6 +53,7 @@ export class PostgresCheckInRepository extends CheckInRepository {
         SELECT
           worker_id::text AS "workerId",
           role::text AS "role",
+          roles AS "roles",
           is_active AS "isActive"
         FROM staff_users
         WHERE worker_id = $1
@@ -64,7 +65,9 @@ export class PostgresCheckInRepository extends CheckInRepository {
 
       if (
         staffRows.length === 0 ||
-        staffRows[0].role !== 'RECEPTIONIST' ||
+        !(staffRows[0].roles ?? [staffRows[0].role]).some(
+          (role: string) => role === 'RECEPTIONIST' || role === 'ROOT',
+        ) ||
         staffRows[0].isActive !== true
       ) {
         throw new BadRequestException(

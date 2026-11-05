@@ -5,6 +5,12 @@ import { axe } from "jest-axe";
 
 import { server } from "../../../../tests/mocks/server";
 import { renderWithProviders } from "../../../../tests/utils/render-with-providers";
+import { useCentralAuthSession } from "@/features/auth/providers/central-auth-session-provider";
+
+jest.mock("@/features/auth/providers/central-auth-session-provider", () => ({
+  useCentralAuthSession: jest.fn(),
+}));
+
 import { ServiceRequestsScreen } from "./service-requests-screen";
 
 const bookingReference = "11111111-1111-4111-8111-111111111111";
@@ -43,7 +49,25 @@ async function selectCheckedInBooking(
 }
 
 describe("ServiceRequestsScreen", () => {
+  beforeEach(() => {
+    jest.mocked(useCentralAuthSession).mockReturnValue({
+      status: "authenticated",
+      session: {
+        userId: receptionistId,
+        displayName: "Receptionist",
+        role: "RECEPTIONIST",
+        expiresAt: new Date(Date.now() + 3600000).toISOString(),
+        passwordChangeRequired: false,
+      },
+      refreshSession: jest.fn(),
+    });
+  });
   it("shows the form and prevents submission without a receptionist session", () => {
+    jest.mocked(useCentralAuthSession).mockReturnValue({
+      status: "unauthenticated",
+      session: null,
+      refreshSession: jest.fn(),
+    });
     renderWithProviders(<ServiceRequestsScreen />);
 
     expect(
@@ -57,11 +81,34 @@ describe("ServiceRequestsScreen", () => {
     ).toBeDisabled();
   });
 
+  it.each([
+    { role: "MANAGER" as const, passwordChangeRequired: false },
+    { role: "RECEPTIONIST" as const, passwordChangeRequired: true },
+  ])("blocks a session without write access: %j", async (sessionFlags) => {
+    jest.mocked(useCentralAuthSession).mockReturnValue({
+      status: "authenticated",
+      session: {
+        userId: receptionistId,
+        displayName: "Staff",
+        expiresAt: new Date(Date.now() + 3600000).toISOString(),
+        ...sessionFlags,
+      },
+      refreshSession: jest.fn(),
+    });
+    const user = userEvent.setup();
+    mockSearch();
+    renderWithProviders(<ServiceRequestsScreen />);
+    await selectCheckedInBooking(user);
+    expect(
+      screen.getByRole("button", { name: "Create service request" }),
+    ).toBeDisabled();
+  });
+
   it("finds checked-in bookings and ignores other booking statuses", async () => {
     const user = userEvent.setup();
     mockSearch("CONFIRMED");
 
-    renderWithProviders(<ServiceRequestsScreen performedBy={receptionistId} />);
+    renderWithProviders(<ServiceRequestsScreen />);
 
     await user.type(screen.getByLabelText("Find a checked-in booking"), "Demo");
     await user.click(screen.getByRole("button", { name: "Search booking" }));
@@ -77,60 +124,74 @@ describe("ServiceRequestsScreen", () => {
     ).toBeDisabled();
   });
 
-  it("sends the chosen booking, category, and receptionist ID and shows backend task details", async () => {
-    const user = userEvent.setup();
-    let requestBody: unknown = null;
-    let callCount = 0;
-    mockSearch();
+  it.each(["RECEPTIONIST", "ROOT"] as const)(
+    "uses the signed-in %s identity to submit the selected booking",
+    async (role) => {
+      jest.mocked(useCentralAuthSession).mockReturnValue({
+        status: "authenticated",
+        session: {
+          userId: receptionistId,
+          displayName: "Staff",
+          role,
+          expiresAt: new Date(Date.now() + 3600000).toISOString(),
+          passwordChangeRequired: false,
+        },
+        refreshSession: jest.fn(),
+      });
+      const user = userEvent.setup();
+      let requestBody: unknown = null;
+      let callCount = 0;
+      mockSearch();
 
-    server.use(
-      http.post("*/service-requests", async ({ request }) => {
-        callCount += 1;
-        requestBody = await request.json();
-        return HttpResponse.json(
-          {
-            status: "created",
-            bookingReference,
-            roomNumber: "DEMO101",
-            task: {
-              taskId: "33333333-3333-4333-8333-333333333333",
+      server.use(
+        http.post("*/service-requests", async ({ request }) => {
+          callCount += 1;
+          requestBody = await request.json();
+          return HttpResponse.json(
+            {
+              status: "created",
+              bookingReference,
               roomNumber: "DEMO101",
-              category: "EXTRA_TOWELS",
-              status: "PENDING",
-              priority: "NORMAL",
+              task: {
+                taskId: "33333333-3333-4333-8333-333333333333",
+                roomNumber: "DEMO101",
+                category: "EXTRA_TOWELS",
+                status: "PENDING",
+                priority: "NORMAL",
+              },
             },
-          },
-          { status: 201 },
-        );
-      }),
-    );
+            { status: 201 },
+          );
+        }),
+      );
 
-    renderWithProviders(<ServiceRequestsScreen performedBy={receptionistId} />);
-    await selectCheckedInBooking(user);
-    await user.type(
-      screen.getByLabelText("Description (optional)"),
-      "  Two extra towels  ",
-    );
-    await user.click(
-      screen.getByRole("button", { name: "Create service request" }),
-    );
+      renderWithProviders(<ServiceRequestsScreen />);
+      await selectCheckedInBooking(user);
+      await user.type(
+        screen.getByLabelText("Description (optional)"),
+        "  Two extra towels  ",
+      );
+      await user.click(
+        screen.getByRole("button", { name: "Create service request" }),
+      );
 
-    expect(
-      await screen.findByText("Service request created"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Room: DEMO101")).toBeInTheDocument();
-    expect(screen.getByText("Task status: PENDING")).toBeInTheDocument();
-    expect(requestBody).toEqual({
-      bookingReference,
-      category: "EXTRA_TOWELS",
-      description: "Two extra towels",
-      performedBy: receptionistId,
-    });
-    expect(
-      screen.getByRole("button", { name: "Create service request" }),
-    ).toBeDisabled();
-    expect(callCount).toBe(1);
-  });
+      expect(
+        await screen.findByText("Service request created"),
+      ).toBeInTheDocument();
+      expect(screen.getByText("Room: DEMO101")).toBeInTheDocument();
+      expect(screen.getByText("Task status: PENDING")).toBeInTheDocument();
+      expect(requestBody).toEqual({
+        bookingReference,
+        category: "EXTRA_TOWELS",
+        description: "Two extra towels",
+        performedBy: receptionistId,
+      });
+      expect(
+        screen.getByRole("button", { name: "Create service request" }),
+      ).toBeDisabled();
+      expect(callCount).toBe(1);
+    },
+  );
 
   it("shows a backend conflict and does not claim the request succeeded", async () => {
     const user = userEvent.setup();
@@ -147,7 +208,7 @@ describe("ServiceRequestsScreen", () => {
       ),
     );
 
-    renderWithProviders(<ServiceRequestsScreen performedBy={receptionistId} />);
+    renderWithProviders(<ServiceRequestsScreen />);
     await selectCheckedInBooking(user);
     await user.click(
       screen.getByRole("button", { name: "Create service request" }),
@@ -164,9 +225,7 @@ describe("ServiceRequestsScreen", () => {
   });
 
   it("provides the accessible search and request form", async () => {
-    const { container } = renderWithProviders(
-      <ServiceRequestsScreen performedBy={receptionistId} />,
-    );
+    const { container } = renderWithProviders(<ServiceRequestsScreen />);
 
     await waitFor(() => {
       expect(

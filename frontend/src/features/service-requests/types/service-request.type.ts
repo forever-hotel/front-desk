@@ -2,6 +2,7 @@ export type ServiceRequestCategory =
   "EXTRA_TOWELS" | "WATER_BOTTLES" | "MAINTENANCE" | "LAUNDRY" | "OTHER";
 
 export interface CreateServiceRequest {
+  requestId?: string;
   bookingReference: string;
   category: ServiceRequestCategory;
   description?: string;

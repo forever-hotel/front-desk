@@ -7,7 +7,7 @@ import { FossGuestQrService } from './qr/foss-guest-qr.service';
 import { CheckInPrintService } from './check-in-print.service';
 import { CheckInService } from './check-in.service';
 import { MockCheckInPrintGateway } from './gateways/mock-check-in-print.gateway';
-import { MockFossSessionGateway } from './gateways/mock-foss-session.gateway';
+import { UnavailableFossSessionGateway } from './gateways/unavailable-foss-session.gateway';
 import { CheckInPrintGateway } from './ports/check-in-print.gateway';
 import { CheckInPrintRepository } from './ports/check-in-print.repository';
 import { CheckInRepository } from './ports/check-in.repository';
@@ -30,7 +30,7 @@ import { PostgresCheckInRepository } from './repositories/postgres-check-in.repo
     },
     {
       provide: FossSessionGateway,
-      useClass: MockFossSessionGateway,
+      useClass: UnavailableFossSessionGateway,
     },
     {
       provide: CheckInPrintRepository,

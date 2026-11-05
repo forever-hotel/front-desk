@@ -22,17 +22,18 @@ export class WkmsHttpClient extends WkmsClient {
   async createServiceTask(
     input: CreateWkmsServiceTaskInput,
   ): Promise<WkmsTaskResult> {
-    return this.request<WkmsTaskResult>('/wkms/internal/tasks', {
+    const result = await this.request<WkmsTaskResult>('/wkms/internal/tasks', {
       method: 'POST',
-      body: JSON.stringify({
-        source: 'FRONT_DESK',
-        roomNumber: input.roomNumber,
-        category: input.category,
-        description: input.description,
-        priority: 'NORMAL',
-        requestedBy: input.requestedBy,
-      }),
+      body: JSON.stringify({ requestId: input.requestId }),
     });
+    if (
+      !result ||
+      typeof result.taskId !== 'string' ||
+      result.roomNumber !== input.roomNumber ||
+      result.category !== input.category
+    )
+      throw new BadGatewayException('WKMS returned an invalid task');
+    return result;
   }
 
   async getAvailableWorkers(): Promise<WkmsAvailableWorker[]> {
@@ -123,14 +124,21 @@ export class WkmsHttpClient extends WkmsClient {
     }, timeoutMs);
 
     try {
+      const token = this.configService.get<string>('FDS_WKMS_SERVICE_TOKEN');
+      if (!token || token.length < 32)
+        throw new ServiceUnavailableException(
+          'WKMS service authentication is not configured',
+        );
       const response = await fetch(new URL(path, baseUrl), {
         ...init,
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + token,
           ...init.headers,
         },
         signal: controller.signal,
+        redirect: 'error',
       });
 
       if (!response.ok) {

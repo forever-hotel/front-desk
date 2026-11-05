@@ -8,7 +8,8 @@ export const centralAuthSessionSchema = z
   .object({
     userId: z.uuid(),
     displayName: z.string().trim().min(1).max(120),
-    role: z.enum(["RECEPTIONIST", "MANAGER"]),
+    role: z.enum(["RECEPTIONIST", "MANAGER", "ROOT"]),
+    passwordChangeRequired: z.boolean().optional(),
     expiresAt: z.iso.datetime({ offset: true }),
   })
   .strict();

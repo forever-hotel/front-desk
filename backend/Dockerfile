@@ -19,7 +19,7 @@ RUN npm run build
 FROM node:24-bookworm-slim AS production
 
 ENV NODE_ENV=production \
-    PORT=4200
+    PORT=4001
 
 WORKDIR /app
 
@@ -34,10 +34,10 @@ COPY --from=build /app/dist ./dist
 # Run without root privileges
 USER node
 
-EXPOSE 4200
+EXPOSE 4001
 
 # Liveness check. Database readiness is checked separately at /health/ready.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
-    CMD node -e "fetch('http://127.0.0.1:' + (process.env.PORT || 4200) + '/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+    CMD node -e "fetch('http://127.0.0.1:' + (process.env.PORT || 4001) + '/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
 
 CMD ["node", "dist/main.js"]

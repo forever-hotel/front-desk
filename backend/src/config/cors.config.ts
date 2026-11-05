@@ -1,4 +1,4 @@
-const DEFAULT_DEVELOPMENT_ORIGIN = 'http://localhost:3000';
+const DEFAULT_DEVELOPMENT_ORIGIN = 'http://localhost:3001';
 
 export function getAllowedOrigins(): string[] {
   const configuredOrigins = process.env.FDS_ALLOWED_ORIGINS;

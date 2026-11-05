@@ -17,46 +17,48 @@ afterAll(() => {
   server.close();
 });
 
-Object.defineProperty(window, "matchMedia", {
-  writable: true,
-  configurable: true,
+if (typeof window !== "undefined") {
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    configurable: true,
 
-  value: jest.fn().mockImplementation((query: string) => ({
-    matches: false,
-    media: query,
-    onchange: null,
+    value: jest.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
 
-    addListener: jest.fn(),
+      addListener: jest.fn(),
 
-    removeListener: jest.fn(),
+      removeListener: jest.fn(),
 
-    addEventListener: jest.fn(),
+      addEventListener: jest.fn(),
 
-    removeEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
 
-    dispatchEvent: jest.fn(),
-  })),
-});
+      dispatchEvent: jest.fn(),
+    })),
+  });
 
-class ResizeObserverMock {
-  observe() {}
+  class ResizeObserverMock {
+    observe() {}
 
-  unobserve() {}
+    unobserve() {}
 
-  disconnect() {}
+    disconnect() {}
+  }
+
+  Object.defineProperty(globalThis, "ResizeObserver", {
+    writable: true,
+    configurable: true,
+    value: ResizeObserverMock,
+  });
+
+  const originalGetComputedStyle = window.getComputedStyle.bind(window);
+
+  Object.defineProperty(window, "getComputedStyle", {
+    writable: true,
+    configurable: true,
+
+    value: (element: Element) => originalGetComputedStyle(element),
+  });
 }
-
-Object.defineProperty(globalThis, "ResizeObserver", {
-  writable: true,
-  configurable: true,
-  value: ResizeObserverMock,
-});
-
-const originalGetComputedStyle = window.getComputedStyle.bind(window);
-
-Object.defineProperty(window, "getComputedStyle", {
-  writable: true,
-  configurable: true,
-
-  value: (element: Element) => originalGetComputedStyle(element),
-});

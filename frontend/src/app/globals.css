@@ -743,3 +743,13 @@ html::-webkit-scrollbar-thumb:hover {
     transition: none !important;
   }
 }
+
+.fds-logout-button {
+  border: 1px solid var(--navy-light);
+  border-radius: 6px;
+  padding: 6px 12px;
+  color: var(--navy);
+  background: var(--card-surface);
+  font-size: 12px;
+  cursor: pointer;
+}
