@@ -460,8 +460,8 @@ export function CheckOutScreen({ performedBy }: CheckOutScreenProps) {
                   <Alert
                     type="warning"
                     showIcon
-                    title="Authenticated receptionist integration is required."
-                    description="The backend requires performedBy to match the signed-in receptionist. No staff identity is hardcoded."
+                    title="An active receptionist or ROOT session is required to confirm checkout."
+                    description="Sign in again with an authorized account, then retry. Checkout has not been submitted."
                   />
                 )}
 
@@ -653,8 +653,9 @@ function formatTimestamp(value: string) {
 
 function formatMoney(amount: number, includeCurrency = true) {
   const formatted = new Intl.NumberFormat("en-LK", {
-    maximumFractionDigits: 0,
-  }).format(amount);
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount / 100);
 
   return includeCurrency ? `LKR ${formatted}` : formatted;
 }

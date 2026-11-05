@@ -224,14 +224,16 @@ describe("CheckOutScreen", () => {
 
     expect(screen.getByText("Total Folio Charges")).toBeInTheDocument();
 
-    expect(screen.getAllByText("LKR 23,500").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("LKR 235.00").length).toBeGreaterThanOrEqual(1);
 
     expect(
       screen.getByText("Final payment is calculated by the backend."),
     ).toBeInTheDocument();
 
     expect(
-      screen.getByText("Authenticated receptionist integration is required."),
+      screen.getByText(
+        "An active receptionist or ROOT session is required to confirm checkout.",
+      ),
     ).toBeInTheDocument();
 
     expect(
@@ -358,7 +360,7 @@ describe("CheckOutScreen", () => {
 
     expect(screen.getByText("FINAL PAYMENT")).toBeInTheDocument();
 
-    expect(screen.getByText("LKR 13,500")).toBeInTheDocument();
+    expect(screen.getByText("LKR 135.00")).toBeInTheDocument();
 
     expect(
       screen.getByText("Room 101 → Requires Cleaning"),
