@@ -639,8 +639,8 @@ export function CheckInScreen({ performedBy }: CheckInScreenProps) {
               <Alert
                 type="warning"
                 showIcon
-                title="Check-in submission is waiting for authenticated receptionist identity integration."
-                description="The backend requires verifiedBy to match the authenticated Front Desk receptionist. No UUID is hardcoded in the frontend."
+                title="An active receptionist or ROOT session is required to confirm check-in."
+                description="Sign in again with an authorized account, then retry. Your selected booking has not been checked in."
               />
             )}
 
