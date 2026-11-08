@@ -2,9 +2,9 @@
 name: Front Desk Docker CI
 
 on:
+  workflow_call:
   push:
     branches:
-      - develop
       - main
       - "feature/**"
       - "fix/**"
@@ -30,7 +30,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-docker-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
