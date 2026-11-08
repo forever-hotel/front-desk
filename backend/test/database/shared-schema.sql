@@ -147,6 +147,9 @@ CREATE TABLE staff_users (
 
   role staff_role NOT NULL,
 
+  -- Nullable for legacy single-role fixtures; repositories fall back to role.
+  roles TEXT[],
+
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
 
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
