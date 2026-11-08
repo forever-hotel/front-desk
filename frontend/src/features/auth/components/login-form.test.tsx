@@ -10,12 +10,10 @@ describe("email staff sign-in", () => {
   beforeEach(() => jest.clearAllMocks());
   afterEach(() => jest.restoreAllMocks());
   it("validates an email before submitting and retains the wire contract", async () => {
-    const fetchMock = jest
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValue({
-        ok: true,
-        json: async () => ({ passwordChangeRequired: true }),
-      } as Response);
+    const fetchMock = jest.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({ passwordChangeRequired: true }),
+    } as Response);
     const user = userEvent.setup();
     render(<LoginForm />);
     await user.type(screen.getByLabelText("Email"), "reception@example.com");

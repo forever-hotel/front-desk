@@ -19,16 +19,14 @@ describe('FDS FOSS lifecycle HTTP adapter', () => {
       }),
     );
   it('issues a stay-bound activation through the protected FOSS endpoint', async () => {
-    global.fetch = jest
-      .fn()
-      .mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            status: 'ACTIVATED',
-            sessionReference: 'activation',
-          }),
-        ),
-      );
+    global.fetch = jest.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          status: 'ACTIVATED',
+          sessionReference: 'activation',
+        }),
+      ),
+    );
     expect(await gateway().activateGuestSession(input)).toEqual({
       status: 'ACTIVATED',
       sessionReference: 'activation',

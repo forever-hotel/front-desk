@@ -2,6 +2,8 @@ name: Publish reviewed service images
 on:
   push:
     branches: [develop]
+  pull_request:
+    branches: [develop]
 permissions:
   contents: read
 jobs:
