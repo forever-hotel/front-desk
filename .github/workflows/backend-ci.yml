@@ -1,9 +1,9 @@
 name: Backend CI Pipeline
 
 on:
+  workflow_call:
   push:
     branches:
-      - develop
       - main
       - "feature/**"
       - "fix/**"
@@ -19,7 +19,6 @@ on:
       - "backend/**"
       - ".github/workflows/backend-ci.yml"
 
-  workflow_call:
 
   workflow_dispatch:
 
@@ -27,7 +26,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: fds-backend-${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-backend-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

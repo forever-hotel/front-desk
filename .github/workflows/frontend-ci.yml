@@ -1,9 +1,9 @@
 name: Frontend CI Pipeline
 
 on:
+  workflow_call:
   push:
     branches:
-      - develop
       - main
       - "feature/**"
       - "fix/**"
@@ -19,7 +19,6 @@ on:
       - "frontend/**"
       - ".github/workflows/frontend-ci.yml"
 
-  workflow_call:
 
   workflow_dispatch:
 
@@ -27,7 +26,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: fds-frontend-${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-frontend-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
