@@ -33,6 +33,18 @@ describe("session expiry clock", () => {
     act(() => jest.advanceTimersByTime(2000));
     expect(result.current).toBe(false);
   });
+  it("reschedules long sessions beyond the maximum timer delay", () => {
+    const maximumDelay = 2_147_483_647;
+    const expiry = new Date(Date.now() + maximumDelay + 1000).toISOString();
+    const { result } = renderHook(() => useSessionCurrent(expiry));
+    expect(result.current).toBe(true);
+    act(() => jest.advanceTimersByTime(maximumDelay));
+    expect(result.current).toBe(true);
+    expect(jest.getTimerCount()).toBe(1);
+    act(() => jest.advanceTimersByTime(1000));
+    expect(result.current).toBe(false);
+    expect(jest.getTimerCount()).toBe(0);
+  });
   it("cancels pending expiry timers on unmount", () => {
     const { unmount } = renderHook(() =>
       useSessionCurrent("2026-11-08T00:00:01Z"),
