@@ -387,8 +387,8 @@ The frontend's proposed `GET /api/fds-auth/session` BFF endpoint is **not yet im
 
 Use these contract documents when working with the authentication owner:
 
-- [`docs/central-auth-integration-contract.md`](docs/central-auth-integration-contract.md)
-- [`docs/frontend-central-auth-session-contract.md`](docs/frontend-central-auth-session-contract.md)
+- [`docs/central-auth-integration-contract.md`](../documents/fds/README.md)
+- [`docs/frontend-central-auth-session-contract.md`](../documents/fds/README.md)
 
 ### Expected authorization behavior
 
@@ -690,15 +690,15 @@ Replace angle-bracket placeholders with real values before running commands.
 |---|---|
 | [`backend/README.md`](backend/README.md) | Backend architecture, commands and domain behavior |
 | [`frontend/README.md`](frontend/README.md) | Frontend local configuration and test commands |
-| [`docs/plan20-deployment-runbook.md`](docs/plan20-deployment-runbook.md) | Docker/Gateway setup, safe smoke checks and staging limitations |
-| [`docs/plan20-staging-test-register.md`](docs/plan20-staging-test-register.md) | Staging scenarios and evidence requirements |
-| [`docs/plan20-closeout-evidence.md`](docs/plan20-closeout-evidence.md) | Historical Plan 20 evidence and unverified conditions |
-| [`docs/plan20-review-handoff.md`](docs/plan20-review-handoff.md) | Existing integration dependencies and ownership |
-| [`docs/central-auth-integration-contract.md`](docs/central-auth-integration-contract.md) | Proposed backend Central Auth JWT/JWKS contract |
-| [`docs/frontend-central-auth-session-contract.md`](docs/frontend-central-auth-session-contract.md) | Proposed frontend/BFF session contract |
+| [`docs/plan20-deployment-runbook.md`](../documents/fds/README.md) | Docker/Gateway setup, safe smoke checks and staging limitations |
+| [`docs/plan20-staging-test-register.md`](../documents/fds/README.md) | Staging scenarios and evidence requirements |
+| [`docs/plan20-closeout-evidence.md`](../documents/fds/README.md) | Historical Plan 20 evidence and unverified conditions |
+| [`docs/plan20-review-handoff.md`](../documents/fds/README.md) | Existing integration dependencies and ownership |
+| [`docs/central-auth-integration-contract.md`](../documents/fds/README.md) | Proposed backend Central Auth JWT/JWKS contract |
+| [`docs/frontend-central-auth-session-contract.md`](../documents/fds/README.md) | Proposed frontend/BFF session contract |
 | [`backend/docs/checkout-api.openapi.yaml`](backend/docs/checkout-api.openapi.yaml) | Transactional checkout API |
 | [`backend/docs/folio-api.openapi.yaml`](backend/docs/folio-api.openapi.yaml) | Running folio API |
 | [`documents/README.md`](documents/README.md) | Final FDS-only QA evidence index |
-| [`evidence/fds-final-qa/performance/verification.md`](evidence/fds-final-qa/performance/verification.md) | Measured local API performance |
+| [`evidence/fds-final-qa/performance/verification.md`](../documents/fds/README.md) | Measured local API performance |
 
 **Contacts and credentials:** Ask the responsible Forever Hotel repository/team owner for authorized test environment values. This README intentionally does not contain private URLs, passwords, signing keys or real guest records.
