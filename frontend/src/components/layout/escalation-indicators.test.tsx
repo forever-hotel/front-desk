@@ -10,6 +10,7 @@ import { queryKeys } from "@/lib/api/query-keys";
 
 jest.doMock("next/navigation", () => ({
   usePathname: () => "/escalations",
+  useRouter: () => ({ replace: jest.fn(), refresh: jest.fn() }),
 }));
 
 let Header: typeof import("./header").default;
