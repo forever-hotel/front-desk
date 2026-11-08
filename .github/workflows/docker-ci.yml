@@ -24,13 +24,15 @@ on:
       - "compose.fds.yaml"
       - ".github/workflows/docker-ci.yml"
 
+  workflow_call:
+
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: fds-containers-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -74,6 +76,7 @@ jobs:
         run: |
           docker run -d \
             --name fds-frontend-ci-smoke \
+            --env PORT=3000 \
             -p 127.0.0.1:3100:3000 \
             forever-fds-frontend:ci
 

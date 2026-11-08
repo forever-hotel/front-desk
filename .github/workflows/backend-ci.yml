@@ -19,13 +19,15 @@ on:
       - "backend/**"
       - ".github/workflows/backend-ci.yml"
 
+  workflow_call:
+
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: fds-backend-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
