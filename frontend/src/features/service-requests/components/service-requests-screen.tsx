@@ -1,5 +1,7 @@
 "use client";
 
+import { useSessionCurrent } from "@/hooks/use-session-current";
+
 import { useState, useRef, type FormEvent } from "react";
 
 import { Alert, Button, Input, Select } from "antd";
@@ -30,11 +32,12 @@ const categoryOptions: Array<{
 export function ServiceRequestsScreen() {
   const auth = useCentralAuthSession();
   const session = auth.status === "authenticated" ? auth.session : null;
+  const sessionCurrent = useSessionCurrent(session?.expiresAt);
   const actorId =
     session &&
     !session.passwordChangeRequired &&
     ["RECEPTIONIST", "ROOT"].includes(session.role) &&
-    Date.parse(session.expiresAt) > Date.now()
+    sessionCurrent
       ? session.userId
       : null;
   const [searchText, setSearchText] = useState("");

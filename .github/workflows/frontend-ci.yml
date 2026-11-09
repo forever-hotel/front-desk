@@ -19,6 +19,7 @@ on:
       - "frontend/**"
       - ".github/workflows/frontend-ci.yml"
 
+
   workflow_dispatch:
 
 permissions:

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type Ref } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Diamond, Menu } from "lucide-react";
 
 import { useEscalationSummary } from "@/features/escalations/hooks/use-escalation-summary";
@@ -19,6 +20,7 @@ export default function Header({
   menuButtonRef,
   expanded = false,
 }: HeaderProps) {
+  const router = useRouter();
   const [logoutError, setLogoutError] = useState("");
   const [signingOut, setSigningOut] = useState(false);
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
@@ -116,7 +118,8 @@ export default function Header({
                 body: "{}",
               });
               if (!response.ok && response.status !== 401) throw new Error();
-              window.location.assign("/login");
+              router.replace("/login");
+              router.refresh();
             } catch {
               setLogoutError("Unable to sign out. Please retry.");
             } finally {

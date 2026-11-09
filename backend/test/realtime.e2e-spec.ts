@@ -53,13 +53,11 @@ describe('FDS shared realtime handoff (integration)', () => {
       .expect(404);
   });
   it('relays committed room changes to RabbitMQ without private room data', async () => {
-    app
-      .get(RealtimePublisherService)
-      .publishRoomStatusUpdated({
-        roomNumber: '101',
-        status: RoomStatus.OCCUPIED,
-        source: 'CHECK_IN',
-      });
+    app.get(RealtimePublisherService).publishRoomStatusUpdated({
+      roomNumber: '101',
+      status: RoomStatus.OCCUPIED,
+      source: 'CHECK_IN',
+    });
     await Promise.resolve();
     expect(publishRealtime).toHaveBeenCalledWith('fds', 'room.status.updated');
     expect(JSON.stringify(publishRealtime.mock.calls)).not.toContain('101');

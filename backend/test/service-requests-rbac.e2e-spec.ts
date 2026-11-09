@@ -72,7 +72,10 @@ describe('Service Requests RBAC (e2e)', () => {
   const serviceRequestsService = {
     create:
       jest.fn<
-        (dto: CreateServiceRequestDto) => Promise<ServiceRequestResult>
+        (
+          dto: CreateServiceRequestDto,
+          requestId?: string,
+        ) => Promise<ServiceRequestResult>
       >(),
 
     getAvailableWorkers: jest.fn<() => Promise<WkmsAvailableWorker[]>>(),
@@ -164,12 +167,41 @@ describe('Service Requests RBAC (e2e)', () => {
       .expect(201)
       .expect(serviceRequestResult);
 
-    expect(serviceRequestsService.create).toHaveBeenCalledWith({
-      bookingReference,
-      category: ServiceRequestCategory.EXTRA_TOWELS,
-      description: 'Two extra towels',
-      performedBy: receptionistId,
-    });
+    expect(serviceRequestsService.create).toHaveBeenCalledWith(
+      {
+        bookingReference,
+        category: ServiceRequestCategory.EXTRA_TOWELS,
+        description: 'Two extra towels',
+        performedBy: receptionistId,
+      },
+      undefined,
+    );
+  });
+
+  it('forwards a valid idempotency key with the authenticated actor', async () => {
+    const token = await createToken(receptionistId, SystemRole.RECEPTIONIST);
+    const key = '12345678-1234-4234-8234-123456789abc';
+    await request(app.getHttpServer())
+      .post('/service-requests')
+      .set('Authorization', `Bearer ${token}`)
+      .set('Idempotency-Key', key)
+      .send(createServiceRequestPayload(receptionistId))
+      .expect(201);
+    expect(serviceRequestsService.create).toHaveBeenCalledWith(
+      createServiceRequestPayload(receptionistId),
+      key,
+    );
+  });
+
+  it('rejects an invalid idempotency key before creating a service request', async () => {
+    const token = await createToken(receptionistId, SystemRole.RECEPTIONIST);
+    await request(app.getHttpServer())
+      .post('/service-requests')
+      .set('Authorization', `Bearer ${token}`)
+      .set('Idempotency-Key', 'invalid')
+      .send(createServiceRequestPayload(receptionistId))
+      .expect(400);
+    expect(serviceRequestsService.create).not.toHaveBeenCalled();
   });
 
   it('rejects service-request actor impersonation with 403', async () => {
