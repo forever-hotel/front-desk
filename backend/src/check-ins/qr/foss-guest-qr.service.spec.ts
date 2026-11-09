@@ -152,4 +152,13 @@ describe('FossGuestQrService HTTP issuer adapter', () => {
       issue(jest.fn().mockResolvedValue([booking])).issue(reference),
     ).rejects.toBeInstanceOf(ServiceUnavailableException);
   });
+
+  it('reports a rejected stay as ineligible rather than a service outage', async () => {
+    jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValue(new Response('{}', { status: 403 }));
+    await expect(
+      issue(jest.fn().mockResolvedValue([booking])).issue(reference),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
 });
