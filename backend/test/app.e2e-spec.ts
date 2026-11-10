@@ -2092,9 +2092,11 @@ describe('AppController (e2e)', () => {
 
           email: 'walk-in@example.invalid',
 
-          nicOrPassport: 'WALK-IN-NIC-001',
+          identityDocumentType: 'NIC',
 
-          phone: '+94000000001',
+          nicOrPassport: '200012345678',
+
+          phone: '+94771234567',
         },
 
         booking: {
@@ -2123,7 +2125,7 @@ describe('AppController (e2e)', () => {
 
         expect(response.body.source).toBe('WALK_IN');
 
-        expect(response.body.status).toBe('CONFIRMED');
+        expect(response.body.status).toBe('PENDING');
 
         expect(response.body.totalAmount).toBe(30000);
 
@@ -2131,9 +2133,11 @@ describe('AppController (e2e)', () => {
           expect.objectContaining({
             paymentMethod: 'CASH',
 
-            paymentStatus: 'COMPLETED',
+            paymentStatus: 'PENDING',
 
             amount: 30000,
+
+            paidAt: null,
           }),
         );
 
@@ -2155,7 +2159,7 @@ describe('AppController (e2e)', () => {
 
           email: 'card@example.invalid',
 
-          phone: '+94000000002',
+          phone: '+14155552671',
         },
 
         booking: {
