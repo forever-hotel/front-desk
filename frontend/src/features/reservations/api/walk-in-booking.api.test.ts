@@ -52,14 +52,14 @@ describe("walk-in-booking.api", () => {
             specialRequests: "Extra pillows",
             totalAmount: 30000,
             currency: "LKR",
-            status: "CONFIRMED",
+            status: "PENDING",
             source: "WALK_IN",
             payment: {
               paymentId: "44444444-4444-4444-8444-444444444444",
               paymentMethod: "CASH",
-              paymentStatus: "COMPLETED",
+              paymentStatus: "PENDING",
               amount: 30000,
-              paidAt: "2026-10-08T06:00:00.000Z",
+              paidAt: null,
             },
           },
           { status: 201 },
@@ -73,7 +73,7 @@ describe("walk-in-booking.api", () => {
 
     expect(result.bookingReference).toBe(bookingReference);
 
-    expect(result.status).toBe("CONFIRMED");
+    expect(result.status).toBe("PENDING");
 
     expect(result.source).toBe("WALK_IN");
 
@@ -83,7 +83,7 @@ describe("walk-in-booking.api", () => {
 
     expect(result.payment.paymentMethod).toBe("CASH");
 
-    expect(result.payment.paymentStatus).toBe("COMPLETED");
+    expect(result.payment.paymentStatus).toBe("PENDING");
   });
 
   it("Given card-on-site payment, when a walk-in booking is submitted, then the pending status from the backend is preserved", async () => {
@@ -91,6 +91,7 @@ describe("walk-in-booking.api", () => {
       guest: {
         fullName: "Card Payment Guest",
         email: "card@example.com",
+        phone: "+94771234567",
       },
       booking: {
         roomTypeId,
@@ -168,6 +169,7 @@ describe("walk-in-booking.api", () => {
       guest: {
         fullName: "Test Guest",
         email: "guest@example.com",
+        phone: "+94771234567",
       },
       booking: {
         roomTypeId,

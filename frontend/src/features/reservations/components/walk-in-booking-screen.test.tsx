@@ -60,6 +60,7 @@ async function fillRequiredDetails() {
   await user.type(screen.getByLabelText("FULL NAME"), "Test Guest");
 
   await user.type(screen.getByLabelText("EMAIL"), "guest@example.com");
+  await user.type(screen.getByLabelText("PHONE"), "0771234567");
 
   await selectStandardRoomType(user);
 
@@ -113,12 +114,6 @@ describe("WalkInBookingScreen", () => {
     expect(screen.getAllByText("0 vacant now / 1 total")).toHaveLength(2);
 
     expect(
-      screen.getByText(
-        "The backend calculates the final booking total after submission.",
-      ),
-    ).toBeInTheDocument();
-
-    expect(
       screen.queryByText("Walk-in booking created successfully."),
     ).not.toBeInTheDocument();
   });
@@ -143,14 +138,14 @@ describe("WalkInBookingScreen", () => {
     await user.click(getSubmitButton());
 
     expect(
-      screen.getByText("Guest full name is required."),
+      screen.getAllByText("Guest full name is required.")[0],
     ).toBeInTheDocument();
 
     await user.type(screen.getByLabelText("FULL NAME"), "Test Guest");
 
     await user.click(getSubmitButton());
 
-    expect(screen.getByText("Guest email is required.")).toBeInTheDocument();
+    expect(screen.getAllByText("Guest email is required.")[0]).toBeInTheDocument();
 
     await user.type(screen.getByLabelText("EMAIL"), "guest@example.com");
 
@@ -230,14 +225,14 @@ describe("WalkInBookingScreen", () => {
             specialRequests: null,
             totalAmount: 18000,
             currency: "LKR",
-            status: "CONFIRMED",
+            status: "PENDING",
             source: "WALK_IN",
             payment: {
               paymentId: "33333333-3333-4333-8333-333333333333",
               paymentMethod: "CASH",
-              paymentStatus: "COMPLETED",
+              paymentStatus: "PENDING",
               amount: 18000,
-              paidAt: "2026-10-08T06:00:00.000Z",
+              paidAt: null,
             },
           },
           { status: 201 },
@@ -249,9 +244,9 @@ describe("WalkInBookingScreen", () => {
 
     const user = await fillRequiredDetails();
 
+    await user.click(screen.getByLabelText("IDENTITY DOCUMENT TYPE"));
+    await user.click(await screen.findByText("Passport"));
     await user.type(screen.getByLabelText("NIC / PASSPORT NO."), "TEST123456");
-
-    await user.type(screen.getByLabelText("PHONE"), "0771234567");
 
     await user.type(screen.getByLabelText("SPECIAL REQUESTS"), "Extra pillows");
 
@@ -259,7 +254,7 @@ describe("WalkInBookingScreen", () => {
 
     expect(
       await screen.findByText(
-        "Walk-in booking created successfully.",
+        "Walk-in booking created. Payment pending.",
         {},
         { timeout: 8000 },
       ),
@@ -270,7 +265,8 @@ describe("WalkInBookingScreen", () => {
         fullName: "Test Guest",
         email: "guest@example.com",
         nicOrPassport: "TEST123456",
-        phone: "0771234567",
+        identityDocumentType: "PASSPORT",
+        phone: "+94771234567",
       },
       booking: {
         roomTypeId: "room-type-1",
@@ -286,9 +282,7 @@ describe("WalkInBookingScreen", () => {
 
     expect(screen.getByText(bookingReference)).toBeInTheDocument();
 
-    expect(screen.getByText("CONFIRMED")).toBeInTheDocument();
-
-    expect(screen.getByText("COMPLETED")).toBeInTheDocument();
+    expect(screen.getAllByText("PENDING")).toHaveLength(2);
 
     expect(screen.getByText("LKR 18,000")).toBeInTheDocument();
 
@@ -307,6 +301,40 @@ describe("WalkInBookingScreen", () => {
     expect(
       screen.queryByText("Walk-in booking created successfully."),
     ).not.toBeInTheDocument();
+  });
+
+  it("prevents invalid phone and NIC submissions before any API request", async () => {
+    let posts = 0;
+    server.use(
+      http.post("*/bookings/walk-in", () => {
+        posts += 1;
+        return HttpResponse.json({}, { status: 201 });
+      }),
+    );
+    renderWithProviders(<WalkInBookingScreen />);
+    const user = await fillRequiredDetails();
+    await user.clear(screen.getByLabelText("PHONE"));
+    await user.type(screen.getByLabelText("PHONE"), "077123456789999");
+    await user.click(getSubmitButton());
+    expect(
+      screen.getAllByText(
+        "Enter a valid Sri Lankan or international phone number.",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(posts).toBe(0);
+    await user.clear(screen.getByLabelText("PHONE"));
+    await user.type(screen.getByLabelText("PHONE"), "0771234567");
+    await user.type(
+      screen.getByLabelText("NIC / PASSPORT NO."),
+      "200040045678",
+    );
+    await user.click(getSubmitButton());
+    expect(
+      screen.getAllByText(
+        "Sri Lankan NIC contains an invalid year or birth-day code.",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(posts).toBe(0);
   });
 
   it("Given card-on-site payment, when booking is created, then the backend pending payment status is preserved", async () => {
@@ -356,7 +384,7 @@ describe("WalkInBookingScreen", () => {
 
     expect(
       await screen.findByText(
-        "Walk-in booking created successfully.",
+        "Walk-in booking created. Payment pending.",
         {},
         { timeout: 8000 },
       ),

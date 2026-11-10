@@ -2,6 +2,9 @@ import { apiClient } from "@/lib/api/api-client";
 
 import type {
   BookingSearchItem,
+  ConfirmWalkInPaymentRequest,
+  WalkInPaymentConfirmationResult,
+  WalkInPendingPayment,
   CreateWalkInBookingRequest,
   RecentBookingsResponse,
   WalkInBookingResult,
@@ -48,4 +51,25 @@ export function createWalkInBooking(
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export function getPendingWalkInPayment(
+  bookingReference: string,
+): Promise<WalkInPendingPayment> {
+  return apiClient<WalkInPendingPayment>(
+    `/bookings/walk-in/${encodeURIComponent(bookingReference)}/pending-payment`,
+  );
+}
+
+export function confirmWalkInPayment(
+  bookingReference: string,
+  payload: ConfirmWalkInPaymentRequest,
+): Promise<WalkInPaymentConfirmationResult> {
+  return apiClient<WalkInPaymentConfirmationResult>(
+    `/bookings/walk-in/${encodeURIComponent(bookingReference)}/confirm-payment`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
 }

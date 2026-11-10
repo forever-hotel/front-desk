@@ -1,16 +1,34 @@
 import {
   IsEmail,
+  IsIn,
+  IsNotEmpty,
   IsOptional,
   IsString,
-  Matches,
   MaxLength,
   MinLength,
+  ValidateBy,
 } from 'class-validator';
+import type { ValidationArguments } from 'class-validator';
+import {
+  normalizeWalkInPhone,
+  validateWalkInDocument,
+  validateWalkInName,
+  type WalkInIdentityDocumentType,
+} from './walk-in-guest.validation';
 
 export class WalkInGuestDto {
   @IsString()
-  @MinLength(1)
+  @MinLength(2)
   @MaxLength(255)
+  @ValidateBy({
+    name: 'isSupportedGuestName',
+    validator: {
+      validate: (value: unknown) =>
+        typeof value === 'string' && validateWalkInName(value),
+      defaultMessage: () =>
+        'fullName must contain 2–255 valid name characters',
+    },
+  })
   fullName!: string;
 
   @IsEmail()
@@ -18,15 +36,36 @@ export class WalkInGuestDto {
   email!: string;
 
   @IsOptional()
-  @IsString()
-  @MaxLength(50)
-  nicOrPassport?: string;
+  @IsIn(['NIC', 'PASSPORT'])
+  identityDocumentType?: WalkInIdentityDocumentType;
 
   @IsOptional()
   @IsString()
-  @MaxLength(20)
-  @Matches(/^\+?[0-9][0-9\s-]{6,19}$/, {
-    message: 'phone must be a valid phone number',
+  @MaxLength(50)
+  @ValidateBy({
+    name: 'isSupportedIdentityDocument',
+    validator: {
+      validate: (value: unknown, args: ValidationArguments) => {
+        if (typeof value !== 'string') return false;
+        const guest = args.object as WalkInGuestDto;
+        return validateWalkInDocument(value, guest.identityDocumentType);
+      },
+      defaultMessage: () => 'nicOrPassport is invalid for the selected document type',
+    },
   })
-  phone?: string;
+  nicOrPassport?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(32)
+  @ValidateBy({
+    name: 'isRealisticWalkInPhone',
+    validator: {
+      validate: (value: unknown) =>
+        typeof value === 'string' && normalizeWalkInPhone(value) !== null,
+      defaultMessage: () =>
+        'phone must be a valid Sri Lankan or international telephone number',
+    },
+  })
+  phone!: string;
 }

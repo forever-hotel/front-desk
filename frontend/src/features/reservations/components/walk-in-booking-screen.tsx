@@ -10,8 +10,18 @@ import { useRoomStatus, type RoomStatusBoardItem } from "@/features/rooms";
 
 import { useCreateWalkInBooking } from "../hooks/use-create-walk-in-booking";
 
+import {
+  normalizeWalkInPhone,
+  validateWalkInDocument,
+  validateWalkInEmail,
+  validateWalkInName,
+  validateWalkInPhone,
+  type WalkInDocumentType,
+} from "../utils/walk-in-guest-validation";
+import type { WalkInPaymentConfirmationResult } from "../types/reservation.type";
 import type { WalkInPaymentMethod } from "../types/reservation.type";
 
+import { WalkInPaymentConfirmation } from "./walk-in-payment-confirmation";
 import styles from "./walk-in-booking-screen.module.css";
 
 type RoomTypeOption = {
@@ -33,6 +43,14 @@ export function WalkInBookingScreen() {
   const [fullName, setFullName] = useState("");
 
   const [nicOrPassport, setNicOrPassport] = useState("");
+  const [identityDocumentType, setIdentityDocumentType] =
+    useState<WalkInDocumentType>("NIC");
+  const [guestErrors, setGuestErrors] = useState<{
+    fullName?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    nicOrPassport?: string | null;
+  }>({});
 
   const [phone, setPhone] = useState("");
 
@@ -51,6 +69,9 @@ export function WalkInBookingScreen() {
   const [paymentMethod, setPaymentMethod] =
     useState<WalkInPaymentMethod>("CASH");
 
+  const [confirmedPayment, setConfirmedPayment] =
+    useState<WalkInPaymentConfirmationResult | null>(null);
+
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const roomTypes = useMemo(() => buildRoomTypeOptions(rooms), [rooms]);
@@ -61,6 +82,8 @@ export function WalkInBookingScreen() {
   const resetForm = () => {
     setFullName("");
     setNicOrPassport("");
+    setIdentityDocumentType("NIC");
+    setGuestErrors({});
     setPhone("");
     setEmail("");
     setRoomTypeId(undefined);
@@ -69,6 +92,7 @@ export function WalkInBookingScreen() {
     setCheckOutDate("");
     setSpecialRequests("");
     setPaymentMethod("CASH");
+    setConfirmedPayment(null);
     setValidationError(null);
 
     createWalkInMutation.reset();
@@ -81,15 +105,17 @@ export function WalkInBookingScreen() {
 
     const normalizedEmail = email.trim();
 
-    if (!normalizedName) {
-      setValidationError("Guest full name is required.");
-
+    const nameError = validateWalkInName(normalizedName);
+    if (nameError) {
+      setGuestErrors((previous) => ({ ...previous, fullName: nameError }));
+      setValidationError(nameError);
       return;
     }
 
-    if (!normalizedEmail) {
-      setValidationError("Guest email is required.");
-
+    const emailError = validateWalkInEmail(normalizedEmail);
+    if (emailError) {
+      setGuestErrors((previous) => ({ ...previous, email: emailError }));
+      setValidationError(emailError);
       return;
     }
 
@@ -125,15 +151,46 @@ export function WalkInBookingScreen() {
       return;
     }
 
+    const phoneError = validateWalkInPhone(phone);
+    if (phoneError) {
+      setGuestErrors((previous) => ({ ...previous, phone: phoneError }));
+      setValidationError(phoneError);
+      return;
+    }
+
+    const documentError = validateWalkInDocument(
+      nicOrPassport,
+      identityDocumentType,
+    );
+    if (documentError) {
+      setGuestErrors((previous) => ({
+        ...previous,
+        nicOrPassport: documentError,
+      }));
+      setValidationError(documentError);
+      return;
+    }
+
+    // The backend independently validates and normalizes the same phone.
+    const normalizedPhone = normalizeWalkInPhone(phone);
+    if (!normalizedPhone) {
+      setValidationError(
+        "Enter a valid Sri Lankan or international phone number.",
+      );
+      return;
+    }
+
     try {
       await createWalkInMutation.mutateAsync({
         guest: {
           fullName: normalizedName,
           email: normalizedEmail,
 
-          nicOrPassport: nicOrPassport.trim() || undefined,
-
-          phone: phone.trim() || undefined,
+          nicOrPassport: nicOrPassport.trim().toUpperCase() || undefined,
+          identityDocumentType: nicOrPassport.trim()
+            ? identityDocumentType
+            : undefined,
+          phone: normalizedPhone,
         },
 
         booking: {
@@ -158,6 +215,10 @@ export function WalkInBookingScreen() {
   };
 
   const result = createWalkInMutation.data;
+  const paymentForBooking =
+    confirmedPayment?.bookingReference === result?.bookingReference
+      ? confirmedPayment
+      : null;
 
   return (
     <section className={styles.page}>
@@ -175,10 +236,18 @@ export function WalkInBookingScreen() {
 
       {result && (
         <Alert
-          type="success"
+          type={
+            result.status === "PENDING" && !paymentForBooking
+              ? "warning"
+              : "success"
+          }
           showIcon
           className={styles.feedback}
-          message="Walk-in booking created successfully."
+          message={
+            result.status === "PENDING" && !paymentForBooking
+              ? "Walk-in booking created. Payment pending."
+              : "Walk-in booking created successfully."
+          }
           description={
             <div className={styles.successDetails}>
               <span>
@@ -186,7 +255,10 @@ export function WalkInBookingScreen() {
               </span>
 
               <span>
-                Status: <strong>{result.status}</strong>
+                Status:{" "}
+                <strong>
+                  {paymentForBooking?.bookingStatus ?? result.status}
+                </strong>
               </span>
 
               <span>
@@ -194,7 +266,11 @@ export function WalkInBookingScreen() {
               </span>
 
               <span>
-                Payment: <strong>{result.payment.paymentStatus}</strong>
+                Payment:{" "}
+                <strong>
+                  {paymentForBooking?.paymentStatus ??
+                    result.payment.paymentStatus}
+                </strong>
               </span>
             </div>
           }
@@ -203,6 +279,15 @@ export function WalkInBookingScreen() {
               New Booking
             </Button>
           }
+        />
+      )}
+
+      {!result && <WalkInPaymentConfirmation />}
+      {result?.status === "PENDING" && !paymentForBooking && (
+        <WalkInPaymentConfirmation
+          key={result.bookingReference}
+          initialBookingReference={result.bookingReference}
+          onConfirmed={setConfirmedPayment}
         />
       )}
 
@@ -217,10 +302,54 @@ export function WalkInBookingScreen() {
                   <Input
                     id="walk-in-name"
                     value={fullName}
-                    onChange={(event) => setFullName(event.target.value)}
+                    onChange={(event) => {
+                      setFullName(event.target.value);
+                      setGuestErrors((previous) => ({
+                        ...previous,
+                        fullName: undefined,
+                      }));
+                    }}
+                    onBlur={() =>
+                      setGuestErrors((previous) => ({
+                        ...previous,
+                        fullName: validateWalkInName(fullName),
+                      }))
+                    }
+                    status={guestErrors.fullName ? "error" : undefined}
                     placeholder="Guest full name"
                     maxLength={255}
                     disabled={createWalkInMutation.isPending}
+                  />
+                  {guestErrors.fullName && (
+                    <span role="alert" className={styles.inlineError}>
+                      {guestErrors.fullName}
+                    </span>
+                  )}
+                </FormField>
+
+                <FormField
+                  label="IDENTITY DOCUMENT TYPE"
+                  htmlFor="walk-in-document-type"
+                >
+                  <Select<WalkInDocumentType>
+                    id="walk-in-document-type"
+                    className={styles.fullWidth}
+                    value={identityDocumentType}
+                    onChange={(next) => {
+                      setIdentityDocumentType(next);
+                      setGuestErrors((previous) => ({
+                        ...previous,
+                        nicOrPassport: validateWalkInDocument(
+                          nicOrPassport,
+                          next,
+                        ),
+                      }));
+                    }}
+                    disabled={createWalkInMutation.isPending}
+                    options={[
+                      { value: "NIC", label: "Sri Lankan NIC" },
+                      { value: "PASSPORT", label: "Passport" },
+                    ]}
                   />
                 </FormField>
 
@@ -228,22 +357,61 @@ export function WalkInBookingScreen() {
                   <Input
                     id="walk-in-id"
                     value={nicOrPassport}
-                    onChange={(event) => setNicOrPassport(event.target.value)}
-                    placeholder="ID number"
+                    onChange={(event) => {
+                      setNicOrPassport(event.target.value);
+                      setGuestErrors((previous) => ({
+                        ...previous,
+                        nicOrPassport: undefined,
+                      }));
+                    }}
+                    onBlur={() =>
+                      setGuestErrors((previous) => ({
+                        ...previous,
+                        nicOrPassport: validateWalkInDocument(
+                          nicOrPassport,
+                          identityDocumentType,
+                        ),
+                      }))
+                    }
+                    status={guestErrors.nicOrPassport ? "error" : undefined}
+                    placeholder="ID number (optional until Check-In)"
                     maxLength={50}
                     disabled={createWalkInMutation.isPending}
                   />
+                  {guestErrors.nicOrPassport && (
+                    <span role="alert" className={styles.inlineError}>
+                      {guestErrors.nicOrPassport}
+                    </span>
+                  )}
                 </FormField>
 
                 <FormField label="PHONE" htmlFor="walk-in-phone">
                   <Input
                     id="walk-in-phone"
                     value={phone}
-                    onChange={(event) => setPhone(event.target.value)}
-                    placeholder="+94 7x xxx xxxx"
-                    maxLength={20}
+                    onChange={(event) => {
+                      setPhone(event.target.value);
+                      setGuestErrors((previous) => ({
+                        ...previous,
+                        phone: undefined,
+                      }));
+                    }}
+                    onBlur={() =>
+                      setGuestErrors((previous) => ({
+                        ...previous,
+                        phone: validateWalkInPhone(phone),
+                      }))
+                    }
+                    status={guestErrors.phone ? "error" : undefined}
+                    placeholder="0771234567 or +94771234567"
+                    maxLength={32}
                     disabled={createWalkInMutation.isPending}
                   />
+                  {guestErrors.phone && (
+                    <span role="alert" className={styles.inlineError}>
+                      {guestErrors.phone}
+                    </span>
+                  )}
                 </FormField>
 
                 <FormField label="EMAIL" htmlFor="walk-in-email">
@@ -251,11 +419,29 @@ export function WalkInBookingScreen() {
                     id="walk-in-email"
                     type="email"
                     value={email}
-                    onChange={(event) => setEmail(event.target.value)}
+                    onChange={(event) => {
+                      setEmail(event.target.value);
+                      setGuestErrors((previous) => ({
+                        ...previous,
+                        email: undefined,
+                      }));
+                    }}
+                    onBlur={() =>
+                      setGuestErrors((previous) => ({
+                        ...previous,
+                        email: validateWalkInEmail(email),
+                      }))
+                    }
+                    status={guestErrors.email ? "error" : undefined}
                     placeholder="guest@email.com"
                     maxLength={320}
                     disabled={createWalkInMutation.isPending}
                   />
+                  {guestErrors.email && (
+                    <span role="alert" className={styles.inlineError}>
+                      {guestErrors.email}
+                    </span>
+                  )}
                 </FormField>
               </div>
 
@@ -445,12 +631,6 @@ export function WalkInBookingScreen() {
                 type="info"
                 showIcon
                 message="Room assignment, ID verification and FOSS activation are completed during Check-In."
-              />
-
-              <Alert
-                type="info"
-                showIcon
-                message="The backend calculates the final booking total after submission."
               />
 
               {validationError && (
