@@ -53,22 +53,40 @@ export async function rollout(images, adapter) {
     throw Error("Front Desk rollout failed");
   }
 }
-const run = (file, args) =>
+export const run = (file, args) =>
   execFileSync(file, args, {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
     timeout: 300000,
   }).trim();
 const docker = (...args) => run("sudo", ["-n", "docker", ...args]);
-const json = async (file) => JSON.parse(await readFile(file, "utf8"));
-async function atomic(file, value) {
+export const json = async (file) => JSON.parse(await readFile(file, "utf8"));
+export async function atomic(file, value) {
   const temporary = file + ".tmp";
   await writeFile(temporary, JSON.stringify(value, null, 2) + "\n", {
     mode: 0o600,
   });
   await rename(temporary, file);
 }
-export async function main([manifestFile, expectedSha, hostFile]) {
+const defaults = {
+  readFile,
+  mkdir,
+  open,
+  unlink,
+  json,
+  atomic,
+  docker,
+  run,
+  pause: () => new Promise((done) => setTimeout(done, 5000)),
+};
+export async function main(
+  [manifestFile, expectedSha, hostFile],
+  dependencies = {},
+) {
+  const { readFile, mkdir, open, unlink, json, atomic, docker, run, pause } = {
+    ...defaults,
+    ...dependencies,
+  };
   const images = validateRelease(await json(manifestFile), expectedSha);
   const host = await json(hostFile);
   const group = host.groups?.full;
@@ -174,7 +192,7 @@ export async function main([manifestFile, expectedSha, hostFile]) {
             return;
           } catch {
             if (attempt === 11) throw Error("Front Desk health failed");
-            await new Promise((done) => setTimeout(done, 5000));
+            await pause();
           }
         }
       },

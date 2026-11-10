@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - run: node --test deploy/staging/release.test.mjs
+      - run: node --experimental-test-coverage --test-coverage-include=deploy/staging/release.mjs --test-coverage-lines=80 --test-coverage-branches=90 --test-coverage-functions=80 --test deploy/staging/release.test.mjs
       - run: bash -n deploy/staging/remote-release.sh
 
   publish-images:
