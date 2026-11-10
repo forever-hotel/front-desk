@@ -6,6 +6,8 @@ import { Alert, Button, Input, Modal, Select, Spin } from "antd";
 
 import { ArrowLeftRight, LayoutGrid } from "lucide-react";
 
+import { useOptionalCentralAuthSession } from "@/features/auth/providers/central-auth-session-provider";
+
 import { useRealtimeStatus } from "@/hooks/use-realtime-status";
 
 import type { RoomStatus } from "@/types/room-status.type";
@@ -28,6 +30,14 @@ const STATUS_LABELS: Record<RoomStatus, string> = {
 
 export function RoomStatusScreen() {
   const { data: rooms = [], isLoading, error } = useRoomStatus();
+
+  const staffSession = useOptionalCentralAuthSession();
+  const performedBy =
+    staffSession?.status === "authenticated" &&
+    (staffSession.session.role === "RECEPTIONIST" ||
+      staffSession.session.role === "ROOT")
+      ? staffSession.session.userId
+      : undefined;
 
   const { connectionState } = useRealtimeStatus();
 
@@ -226,6 +236,7 @@ export function RoomStatusScreen() {
           <Button
             icon={<ArrowLeftRight size={14} />}
             onClick={() => setRoomChangeOpen(true)}
+            disabled={Boolean(staffSession) && !performedBy}
           >
             Room Change
           </Button>
@@ -515,6 +526,7 @@ export function RoomStatusScreen() {
 
       <RoomChangeModal
         open={roomChangeOpen}
+        performedBy={performedBy}
         onClose={() => setRoomChangeOpen(false)}
         onCompleted={(result) =>
           setSuccessMessage(
