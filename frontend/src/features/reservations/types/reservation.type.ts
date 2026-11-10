@@ -24,7 +24,8 @@ export interface WalkInGuestInput {
   fullName: string;
   email: string;
   nicOrPassport?: string;
-  phone?: string;
+  identityDocumentType?: "NIC" | "PASSPORT";
+  phone: string;
 }
 
 export interface WalkInBookingDetailsInput {
@@ -51,6 +52,33 @@ export interface WalkInPaymentResult {
   paymentStatus: "PENDING" | "COMPLETED";
   amount: number;
   paidAt: string | null;
+}
+
+export interface WalkInPendingPayment {
+  bookingReference: string;
+  bookingStatus: "PENDING";
+  paymentId: string;
+  paymentMethod: WalkInPaymentMethod;
+  paymentStatus: "PENDING";
+  amount: number;
+  currency: "LKR";
+}
+
+export interface ConfirmWalkInPaymentRequest {
+  confirmedReceived: true;
+  receiptReference?: string;
+}
+
+export interface WalkInPaymentConfirmationResult {
+  bookingReference: string;
+  bookingStatus: "CONFIRMED";
+  paymentId: string;
+  paymentMethod: WalkInPaymentMethod;
+  paymentStatus: "COMPLETED";
+  amount: number;
+  currency: "LKR";
+  paidAt: string;
+  auditLogId: string;
 }
 
 export interface WalkInBookingResult {

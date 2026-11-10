@@ -29,7 +29,7 @@ describe('BookingsService', () => {
       fullName: 'Walk In Guest',
       email: 'walk-in@example.invalid',
       nicOrPassport: 'WALK-IN-NIC-001',
-      phone: '+94000000001',
+      phone: '+94771234567',
     },
     booking: {
       roomTypeId: roomType.roomTypeId,
@@ -52,7 +52,7 @@ describe('BookingsService', () => {
       fullName: 'Walk In Guest',
       email: 'walk-in@example.invalid',
       nicOrPassport: 'WALK-IN-NIC-001',
-      phone: '+94000000001',
+      phone: '+94771234567',
     },
     roomTypeId: roomType.roomTypeId,
     roomType: roomType.typeName,
@@ -62,14 +62,14 @@ describe('BookingsService', () => {
     specialRequests: 'Quiet room',
     totalAmount: 30000,
     currency: 'LKR',
-    status: 'CONFIRMED',
+    status: 'PENDING',
     source: 'WALK_IN',
     payment: {
       paymentId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
       paymentMethod: 'CASH',
-      paymentStatus: 'COMPLETED',
+      paymentStatus: 'PENDING',
       amount: 30000,
-      paidAt: '2030-02-10T10:00:00.000Z',
+      paidAt: null,
     },
   };
 
@@ -205,7 +205,7 @@ describe('BookingsService', () => {
     expect(repository.findDepartures).toHaveBeenCalledWith('2030-01-12');
   });
 
-  it('should create a cash walk-in booking with server-calculated total', async () => {
+  it('should create a pending cash walk-in booking without claiming payment', async () => {
     const request = createWalkInRequest();
 
     walkInRepository.findRoomType.mockResolvedValue(roomType);
@@ -224,7 +224,7 @@ describe('BookingsService', () => {
         fullName: 'Walk In Guest',
         email: 'walk-in@example.invalid',
         nicOrPassport: 'WALK-IN-NIC-001',
-        phone: '+94000000001',
+        phone: '+94771234567',
       },
       roomType,
       checkInDate: '2030-02-10',
@@ -233,8 +233,8 @@ describe('BookingsService', () => {
       specialRequests: 'Quiet room',
       totalAmount: 30000,
       paymentMethod: 'CASH',
-      bookingStatus: 'CONFIRMED',
-      paymentStatus: 'COMPLETED',
+      bookingStatus: 'PENDING',
+      paymentStatus: 'PENDING',
     });
   });
 

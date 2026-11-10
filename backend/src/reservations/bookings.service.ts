@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { CreateWalkInBookingDto } from './dto/create-walk-in-booking.dto';
-import { WalkInPaymentMethod } from './dto/walk-in-payment.dto';
+import { normalizeWalkInPhone } from './dto/walk-in-guest.validation';
 import { BookingSearchResult } from './models/booking-search-result';
 import { WalkInBookingResult } from './models/walk-in-booking-result';
 import { BookingRepository } from './repositories/booking.repository';
@@ -78,15 +78,18 @@ export class BookingsService {
       );
     }
 
-    const isCashPayment =
-      request.payment.paymentMethod === WalkInPaymentMethod.CASH;
+    const normalizedPhone = normalizeWalkInPhone(request.guest.phone);
+    if (!normalizedPhone) {
+      throw new BadRequestException('Valid guest phone is required');
+    }
 
+    // Booking creation is not evidence of payment collection.
     return this.walkInBookingRepository.createWalkInBooking({
       guest: {
         fullName: request.guest.fullName.trim(),
         email: request.guest.email.trim().toLowerCase(),
         nicOrPassport: request.guest.nicOrPassport?.trim() || undefined,
-        phone: request.guest.phone?.trim() || undefined,
+        phone: normalizedPhone,
       },
       roomType,
       checkInDate: request.booking.checkInDate,
@@ -95,8 +98,8 @@ export class BookingsService {
       specialRequests: request.booking.specialRequests?.trim() || undefined,
       totalAmount,
       paymentMethod: request.payment.paymentMethod,
-      bookingStatus: isCashPayment ? 'CONFIRMED' : 'PENDING',
-      paymentStatus: isCashPayment ? 'COMPLETED' : 'PENDING',
+      bookingStatus: 'PENDING',
+      paymentStatus: 'PENDING',
     });
   }
 

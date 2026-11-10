@@ -213,12 +213,47 @@ describe('Bookings RBAC (e2e)', () => {
     expect(bookingsService.createWalkInBooking).not.toHaveBeenCalled();
   });
 
+  it('rejects missing or implausible phone before reaching the bookings service', async () => {
+    const token = await createToken(receptionistId, SystemRole.RECEPTIONIST);
+    for (const invalidPhone of ['', '077123456789999', '077ABC4567']) {
+      const requestPayload = createWalkInPayload();
+      requestPayload.guest.phone = invalidPhone;
+      await request(app.getHttpServer())
+        .post('/bookings/walk-in')
+        .set('Authorization', 'Bearer ' + token)
+        .send(requestPayload)
+        .expect(400);
+      expect(bookingsService.createWalkInBooking).not.toHaveBeenCalled();
+    }
+    const missingPhonePayload = createWalkInPayload();
+    delete (missingPhonePayload.guest as { phone?: string }).phone;
+    await request(app.getHttpServer())
+      .post('/bookings/walk-in')
+      .set('Authorization', 'Bearer ' + token)
+      .send(missingPhonePayload)
+      .expect(400);
+    expect(bookingsService.createWalkInBooking).not.toHaveBeenCalled();
+  });
+
+  it('rejects a mismatched NIC document type without saving a booking', async () => {
+    const token = await createToken(receptionistId, SystemRole.RECEPTIONIST);
+    const requestPayload = createWalkInPayload();
+    requestPayload.guest.identityDocumentType = 'NIC';
+    requestPayload.guest.nicOrPassport = '200040045678';
+    await request(app.getHttpServer())
+      .post('/bookings/walk-in')
+      .set('Authorization', 'Bearer ' + token)
+      .send(requestPayload)
+      .expect(400);
+    expect(bookingsService.createWalkInBooking).not.toHaveBeenCalled();
+  });
+
   function createWalkInPayload(): CreateWalkInBookingDto {
     return {
       guest: {
         fullName: 'Walk In Guest',
         email: 'walk-in@example.invalid',
-        phone: '+94000000001',
+        phone: '+94771234567',
       },
 
       booking: {
