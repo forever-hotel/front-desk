@@ -129,6 +129,16 @@ export class FossGuestQrService {
       throw new ServiceUnavailableException('FOSS QR issuer unavailable');
     }
     if (!response.ok) {
+      if (response.status === 403 || response.status === 409) {
+        throw new ConflictException(
+          'Guest stay is not eligible for a FOSS QR. Check the stay dates, check-in status and assigned room.',
+        );
+      }
+      if (response.status === 404) {
+        throw new NotFoundException(
+          'Booking not found by FOSS stay verification',
+        );
+      }
       throw new ServiceUnavailableException(
         'FOSS QR issuer rejected the request',
       );
