@@ -17,7 +17,11 @@ import { WalkInBookingRepository } from './repositories/walk-in-booking.reposito
 @Module({
   imports: [SecurityModule],
 
-  controllers: [BookingsController, FossBookingVerificationController, WalkInPaymentController],
+  controllers: [
+    BookingsController,
+    FossBookingVerificationController,
+    WalkInPaymentController,
+  ],
 
   providers: [
     BookingsService,

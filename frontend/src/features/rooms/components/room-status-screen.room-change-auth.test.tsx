@@ -3,7 +3,10 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { useOptionalCentralAuthSession } from "@/features/auth/providers/central-auth-session-provider";
-import { bookingFixtures, roomFixtures } from "../../../../tests/fixtures/fds-fixtures";
+import {
+  bookingFixtures,
+  roomFixtures,
+} from "../../../../tests/fixtures/fds-fixtures";
 import { server } from "../../../../tests/mocks/server";
 import { renderWithProviders } from "../../../../tests/utils/render-with-providers";
 import { RoomStatusScreen } from "./room-status-screen";
@@ -70,7 +73,9 @@ describe("Room Change verified staff identity integration (#105)", () => {
     await user.click(screen.getByRole("button", { name: "Room Change" }));
     await user.type(screen.getByLabelText("CURRENT GUEST / BOOKING"), "Nimali");
     await user.click(screen.getByRole("button", { name: "Search" }));
-    await user.click(await screen.findByRole("button", { name: /Nimali Silva/i }));
+    await user.click(
+      await screen.findByRole("button", { name: /Nimali Silva/i }),
+    );
 
     const selector = await screen.findByRole("combobox", {}, { timeout: 8000 });
     await waitFor(() => expect(selector).toBeEnabled());

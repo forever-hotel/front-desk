@@ -145,7 +145,9 @@ describe("WalkInBookingScreen", () => {
 
     await user.click(getSubmitButton());
 
-    expect(screen.getAllByText("Guest email is required.")[0]).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Guest email is required.")[0],
+    ).toBeInTheDocument();
 
     await user.type(screen.getByLabelText("EMAIL"), "guest@example.com");
 

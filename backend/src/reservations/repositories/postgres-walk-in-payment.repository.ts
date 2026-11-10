@@ -62,10 +62,7 @@ export class PostgresWalkInPaymentRepository extends WalkInPaymentRepository {
       [bookingReference],
     )) as PaymentRow[];
 
-    const payment = this.requireSinglePendingPayment(
-      booking,
-      payments,
-    );
+    const payment = this.requireSinglePendingPayment(booking, payments);
 
     return {
       bookingReference,
@@ -135,47 +132,61 @@ export class PostgresWalkInPaymentRepository extends WalkInPaymentRepository {
         );
       }
 
-      const updatedPayments = this.normalizeMutationRows<{ paidAt: Date | string }>(await runner.query(
-        `UPDATE payments SET payment_status='COMPLETED', paid_at=NOW(),
+      const updatedPayments = this.normalizeMutationRows<{
+        paidAt: Date | string;
+      }>(
+        await runner.query(
+          `UPDATE payments SET payment_status='COMPLETED', paid_at=NOW(),
                              updated_at=NOW()
            WHERE payment_id=$1 AND payment_status='PENDING'
            RETURNING paid_at AS "paidAt"`,
-        [payment.paymentId],
-      ));
+          [payment.paymentId],
+        ),
+      );
       if (updatedPayments.length !== 1) {
-        throw new ConflictException('Pending payment changed during confirmation');
+        throw new ConflictException(
+          'Pending payment changed during confirmation',
+        );
       }
 
-      const updatedBookings = this.normalizeMutationRows<{ booking_id: string }>(await runner.query(
-        `UPDATE bookings SET status='CONFIRMED', updated_at=NOW()
+      const updatedBookings = this.normalizeMutationRows<{
+        booking_id: string;
+      }>(
+        await runner.query(
+          `UPDATE bookings SET status='CONFIRMED', updated_at=NOW()
            WHERE booking_id=$1 AND status='PENDING'
            RETURNING booking_id`,
-        [input.bookingReference],
-      ));
+          [input.bookingReference],
+        ),
+      );
       if (updatedBookings.length !== 1) {
-        throw new ConflictException('Booking changed during payment confirmation');
+        throw new ConflictException(
+          'Booking changed during payment confirmation',
+        );
       }
 
-      const audit = this.normalizeMutationRows<{ auditLogId: string }>(await runner.query(
-        `INSERT INTO audit_logs (
+      const audit = this.normalizeMutationRows<{ auditLogId: string }>(
+        await runner.query(
+          `INSERT INTO audit_logs (
            event_category, actor_type, staff_user_id, action,
            entity_type, entity_id, details
          ) VALUES ('PAYMENT', 'STAFF', $1, 'WALK_IN_PAYMENT_CONFIRMED',
                    'BOOKING', $2, $3::jsonb)
          RETURNING log_id::text AS "auditLogId"`,
-        [
-          input.performedBy,
-          input.bookingReference,
-          JSON.stringify({
-            paymentId: payment.paymentId,
-            paymentMethod: payment.paymentMethod,
-            amount: Number(payment.amount),
-            currency: 'LKR',
-            confirmationType: 'STAFF_RECORDED',
-            receiptReference: reference ?? null,
-          }),
-        ],
-      ));
+          [
+            input.performedBy,
+            input.bookingReference,
+            JSON.stringify({
+              paymentId: payment.paymentId,
+              paymentMethod: payment.paymentMethod,
+              amount: Number(payment.amount),
+              currency: 'LKR',
+              confirmationType: 'STAFF_RECORDED',
+              receiptReference: reference ?? null,
+            }),
+          ],
+        ),
+      );
       if (audit.length !== 1) {
         throw new Error('Payment audit record was not returned');
       }

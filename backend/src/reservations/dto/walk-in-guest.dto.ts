@@ -25,8 +25,7 @@ export class WalkInGuestDto {
     validator: {
       validate: (value: unknown) =>
         typeof value === 'string' && validateWalkInName(value),
-      defaultMessage: () =>
-        'fullName must contain 2–255 valid name characters',
+      defaultMessage: () => 'fullName must contain 2–255 valid name characters',
     },
   })
   fullName!: string;
@@ -50,7 +49,8 @@ export class WalkInGuestDto {
         const guest = args.object as WalkInGuestDto;
         return validateWalkInDocument(value, guest.identityDocumentType);
       },
-      defaultMessage: () => 'nicOrPassport is invalid for the selected document type',
+      defaultMessage: () =>
+        'nicOrPassport is invalid for the selected document type',
     },
   })
   nicOrPassport?: string;
