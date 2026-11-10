@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
+import { allowsInternalFossQr } from '../../config/foss-qr-url';
 
 interface BookingRow {
   bookingId: string;
@@ -101,7 +102,11 @@ export class FossGuestQrService {
       !['http:', 'https:'].includes(issuer.protocol) ||
       (environment !== 'development' &&
         environment !== 'test' &&
-        issuer.protocol !== 'https:') ||
+        issuer.protocol !== 'https:' &&
+        !allowsInternalFossQr(
+          endpoint,
+          this.config.get('FOSS_QR_ALLOW_INTERNAL_HTTP'),
+        )) ||
       issuer.username ||
       issuer.password
     ) {
