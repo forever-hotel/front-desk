@@ -1,5 +1,6 @@
 import { validateGuestPiiConfig } from '../security/guest-pii';
 import * as Joi from 'joi';
+import { allowsInternalFossQr } from './foss-qr-url';
 import { RABBITMQ_TOPOLOGY } from '../messaging/messaging.constants';
 
 export const envValidationSchema = Joi.object({
@@ -62,6 +63,10 @@ export const envValidationSchema = Joi.object({
   FOSS_QR_MODE: Joi.string()
     .valid('disabled', 'mock', 'http')
     .default('disabled'),
+  FOSS_QR_ALLOW_INTERNAL_HTTP: Joi.boolean()
+    .truthy('true')
+    .falsy('false')
+    .default(false),
   FOSS_QR_ISSUE_URL: Joi.string()
     .uri({ scheme: ['http', 'https'] })
     .optional(),
@@ -172,10 +177,15 @@ export const envValidationSchema = Joi.object({
     if (
       deploymentRequiresJwt &&
       value.FOSS_QR_MODE === 'http' &&
-      !value.FOSS_QR_ISSUE_URL.startsWith('https://')
+      !value.FOSS_QR_ISSUE_URL.startsWith('https://') &&
+      !allowsInternalFossQr(
+        value.FOSS_QR_ISSUE_URL,
+        value.FOSS_QR_ALLOW_INTERNAL_HTTP,
+      )
     ) {
       return helpers.message({
-        custom: 'FOSS_QR_ISSUE_URL must use HTTPS in staging/production',
+        custom:
+          'FOSS_QR_ISSUE_URL requires HTTPS or explicitly enabled private FOSS HTTP in staging/production',
       });
     }
     try {
