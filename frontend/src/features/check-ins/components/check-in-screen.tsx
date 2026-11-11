@@ -307,6 +307,10 @@ export function CheckInScreen({ performedBy }: CheckInScreenProps) {
 
       <section className={styles.card}>
         <div className={styles.cardHeader}>STEP 1 — FIND BOOKING</div>
+        <p className={styles.flowHint}>
+          Find the guest, verify their physical ID, choose a room, then confirm
+          check-in. QR and printing actions follow success.
+        </p>
 
         <div className={styles.stepper} aria-label="Check-in progress">
           <StepItem step={1} label="FIND BOOKING" activeStep={activeStep} />
@@ -712,19 +716,6 @@ export function CheckInScreen({ performedBy }: CheckInScreenProps) {
             )}
 
             <div className={styles.confirmActions}>
-              {checkInResult && (
-                <FossGuestQrActions
-                  bookingReference={checkInResult.bookingReference}
-                />
-              )}
-              <Button
-                disabled={!checkInResult}
-                loading={printMutation.isPending}
-                onClick={() => void handlePrintRegistrationCard()}
-              >
-                Print Registration Card
-              </Button>
-
               <Button
                 type="primary"
                 className={styles.confirmButton}
@@ -740,13 +731,34 @@ export function CheckInScreen({ performedBy }: CheckInScreenProps) {
               >
                 Confirm Check-In & Activate FOSS →
               </Button>
+              {checkInResult && (
+                <div className={styles.postCheckInActions}>
+                  <strong>Check-in complete — guest handover</strong>
+                  <p>
+                    Optional next actions: print the guest FOSS access QR or
+                    registration card.
+                  </p>
+                  <div className={styles.postCheckInButtons}>
+                    <FossGuestQrActions
+                      bookingReference={checkInResult.bookingReference}
+                    />
+                    <Button
+                      disabled={!checkInResult}
+                      loading={printMutation.isPending}
+                      onClick={() => void handlePrintRegistrationCard()}
+                    >
+                      Print Registration Card
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
       </section>
       <section className={styles.card}>
         <div className={styles.cardHeader}>
-          FOSS QR â€” EXISTING CHECKED-IN BOOKING
+          ADDITIONAL TOOL — FOSS QR FOR EXISTING CHECKED-IN BOOKINGS
         </div>
         <FossGuestQrLookup />
       </section>

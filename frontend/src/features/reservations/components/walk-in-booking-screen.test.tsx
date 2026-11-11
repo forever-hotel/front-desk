@@ -287,6 +287,13 @@ describe("WalkInBookingScreen", () => {
     expect(screen.getAllByText("PENDING")).toHaveLength(2);
 
     expect(screen.getByText("LKR 18,000")).toBeInTheDocument();
+    expect(screen.getByText("PAYMENT VERIFICATION")).toBeInTheDocument();
+    expect(
+      screen
+        .getByRole("button", { name: /Create Walk-In Booking/i })
+        .compareDocumentPosition(screen.getByText("PAYMENT VERIFICATION")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
 
     expect(getSubmitButton()).toBeDisabled();
 
