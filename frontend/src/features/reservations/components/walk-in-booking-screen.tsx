@@ -234,67 +234,25 @@ export function WalkInBookingScreen() {
         </div>
       </header>
 
-      {result && (
-        <Alert
-          type={
-            result.status === "PENDING" && !paymentForBooking
-              ? "warning"
-              : "success"
-          }
-          showIcon
-          className={styles.feedback}
-          message={
-            result.status === "PENDING" && !paymentForBooking
-              ? "Walk-in booking created. Payment pending."
-              : "Walk-in booking created successfully."
-          }
-          description={
-            <div className={styles.successDetails}>
-              <span>
-                Booking reference: <strong>{result.bookingReference}</strong>
-              </span>
-
-              <span>
-                Status:{" "}
-                <strong>
-                  {paymentForBooking?.bookingStatus ?? result.status}
-                </strong>
-              </span>
-
-              <span>
-                Total: <strong>{formatMoney(result.totalAmount)}</strong>
-              </span>
-
-              <span>
-                Payment:{" "}
-                <strong>
-                  {paymentForBooking?.paymentStatus ??
-                    result.payment.paymentStatus}
-                </strong>
-              </span>
-            </div>
-          }
-          action={
-            <Button size="small" onClick={resetForm}>
-              New Booking
-            </Button>
-          }
-        />
-      )}
-
-      {!result && <WalkInPaymentConfirmation />}
-      {result?.status === "PENDING" && !paymentForBooking && (
-        <WalkInPaymentConfirmation
-          key={result.bookingReference}
-          initialBookingReference={result.bookingReference}
-          onConfirmed={setConfirmedPayment}
-        />
-      )}
+      <nav className={styles.journey} aria-label="Walk-in booking steps">
+        <ol>
+          <li>1. Guest details</li>
+          <li>2. Stay details</li>
+          <li>3. Select room type</li>
+          <li>4. Create booking</li>
+          <li>5. Verify pending payment</li>
+        </ol>
+      </nav>
 
       <div className={styles.layout}>
         <div className={styles.leftColumn}>
           <section className={styles.card}>
-            <div className={styles.cardHeader}>GUEST DETAILS</div>
+            <div className={styles.cardHeader}>
+              <span className={styles.stepBadge} aria-hidden="true">
+                01
+              </span>
+              <span>GUEST DETAILS</span>
+            </div>
 
             <div className={styles.cardBody}>
               <div className={styles.twoColumnGrid}>
@@ -454,27 +412,15 @@ export function WalkInBookingScreen() {
           </section>
 
           <section className={styles.card}>
-            <div className={styles.cardHeader}>BOOKING DETAILS</div>
+            <div className={styles.cardHeader}>
+              <span className={styles.stepBadge} aria-hidden="true">
+                02
+              </span>
+              <span>BOOKING DETAILS</span>
+            </div>
 
             <div className={styles.cardBody}>
               <div className={styles.twoColumnGrid}>
-                <FormField label="ROOM TYPE" htmlFor="walk-in-room-type">
-                  <Select
-                    id="walk-in-room-type"
-                    value={roomTypeId}
-                    onChange={setRoomTypeId}
-                    placeholder="— Select room type —"
-                    className={styles.fullWidth}
-                    loading={roomsLoading}
-                    disabled={roomsLoading || createWalkInMutation.isPending}
-                    options={roomTypes.map((roomType) => ({
-                      value: roomType.roomTypeId,
-
-                      label: roomType.roomTypeName,
-                    }))}
-                  />
-                </FormField>
-
                 <FormField label="NO. OF GUESTS" htmlFor="walk-in-guests">
                   <InputNumber
                     id="walk-in-guests"
@@ -524,7 +470,29 @@ export function WalkInBookingScreen() {
         <div className={styles.rightColumn}>
           <section className={styles.card}>
             <div className={styles.cardHeader}>
-              ROOM TYPES — CURRENT INVENTORY
+              <span className={styles.stepBadge} aria-hidden="true">
+                03
+              </span>
+              <span>ROOM TYPES — CURRENT INVENTORY</span>
+            </div>
+
+            <div className={styles.inventoryPicker}>
+              <FormField label="ROOM TYPE" htmlFor="walk-in-room-type">
+                <Select
+                  id="walk-in-room-type"
+                  value={roomTypeId}
+                  onChange={setRoomTypeId}
+                  placeholder="— Select room type —"
+                  className={styles.fullWidth}
+                  loading={roomsLoading}
+                  disabled={roomsLoading || createWalkInMutation.isPending}
+                  options={roomTypes.map((roomType) => ({
+                    value: roomType.roomTypeId,
+
+                    label: roomType.roomTypeName,
+                  }))}
+                />
+              </FormField>
             </div>
 
             {roomsError ? (
@@ -586,7 +554,12 @@ export function WalkInBookingScreen() {
           </section>
 
           <section className={styles.card}>
-            <div className={styles.cardHeader}>PAYMENT</div>
+            <div className={styles.cardHeader}>
+              <span className={styles.stepBadge} aria-hidden="true">
+                04
+              </span>
+              <span>PAYMENT</span>
+            </div>
 
             <div className={styles.cardBody}>
               <div className={styles.paymentSummary}>
@@ -664,6 +637,84 @@ export function WalkInBookingScreen() {
           </section>
         </div>
       </div>
+
+      {result && (
+        <Alert
+          type={
+            result.status === "PENDING" && !paymentForBooking
+              ? "warning"
+              : "success"
+          }
+          showIcon
+          className={styles.feedback}
+          message={
+            result.status === "PENDING" && !paymentForBooking
+              ? "Walk-in booking created. Payment pending."
+              : "Walk-in booking created successfully."
+          }
+          description={
+            <div className={styles.successDetails}>
+              <span>
+                Booking reference: <strong>{result.bookingReference}</strong>
+              </span>
+
+              <span>
+                Status:{" "}
+                <strong>
+                  {paymentForBooking?.bookingStatus ?? result.status}
+                </strong>
+              </span>
+
+              <span>
+                Total: <strong>{formatMoney(result.totalAmount)}</strong>
+              </span>
+
+              <span>
+                Payment:{" "}
+                <strong>
+                  {paymentForBooking?.paymentStatus ??
+                    result.payment.paymentStatus}
+                </strong>
+              </span>
+            </div>
+          }
+          action={
+            <Button size="small" onClick={resetForm}>
+              New Booking
+            </Button>
+          }
+        />
+      )}
+
+      {result?.status === "PENDING" && !paymentForBooking && (
+        <section
+          className={styles.paymentStage}
+          aria-label="Step 5: payment verification"
+        >
+          <div className={styles.cardHeader}>
+            <span className={styles.stepBadge} aria-hidden="true">
+              05
+            </span>
+            <span>PAYMENT VERIFICATION</span>
+          </div>
+          <p className={styles.stageHint}>
+            The booking reference is ready. Confirm the guest payment to finish
+            the pending booking.
+          </p>
+          <WalkInPaymentConfirmation
+            key={result.bookingReference}
+            initialBookingReference={result.bookingReference}
+            onConfirmed={setConfirmedPayment}
+          />
+        </section>
+      )}
+
+      {!result && (
+        <details className={styles.existingPayment}>
+          <summary>Already have a pending booking? Verify its payment</summary>
+          <WalkInPaymentConfirmation />
+        </details>
+      )}
     </section>
   );
 }

@@ -221,6 +221,12 @@ describe("CheckOutScreen", () => {
     expect(screen.getByText("Restaurant charges")).toBeInTheDocument();
 
     expect(screen.getByText("PAYMENT SETTLEMENT")).toBeInTheDocument();
+    expect(
+      screen
+        .getByText("ITEMISED FOLIO")
+        .compareDocumentPosition(screen.getByText("PAYMENT SETTLEMENT")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
 
     expect(screen.getByText("Total Folio Charges")).toBeInTheDocument();
 

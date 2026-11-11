@@ -113,6 +113,12 @@ describe("CheckInScreen", () => {
     expect(screen.getByText("STEP 3 — ROOM ASSIGNMENT")).toBeInTheDocument();
 
     expect(screen.getByText("STEP 4 — CONFIRM CHECK-IN")).toBeInTheDocument();
+    expect(
+      screen
+        .getByText("STEP 2 — ID VERIFICATION")
+        .compareDocumentPosition(screen.getByText("STEP 3 — ROOM ASSIGNMENT")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
 
     expect(
       screen.getByRole("button", {
@@ -380,9 +386,9 @@ describe("CheckInScreen", () => {
     ).not.toBeInTheDocument();
 
     expect(
-      screen.getByRole("button", {
+      screen.queryByRole("button", {
         name: "Print Registration Card",
       }),
-    ).toBeDisabled();
+    ).not.toBeInTheDocument();
   });
 });

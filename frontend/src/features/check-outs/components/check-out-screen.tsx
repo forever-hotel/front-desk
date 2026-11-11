@@ -164,37 +164,23 @@ export function CheckOutScreen({ performedBy }: CheckOutScreenProps) {
         </div>
       </header>
 
-      {checkoutResult && (
-        <Alert
-          type="success"
-          showIcon
-          className={styles.feedback}
-          title="Guest check-out completed successfully."
-          description={
-            <div className={styles.resultDetails}>
-              <span>
-                Booking: <strong>{checkoutResult.bookingReference}</strong>
-              </span>
-
-              <span>
-                Room: <strong>{checkoutResult.roomNumber}</strong>
-              </span>
-
-              <span>
-                Room status: <strong>Requires Cleaning</strong>
-              </span>
-            </div>
-          }
-          action={
-            <Button size="small" onClick={resetWorkflow}>
-              New Check-Out
-            </Button>
-          }
-        />
-      )}
+      <nav className={styles.journey} aria-label="Check-out workflow steps">
+        <ol>
+          <li>1. Find guest</li>
+          <li>2. Review folio</li>
+          <li>3. Choose payment method</li>
+          <li>4. Confirm check-out</li>
+          <li>5. Review result</li>
+        </ol>
+      </nav>
 
       <section className={styles.card}>
-        <div className={styles.cardHeader}>FIND GUEST FOR CHECK-OUT</div>
+        <div className={styles.cardHeader}>
+          <span className={styles.stepBadge} aria-hidden="true">
+            01
+          </span>
+          <span>FIND GUEST FOR CHECK-OUT</span>
+        </div>
 
         <div className={styles.searchBody}>
           <form className={styles.searchForm} onSubmit={handleSearch}>
@@ -349,7 +335,12 @@ export function CheckOutScreen({ performedBy }: CheckOutScreenProps) {
       {folio && selectedBooking && (
         <div className={styles.checkoutGrid}>
           <section className={styles.card}>
-            <div className={styles.cardHeader}>ITEMISED FOLIO</div>
+            <div className={styles.cardHeader}>
+              <span className={styles.stepBadge} aria-hidden="true">
+                02
+              </span>
+              <span>ITEMISED FOLIO</span>
+            </div>
 
             <div className={styles.staySummary}>
               <SummaryItem
@@ -404,7 +395,12 @@ export function CheckOutScreen({ performedBy }: CheckOutScreenProps) {
 
           <div className={styles.rightColumn}>
             <section className={styles.card}>
-              <div className={styles.cardHeader}>PAYMENT SETTLEMENT</div>
+              <div className={styles.cardHeader}>
+                <span className={styles.stepBadge} aria-hidden="true">
+                  03
+                </span>
+                <span>PAYMENT SETTLEMENT</span>
+              </div>
 
               <div className={styles.cardBody}>
                 <div className={styles.paymentSummary}>
@@ -446,7 +442,12 @@ export function CheckOutScreen({ performedBy }: CheckOutScreenProps) {
             </section>
 
             <section className={styles.card}>
-              <div className={styles.cardHeader}>CHECK-OUT CONFIRMATION</div>
+              <div className={styles.cardHeader}>
+                <span className={styles.stepBadge} aria-hidden="true">
+                  04
+                </span>
+                <span>CHECK-OUT CONFIRMATION</span>
+              </div>
 
               <div className={styles.cardBody}>
                 <Alert
@@ -502,7 +503,10 @@ export function CheckOutScreen({ performedBy }: CheckOutScreenProps) {
         <div className={styles.resultGrid}>
           <section className={styles.card}>
             <div className={styles.cardHeader}>
-              FINAL SETTLEMENT — BACKEND CONFIRMED
+              <span className={styles.stepBadge} aria-hidden="true">
+                05
+              </span>
+              <span>FINAL SETTLEMENT — BACKEND CONFIRMED</span>
             </div>
 
             <div className={styles.finalSummary}>
@@ -553,6 +557,35 @@ export function CheckOutScreen({ performedBy }: CheckOutScreenProps) {
             </div>
           </section>
         </div>
+      )}
+
+      {checkoutResult && (
+        <Alert
+          type="success"
+          showIcon
+          className={styles.feedback}
+          title="Guest check-out completed successfully."
+          description={
+            <div className={styles.resultDetails}>
+              <span>
+                Booking: <strong>{checkoutResult.bookingReference}</strong>
+              </span>
+
+              <span>
+                Room: <strong>{checkoutResult.roomNumber}</strong>
+              </span>
+
+              <span>
+                Room status: <strong>Requires Cleaning</strong>
+              </span>
+            </div>
+          }
+          action={
+            <Button size="small" onClick={resetWorkflow}>
+              New Check-Out
+            </Button>
+          }
+        />
       )}
     </section>
   );
