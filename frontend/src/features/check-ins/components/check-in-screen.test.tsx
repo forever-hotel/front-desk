@@ -117,7 +117,7 @@ describe("CheckInScreen", () => {
       screen
         .getByText("STEP 2 — ID VERIFICATION")
         .compareDocumentPosition(screen.getByText("STEP 3 — ROOM ASSIGNMENT")) &
-      Node.DOCUMENT_POSITION_FOLLOWING,
+        Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
 
     expect(
