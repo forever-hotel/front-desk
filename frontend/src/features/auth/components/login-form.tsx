@@ -54,11 +54,11 @@ export default function LoginForm({ change = false }: { change?: boolean }) {
           padding: 32,
           background: "var(--card-surface)",
           border: "1px solid var(--border, #ddd8cf)",
-          borderRadius: 12,
+          borderRadius: 10,
         }}
       >
         <p style={{ color: "var(--gold)", letterSpacing: 2 }}>FOREVER HOTEL</p>
-        <h1 style={{ color: "var(--navy)", fontSize: 24, margin: "16px 0" }}>
+        <h1 style={{ color: "var(--navy)", fontSize: 22, margin: "16px 0" }}>
           {change ? "Change your initial password" : "Front Desk sign in"}
         </h1>
         {error && (

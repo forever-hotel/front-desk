@@ -1,4 +1,4 @@
-
+# syntax=docker/dockerfile:1
 # Stage 1: Install dependencies
 FROM node:24-bookworm-slim AS deps
 
@@ -6,7 +6,8 @@ WORKDIR /app
 
 COPY package.json package-lock.json ./
 
-RUN npm ci --ignore-scripts --no-audit --no-fund
+RUN --mount=type=cache,id=fds-frontend-npm,target=/root/.npm,sharing=locked \
+    npm ci --ignore-scripts --no-audit --no-fund --prefer-offline
 
 
 # Stage 2: Build Next.js application

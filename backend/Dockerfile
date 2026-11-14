@@ -1,4 +1,4 @@
-
+# syntax=docker/dockerfile:1
 # Stage 1: Build the NestJS application
 FROM node:24-bookworm-slim AS build
 
@@ -7,7 +7,8 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 
 # Install build dependencies without running npm lifecycle scripts
-RUN npm ci --ignore-scripts --no-audit --no-fund
+RUN --mount=type=cache,id=fds-backend-npm,target=/root/.npm,sharing=locked \
+    npm ci --ignore-scripts --no-audit --no-fund --prefer-offline
 
 COPY tsconfig.json tsconfig.build.json nest-cli.json ./
 COPY src ./src
@@ -26,8 +27,8 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 
 # Production dependencies only
-RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund \
-    && npm cache clean --force
+RUN --mount=type=cache,id=fds-backend-npm,target=/root/.npm,sharing=locked \
+    npm ci --omit=dev --ignore-scripts --no-audit --no-fund --prefer-offline
 
 COPY --from=build /app/dist ./dist
 

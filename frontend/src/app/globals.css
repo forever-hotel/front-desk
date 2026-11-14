@@ -1,3 +1,4 @@
+@import "../styles/mad-foundation.css";
 :root {
   /* ========================================
      BRAND COLOURS
@@ -67,7 +68,7 @@ body {
   background: var(--page-bg);
   color: var(--text);
 
-  font-family: Inter, "Segoe UI", Arial, Helvetica, sans-serif;
+  font-family: var(--ui-font);
 
   font-size: 13px;
   font-weight: 400;
@@ -204,13 +205,13 @@ html::-webkit-scrollbar-thumb:hover {
 
   padding: 0 1px;
 
-  color: var(--sidebar-heading);
+  color: #c4d1de;
 
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-family: inherit;
 
-  font-size: 8px;
+  font-size: 11px;
   font-weight: 500;
-  letter-spacing: 1.7px;
+  letter-spacing: 0.06em;
   line-height: 1.2;
 }
 
@@ -236,7 +237,7 @@ html::-webkit-scrollbar-thumb:hover {
 
   border-radius: 3px;
 
-  color: #8d9cab;
+  color: #c4d1de;
 
   font-size: 13px;
   font-weight: 400;
@@ -362,17 +363,17 @@ html::-webkit-scrollbar-thumb:hover {
 
   display: flex;
 
-  height: 58px;
+  height: 70px;
 
   align-items: center;
   justify-content: space-between;
 
   padding: 0 18px 0 26px;
 
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid var(--border);
 
-  background: var(--sidebar);
-  color: #ffffff;
+  background: var(--card-surface);
+  color: var(--navy);
 }
 
 .fds-header-left,
@@ -403,9 +404,9 @@ html::-webkit-scrollbar-thumb:hover {
 
   white-space: nowrap;
 
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-family: inherit;
 
-  letter-spacing: 1.2px;
+  letter-spacing: normal;
 }
 
 .fds-brand-mark {
@@ -413,10 +414,10 @@ html::-webkit-scrollbar-thumb:hover {
 }
 
 .fds-brand-forever {
-  color: #e4e9ed;
+  color: var(--navy);
 
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 600;
 }
 
 .fds-brand-hotel,
@@ -435,17 +436,17 @@ html::-webkit-scrollbar-thumb:hover {
 .fds-date-pill {
   padding: 7px 13px;
 
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border);
 
   border-radius: 18px;
 
-  background: rgba(255, 255, 255, 0.035);
+  background: var(--table-row-alt);
 
-  color: #8192a2;
+  color: var(--muted);
 
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-family: inherit;
 
-  font-size: 9px;
+  font-size: 12px;
   letter-spacing: 0.6px;
 
   white-space: nowrap;
@@ -493,18 +494,18 @@ html::-webkit-scrollbar-thumb:hover {
 }
 
 .fds-user-name {
-  color: #d9e0e6;
+  color: var(--text);
 
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
 }
 
 .fds-user-role {
   margin-top: 2px;
 
-  color: #66798b;
+  color: var(--muted);
 
-  font-size: 9px;
+  font-size: 12px;
 }
 
 /* ========================================
@@ -559,7 +560,7 @@ html::-webkit-scrollbar-thumb:hover {
 
   background: transparent;
 
-  color: #d7e0e7;
+  color: var(--navy);
 
   cursor: pointer;
 }
@@ -569,7 +570,7 @@ html::-webkit-scrollbar-thumb:hover {
    ======================================== */
 
 .fds-main {
-  min-height: calc(100vh - 58px);
+  min-height: calc(100vh - 70px);
 
   background: var(--page-bg);
 }
@@ -634,14 +635,24 @@ html::-webkit-scrollbar-thumb:hover {
 
   .fds-header {
     padding-inline: 14px;
+    height: 70px;
+    background: var(--card-surface);
+    color: var(--navy);
+    border-bottom: 1px solid var(--border);
   }
 
   .fds-menu-button {
     display: inline-flex;
+    color: var(--navy);
   }
 
   .fds-date-pill {
     display: none;
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 12px;
+    border: 1px solid var(--border);
+    background: var(--table-row-alt);
   }
 
   .fds-overlay {
