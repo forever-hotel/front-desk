@@ -1,0 +1,129 @@
+name: Backend CI Pipeline
+
+on:
+  workflow_call:
+  push:
+    branches:
+      - main
+      - "feature/**"
+      - "fix/**"
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+
+  pull_request:
+    branches:
+      - develop
+      - main
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-backend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-ci:
+    name: Format, Lint, Build, Test, and Audit
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: front_desk_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: front_desk_test
+      DB_SSL: "false"
+      DB_SYNCHRONIZE: "false"
+      DB_LOGGING: "false"
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prepare integration test database
+        run: psql -f test/database/shared-schema.sql
+        env:
+          PGPASSWORD: postgres
+          PGHOST: localhost
+          PGPORT: "5432"
+          PGUSER: postgres
+          PGDATABASE: front_desk_test
+
+      - name: Run database migrations
+        run: npm run migration:run
+
+      - name: Seed integration test database
+        run: psql -f test/database/seed.sql
+        env:
+          PGPASSWORD: postgres
+          PGHOST: localhost
+          PGPORT: "5432"
+          PGUSER: postgres
+          PGDATABASE: front_desk_test
+
+      - name: Run PostgreSQL integration tests
+        run: npm run test:integration
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Run lint checks
+        run: npm run lint
+
+      - name: Build NestJS backend
+        run: npm run build
+
+      - name: Run unit tests with coverage
+        run: npm run test:cov -- --runInBand
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: front-desk-backend-coverage-${{ github.run_number }}
+          path: backend/coverage/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Run end-to-end tests
+        run: npm run test:e2e
+
+      - name: Enforce dependency security
+        run: npm audit --audit-level=high

@@ -1,0 +1,194 @@
+openapi: 3.0.3
+info:
+  title: Forever Hotel Front Desk - Running Folio API
+  version: 1.0.0
+  description: |
+    API contract for Plan 11 / FD-15 running guest folio retrieval.
+
+    The folio is a read-only derived model. The Front Desk service does not
+    create a separate folios persistence table.
+
+    Monetary values are represented as integer smallest-unit values with the
+    explicit currency code LKR.
+paths:
+  /folios/{bookingReference}:
+    get:
+      summary: Get the running folio for an active checked-in stay
+      operationId: getRunningFolio
+      tags:
+        - Folio
+      parameters:
+        - name: bookingReference
+          in: path
+          required: true
+          description: UUID v4 booking reference.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Running itemised folio returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunningFolio"
+              example:
+                bookingReference: "44444444-4444-4444-8444-444444444444"
+                roomNumber: "T102"
+                checkInDate: "2030-01-08"
+                checkOutDate: "2030-01-12"
+                bookingStatus: "CHECKED_IN"
+                currency: "LKR"
+                categories:
+                  - category: "ROOM_CHARGES"
+                    items:
+                      - reference: "ROOM-44444444-4444-4444-8444-444444444444"
+                        description: "Room accommodation"
+                        amount: 60000
+                        occurredAt: "2030-01-08T00:00:00.000Z"
+                    subtotal: 60000
+                  - category: "FOOD_AND_BEVERAGE"
+                    items:
+                      - reference: "FOOD-001"
+                        description: "Dinner order"
+                        amount: 2000
+                        occurredAt: "2030-01-09T18:30:00.000Z"
+                    subtotal: 2000
+                  - category: "SERVICES"
+                    items:
+                      - reference: "SERVICE-001"
+                        description: "Additional service"
+                        amount: 1500
+                        occurredAt: "2030-01-10T10:00:00.000Z"
+                    subtotal: 1500
+                total: 63500
+        "400":
+          description: Booking reference is not a valid UUID v4.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Booking does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Booking exists but is not an active checked-in stay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Required external folio charge retrieval failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    RunningFolio:
+      type: object
+      required:
+        - bookingReference
+        - roomNumber
+        - checkInDate
+        - checkOutDate
+        - bookingStatus
+        - currency
+        - categories
+        - total
+      properties:
+        bookingReference:
+          type: string
+          format: uuid
+        roomNumber:
+          type: string
+          minLength: 1
+        checkInDate:
+          type: string
+          format: date
+        checkOutDate:
+          type: string
+          format: date
+        bookingStatus:
+          type: string
+          enum:
+            - CHECKED_IN
+        currency:
+          type: string
+          enum:
+            - LKR
+        categories:
+          type: array
+          minItems: 3
+          maxItems: 3
+          description: |
+            Categories are returned in stable order:
+            ROOM_CHARGES, FOOD_AND_BEVERAGE, SERVICES.
+          items:
+            $ref: "#/components/schemas/FolioCategorySummary"
+        total:
+          type: integer
+          minimum: 0
+          description: Server-calculated sum of all category subtotals.
+
+    FolioCategorySummary:
+      type: object
+      required:
+        - category
+        - items
+        - subtotal
+      properties:
+        category:
+          type: string
+          enum:
+            - ROOM_CHARGES
+            - FOOD_AND_BEVERAGE
+            - SERVICES
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/FolioItem"
+        subtotal:
+          type: integer
+          minimum: 0
+          description: Server-calculated sum of all item amounts in the category.
+
+    FolioItem:
+      type: object
+      required:
+        - reference
+        - description
+        - amount
+        - occurredAt
+      properties:
+        reference:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          minLength: 1
+        amount:
+          type: integer
+          minimum: 0
+          description: Monetary amount represented in the smallest supported unit.
+        occurredAt:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      properties:
+        statusCode:
+          type: integer
+        message:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+        error:
+          type: string

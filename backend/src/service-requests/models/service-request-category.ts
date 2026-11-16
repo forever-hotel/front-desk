@@ -1,0 +1,7 @@
+export enum ServiceRequestCategory {
+  EXTRA_TOWELS = 'EXTRA_TOWELS',
+  WATER_BOTTLES = 'WATER_BOTTLES',
+  MAINTENANCE = 'MAINTENANCE',
+  LAUNDRY = 'LAUNDRY',
+  OTHER = 'OTHER',
+}

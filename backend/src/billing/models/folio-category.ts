@@ -1,0 +1,5 @@
+export enum FolioCategory {
+  ROOM_CHARGES = 'ROOM_CHARGES',
+  FOOD_AND_BEVERAGE = 'FOOD_AND_BEVERAGE',
+  SERVICES = 'SERVICES',
+}

@@ -1,0 +1,2 @@
+export type RoomStatus =
+  "VACANT" | "OCCUPIED" | "REQUIRES_CLEANING" | "UNDER_MAINTENANCE";

@@ -1,0 +1,774 @@
+"use client";
+
+import { useMemo, useState } from "react";
+
+import { Alert, Button, Input, InputNumber, Select, Spin } from "antd";
+
+import { Plus } from "lucide-react";
+
+import { useRoomStatus, type RoomStatusBoardItem } from "@/features/rooms";
+
+import { useCreateWalkInBooking } from "../hooks/use-create-walk-in-booking";
+
+import {
+  normalizeWalkInPhone,
+  validateWalkInDocument,
+  validateWalkInEmail,
+  validateWalkInName,
+  validateWalkInPhone,
+  type WalkInDocumentType,
+} from "../utils/walk-in-guest-validation";
+import type { WalkInPaymentConfirmationResult } from "../types/reservation.type";
+import type { WalkInPaymentMethod } from "../types/reservation.type";
+
+import { WalkInPaymentConfirmation } from "./walk-in-payment-confirmation";
+import styles from "./walk-in-booking-screen.module.css";
+
+type RoomTypeOption = {
+  roomTypeId: string;
+  roomTypeName: string;
+  totalRooms: number;
+  vacantRooms: number;
+};
+
+export function WalkInBookingScreen() {
+  const {
+    data: rooms = [],
+    isLoading: roomsLoading,
+    error: roomsError,
+  } = useRoomStatus();
+
+  const createWalkInMutation = useCreateWalkInBooking();
+
+  const [fullName, setFullName] = useState("");
+
+  const [nicOrPassport, setNicOrPassport] = useState("");
+  const [identityDocumentType, setIdentityDocumentType] =
+    useState<WalkInDocumentType>("NIC");
+  const [guestErrors, setGuestErrors] = useState<{
+    fullName?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    nicOrPassport?: string | null;
+  }>({});
+
+  const [phone, setPhone] = useState("");
+
+  const [email, setEmail] = useState("");
+
+  const [roomTypeId, setRoomTypeId] = useState<string>();
+
+  const [numGuests, setNumGuests] = useState(1);
+
+  const [checkInDate, setCheckInDate] = useState("");
+
+  const [checkOutDate, setCheckOutDate] = useState("");
+
+  const [specialRequests, setSpecialRequests] = useState("");
+
+  const [paymentMethod, setPaymentMethod] =
+    useState<WalkInPaymentMethod>("CASH");
+
+  const [confirmedPayment, setConfirmedPayment] =
+    useState<WalkInPaymentConfirmationResult | null>(null);
+
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  const roomTypes = useMemo(() => buildRoomTypeOptions(rooms), [rooms]);
+
+  const selectedRoomType =
+    roomTypes.find((roomType) => roomType.roomTypeId === roomTypeId) ?? null;
+
+  const resetForm = () => {
+    setFullName("");
+    setNicOrPassport("");
+    setIdentityDocumentType("NIC");
+    setGuestErrors({});
+    setPhone("");
+    setEmail("");
+    setRoomTypeId(undefined);
+    setNumGuests(1);
+    setCheckInDate("");
+    setCheckOutDate("");
+    setSpecialRequests("");
+    setPaymentMethod("CASH");
+    setConfirmedPayment(null);
+    setValidationError(null);
+
+    createWalkInMutation.reset();
+  };
+
+  const handleSubmit = async () => {
+    setValidationError(null);
+
+    const normalizedName = fullName.trim();
+
+    const normalizedEmail = email.trim();
+
+    const nameError = validateWalkInName(normalizedName);
+    if (nameError) {
+      setGuestErrors((previous) => ({ ...previous, fullName: nameError }));
+      setValidationError(nameError);
+      return;
+    }
+
+    const emailError = validateWalkInEmail(normalizedEmail);
+    if (emailError) {
+      setGuestErrors((previous) => ({ ...previous, email: emailError }));
+      setValidationError(emailError);
+      return;
+    }
+
+    if (!roomTypeId) {
+      setValidationError("Please select a room type.");
+
+      return;
+    }
+
+    if (!Number.isInteger(numGuests) || numGuests < 1) {
+      setValidationError("Number of guests must be at least 1.");
+
+      return;
+    }
+
+    if (!checkInDate || !checkOutDate) {
+      setValidationError("Check-in and check-out dates are required.");
+
+      return;
+    }
+
+    const checkIn = new Date(`${checkInDate}T00:00:00`);
+
+    const checkOut = new Date(`${checkOutDate}T00:00:00`);
+
+    if (
+      !Number.isFinite(checkIn.getTime()) ||
+      !Number.isFinite(checkOut.getTime()) ||
+      checkOut <= checkIn
+    ) {
+      setValidationError("Check-out date must be after check-in date.");
+
+      return;
+    }
+
+    const phoneError = validateWalkInPhone(phone);
+    if (phoneError) {
+      setGuestErrors((previous) => ({ ...previous, phone: phoneError }));
+      setValidationError(phoneError);
+      return;
+    }
+
+    const documentError = validateWalkInDocument(
+      nicOrPassport,
+      identityDocumentType,
+    );
+    if (documentError) {
+      setGuestErrors((previous) => ({
+        ...previous,
+        nicOrPassport: documentError,
+      }));
+      setValidationError(documentError);
+      return;
+    }
+
+    // The backend independently validates and normalizes the same phone.
+    const normalizedPhone = normalizeWalkInPhone(phone);
+    if (!normalizedPhone) {
+      setValidationError(
+        "Enter a valid Sri Lankan or international phone number.",
+      );
+      return;
+    }
+
+    try {
+      await createWalkInMutation.mutateAsync({
+        guest: {
+          fullName: normalizedName,
+          email: normalizedEmail,
+
+          nicOrPassport: nicOrPassport.trim().toUpperCase() || undefined,
+          identityDocumentType: nicOrPassport.trim()
+            ? identityDocumentType
+            : undefined,
+          phone: normalizedPhone,
+        },
+
+        booking: {
+          roomTypeId,
+          checkInDate,
+          checkOutDate,
+          numGuests,
+
+          specialRequests: specialRequests.trim() || undefined,
+        },
+
+        payment: {
+          paymentMethod,
+        },
+      });
+    } catch {
+      /*
+       * Backend validation/error is
+       * rendered below.
+       */
+    }
+  };
+
+  const result = createWalkInMutation.data;
+  const paymentForBooking =
+    confirmedPayment?.bookingReference === result?.bookingReference
+      ? confirmedPayment
+      : null;
+
+  return (
+    <section className={styles.page}>
+      <header className={styles.pageHeader}>
+        <div className={styles.titleRow}>
+          <Plus size={18} strokeWidth={2} aria-hidden="true" />
+
+          <div>
+            <h1>Walk-In Booking</h1>
+
+            <p>Create a booking for a walk-in guest</p>
+          </div>
+        </div>
+      </header>
+
+      <nav className={styles.journey} aria-label="Walk-in booking steps">
+        <ol>
+          <li>1. Guest details</li>
+          <li>2. Stay details</li>
+          <li>3. Select room type</li>
+          <li>4. Create booking</li>
+          <li>5. Verify pending payment</li>
+        </ol>
+      </nav>
+
+      <div className={styles.layout}>
+        <div className={styles.leftColumn}>
+          <section className={styles.card}>
+            <div className={styles.cardHeader}>
+              <span className={styles.stepBadge} aria-hidden="true">
+                01
+              </span>
+              <span>GUEST DETAILS</span>
+            </div>
+
+            <div className={styles.cardBody}>
+              <div className={styles.twoColumnGrid}>
+                <FormField label="FULL NAME" htmlFor="walk-in-name">
+                  <Input
+                    id="walk-in-name"
+                    value={fullName}
+                    onChange={(event) => {
+                      setFullName(event.target.value);
+                      setGuestErrors((previous) => ({
+                        ...previous,
+                        fullName: undefined,
+                      }));
+                    }}
+                    onBlur={() =>
+                      setGuestErrors((previous) => ({
+                        ...previous,
+                        fullName: validateWalkInName(fullName),
+                      }))
+                    }
+                    status={guestErrors.fullName ? "error" : undefined}
+                    placeholder="Guest full name"
+                    maxLength={255}
+                    disabled={createWalkInMutation.isPending}
+                  />
+                  {guestErrors.fullName && (
+                    <span role="alert" className={styles.inlineError}>
+                      {guestErrors.fullName}
+                    </span>
+                  )}
+                </FormField>
+
+                <FormField
+                  label="IDENTITY DOCUMENT TYPE"
+                  htmlFor="walk-in-document-type"
+                >
+                  <Select<WalkInDocumentType>
+                    id="walk-in-document-type"
+                    className={styles.fullWidth}
+                    value={identityDocumentType}
+                    onChange={(next) => {
+                      setIdentityDocumentType(next);
+                      setGuestErrors((previous) => ({
+                        ...previous,
+                        nicOrPassport: validateWalkInDocument(
+                          nicOrPassport,
+                          next,
+                        ),
+                      }));
+                    }}
+                    disabled={createWalkInMutation.isPending}
+                    options={[
+                      { value: "NIC", label: "Sri Lankan NIC" },
+                      { value: "PASSPORT", label: "Passport" },
+                    ]}
+                  />
+                </FormField>
+
+                <FormField label="NIC / PASSPORT NO." htmlFor="walk-in-id">
+                  <Input
+                    id="walk-in-id"
+                    value={nicOrPassport}
+                    onChange={(event) => {
+                      setNicOrPassport(event.target.value);
+                      setGuestErrors((previous) => ({
+                        ...previous,
+                        nicOrPassport: undefined,
+                      }));
+                    }}
+                    onBlur={() =>
+                      setGuestErrors((previous) => ({
+                        ...previous,
+                        nicOrPassport: validateWalkInDocument(
+                          nicOrPassport,
+                          identityDocumentType,
+                        ),
+                      }))
+                    }
+                    status={guestErrors.nicOrPassport ? "error" : undefined}
+                    placeholder="ID number (optional until Check-In)"
+                    maxLength={50}
+                    disabled={createWalkInMutation.isPending}
+                  />
+                  {guestErrors.nicOrPassport && (
+                    <span role="alert" className={styles.inlineError}>
+                      {guestErrors.nicOrPassport}
+                    </span>
+                  )}
+                </FormField>
+
+                <FormField label="PHONE" htmlFor="walk-in-phone">
+                  <Input
+                    id="walk-in-phone"
+                    value={phone}
+                    onChange={(event) => {
+                      setPhone(event.target.value);
+                      setGuestErrors((previous) => ({
+                        ...previous,
+                        phone: undefined,
+                      }));
+                    }}
+                    onBlur={() =>
+                      setGuestErrors((previous) => ({
+                        ...previous,
+                        phone: validateWalkInPhone(phone),
+                      }))
+                    }
+                    status={guestErrors.phone ? "error" : undefined}
+                    placeholder="0771234567 or +94771234567"
+                    maxLength={32}
+                    disabled={createWalkInMutation.isPending}
+                  />
+                  {guestErrors.phone && (
+                    <span role="alert" className={styles.inlineError}>
+                      {guestErrors.phone}
+                    </span>
+                  )}
+                </FormField>
+
+                <FormField label="EMAIL" htmlFor="walk-in-email">
+                  <Input
+                    id="walk-in-email"
+                    type="email"
+                    value={email}
+                    onChange={(event) => {
+                      setEmail(event.target.value);
+                      setGuestErrors((previous) => ({
+                        ...previous,
+                        email: undefined,
+                      }));
+                    }}
+                    onBlur={() =>
+                      setGuestErrors((previous) => ({
+                        ...previous,
+                        email: validateWalkInEmail(email),
+                      }))
+                    }
+                    status={guestErrors.email ? "error" : undefined}
+                    placeholder="guest@email.com"
+                    maxLength={320}
+                    disabled={createWalkInMutation.isPending}
+                  />
+                  {guestErrors.email && (
+                    <span role="alert" className={styles.inlineError}>
+                      {guestErrors.email}
+                    </span>
+                  )}
+                </FormField>
+              </div>
+
+              <Alert
+                type="info"
+                showIcon
+                message="Guest ID verification is completed during the Check-In workflow."
+              />
+            </div>
+          </section>
+
+          <section className={styles.card}>
+            <div className={styles.cardHeader}>
+              <span className={styles.stepBadge} aria-hidden="true">
+                02
+              </span>
+              <span>BOOKING DETAILS</span>
+            </div>
+
+            <div className={styles.cardBody}>
+              <div className={styles.twoColumnGrid}>
+                <FormField label="NO. OF GUESTS" htmlFor="walk-in-guests">
+                  <InputNumber
+                    id="walk-in-guests"
+                    min={1}
+                    precision={0}
+                    value={numGuests}
+                    onChange={(value) => setNumGuests(value ?? 1)}
+                    className={styles.fullWidth}
+                    disabled={createWalkInMutation.isPending}
+                  />
+                </FormField>
+
+                <FormField label="CHECK-IN DATE" htmlFor="walk-in-check-in">
+                  <Input
+                    id="walk-in-check-in"
+                    type="date"
+                    value={checkInDate}
+                    onChange={(event) => setCheckInDate(event.target.value)}
+                    disabled={createWalkInMutation.isPending}
+                  />
+                </FormField>
+
+                <FormField label="CHECK-OUT DATE" htmlFor="walk-in-check-out">
+                  <Input
+                    id="walk-in-check-out"
+                    type="date"
+                    value={checkOutDate}
+                    onChange={(event) => setCheckOutDate(event.target.value)}
+                    disabled={createWalkInMutation.isPending}
+                  />
+                </FormField>
+              </div>
+
+              <FormField label="SPECIAL REQUESTS" htmlFor="walk-in-special">
+                <Input
+                  id="walk-in-special"
+                  value={specialRequests}
+                  onChange={(event) => setSpecialRequests(event.target.value)}
+                  placeholder="Optional..."
+                  disabled={createWalkInMutation.isPending}
+                />
+              </FormField>
+            </div>
+          </section>
+        </div>
+
+        <div className={styles.rightColumn}>
+          <section className={styles.card}>
+            <div className={styles.cardHeader}>
+              <span className={styles.stepBadge} aria-hidden="true">
+                03
+              </span>
+              <span>ROOM TYPES — CURRENT INVENTORY</span>
+            </div>
+
+            <div className={styles.inventoryPicker}>
+              <FormField label="ROOM TYPE" htmlFor="walk-in-room-type">
+                <Select
+                  id="walk-in-room-type"
+                  value={roomTypeId}
+                  onChange={setRoomTypeId}
+                  placeholder="— Select room type —"
+                  className={styles.fullWidth}
+                  loading={roomsLoading}
+                  disabled={roomsLoading || createWalkInMutation.isPending}
+                  options={roomTypes.map((roomType) => ({
+                    value: roomType.roomTypeId,
+
+                    label: roomType.roomTypeName,
+                  }))}
+                />
+              </FormField>
+            </div>
+
+            {roomsError ? (
+              <div className={styles.cardBody}>
+                <Alert
+                  type="error"
+                  showIcon
+                  message="Unable to load room inventory."
+                />
+              </div>
+            ) : roomsLoading ? (
+              <div className={styles.loadingState}>
+                <Spin size="small" />
+
+                <span>Loading room types...</span>
+              </div>
+            ) : roomTypes.length === 0 ? (
+              <div className={styles.emptyState}>
+                No room types were returned.
+              </div>
+            ) : (
+              <div className={styles.roomTypeList}>
+                {roomTypes.map((roomType) => (
+                  <div
+                    key={roomType.roomTypeId}
+                    className={`${styles.roomTypeRow} ${
+                      roomTypeId === roomType.roomTypeId
+                        ? styles.selectedRoomType
+                        : ""
+                    }`}
+                  >
+                    <div>
+                      <strong>{roomType.roomTypeName}</strong>
+
+                      <span>
+                        {roomType.vacantRooms} vacant now /{" "}
+                        {roomType.totalRooms} total
+                      </span>
+                    </div>
+
+                    <Button
+                      type={
+                        roomTypeId === roomType.roomTypeId
+                          ? "primary"
+                          : "default"
+                      }
+                      size="small"
+                      onClick={() => setRoomTypeId(roomType.roomTypeId)}
+                      disabled={createWalkInMutation.isPending}
+                    >
+                      {roomTypeId === roomType.roomTypeId
+                        ? "Selected"
+                        : "Select"}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className={styles.card}>
+            <div className={styles.cardHeader}>
+              <span className={styles.stepBadge} aria-hidden="true">
+                04
+              </span>
+              <span>PAYMENT</span>
+            </div>
+
+            <div className={styles.cardBody}>
+              <div className={styles.paymentSummary}>
+                <div>
+                  <span>ROOM TYPE</span>
+
+                  <strong>
+                    {selectedRoomType?.roomTypeName ?? "Not selected"}
+                  </strong>
+                </div>
+
+                <div>
+                  <span>VACANT NOW</span>
+
+                  <strong>
+                    {selectedRoomType ? selectedRoomType.vacantRooms : "—"}
+                  </strong>
+                </div>
+              </div>
+
+              <FormField label="PAYMENT METHOD" htmlFor="walk-in-payment">
+                <Select<WalkInPaymentMethod>
+                  id="walk-in-payment"
+                  value={paymentMethod}
+                  onChange={setPaymentMethod}
+                  className={styles.fullWidth}
+                  disabled={createWalkInMutation.isPending}
+                  options={[
+                    {
+                      value: "CASH",
+                      label: "Cash",
+                    },
+                    {
+                      value: "CARD_ON_SITE",
+                      label: "Card on site",
+                    },
+                  ]}
+                />
+              </FormField>
+
+              <Alert
+                type="info"
+                showIcon
+                message="Room assignment, ID verification and FOSS activation are completed during Check-In."
+              />
+
+              {validationError && (
+                <Alert type="error" showIcon message={validationError} />
+              )}
+
+              {createWalkInMutation.isError && (
+                <Alert
+                  type="error"
+                  showIcon
+                  message="Walk-in booking could not be created."
+                  description={
+                    createWalkInMutation.error instanceof Error
+                      ? createWalkInMutation.error.message
+                      : "Please try again."
+                  }
+                />
+              )}
+
+              <Button
+                type="primary"
+                block
+                className={styles.confirmButton}
+                loading={createWalkInMutation.isPending}
+                disabled={roomsLoading || Boolean(result)}
+                onClick={() => void handleSubmit()}
+              >
+                Create Walk-In Booking →
+              </Button>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      {result && (
+        <Alert
+          type={
+            result.status === "PENDING" && !paymentForBooking
+              ? "warning"
+              : "success"
+          }
+          showIcon
+          className={styles.feedback}
+          message={
+            result.status === "PENDING" && !paymentForBooking
+              ? "Walk-in booking created. Payment pending."
+              : "Walk-in booking created successfully."
+          }
+          description={
+            <div className={styles.successDetails}>
+              <span>
+                Booking reference: <strong>{result.bookingReference}</strong>
+              </span>
+
+              <span>
+                Status:{" "}
+                <strong>
+                  {paymentForBooking?.bookingStatus ?? result.status}
+                </strong>
+              </span>
+
+              <span>
+                Total: <strong>{formatMoney(result.totalAmount)}</strong>
+              </span>
+
+              <span>
+                Payment:{" "}
+                <strong>
+                  {paymentForBooking?.paymentStatus ??
+                    result.payment.paymentStatus}
+                </strong>
+              </span>
+            </div>
+          }
+          action={
+            <Button size="small" onClick={resetForm}>
+              New Booking
+            </Button>
+          }
+        />
+      )}
+
+      {result?.status === "PENDING" && !paymentForBooking && (
+        <section
+          className={styles.paymentStage}
+          aria-label="Step 5: payment verification"
+        >
+          <div className={styles.cardHeader}>
+            <span className={styles.stepBadge} aria-hidden="true">
+              05
+            </span>
+            <span>PAYMENT VERIFICATION</span>
+          </div>
+          <p className={styles.stageHint}>
+            The booking reference is ready. Confirm the guest payment to finish
+            the pending booking.
+          </p>
+          <WalkInPaymentConfirmation
+            key={result.bookingReference}
+            initialBookingReference={result.bookingReference}
+            onConfirmed={setConfirmedPayment}
+          />
+        </section>
+      )}
+
+      {!result && (
+        <details className={styles.existingPayment}>
+          <summary>Already have a pending booking? Verify its payment</summary>
+          <WalkInPaymentConfirmation />
+        </details>
+      )}
+    </section>
+  );
+}
+
+type FormFieldProps = {
+  label: string;
+  htmlFor: string;
+  children: React.ReactNode;
+};
+
+function FormField({ label, htmlFor, children }: FormFieldProps) {
+  return (
+    <div className={styles.field}>
+      <label htmlFor={htmlFor}>{label}</label>
+
+      {children}
+    </div>
+  );
+}
+
+function buildRoomTypeOptions(rooms: RoomStatusBoardItem[]): RoomTypeOption[] {
+  const roomTypes = new Map<string, RoomTypeOption>();
+
+  for (const room of rooms) {
+    const existing = roomTypes.get(room.roomTypeId);
+
+    if (existing) {
+      existing.totalRooms += 1;
+
+      if (room.status === "VACANT") {
+        existing.vacantRooms += 1;
+      }
+
+      continue;
+    }
+
+    roomTypes.set(room.roomTypeId, {
+      roomTypeId: room.roomTypeId,
+
+      roomTypeName: room.roomTypeName,
+
+      totalRooms: 1,
+
+      vacantRooms: room.status === "VACANT" ? 1 : 0,
+    });
+  }
+
+  return Array.from(roomTypes.values()).sort((left, right) =>
+    left.roomTypeName.localeCompare(right.roomTypeName),
+  );
+}
+
+function formatMoney(amount: number) {
+  return `LKR ${new Intl.NumberFormat("en-LK", {
+    maximumFractionDigits: 0,
+  }).format(amount)}`;
+}

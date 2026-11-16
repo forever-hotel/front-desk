@@ -1,0 +1,75 @@
+import { apiClient } from "@/lib/api/api-client";
+
+import type {
+  BookingSearchItem,
+  ConfirmWalkInPaymentRequest,
+  WalkInPaymentConfirmationResult,
+  WalkInPendingPayment,
+  CreateWalkInBookingRequest,
+  RecentBookingsResponse,
+  WalkInBookingResult,
+} from "../types/reservation.type";
+
+export async function searchBookings(
+  query: string,
+): Promise<BookingSearchItem[]> {
+  const normalizedQuery = query.trim();
+
+  if (!normalizedQuery) {
+    return [];
+  }
+
+  const params = new URLSearchParams({
+    query: normalizedQuery,
+  });
+
+  return apiClient<BookingSearchItem[]>(
+    `/bookings/search?${params.toString()}`,
+  );
+}
+
+export async function getRecentBookings(
+  limit = 5,
+): Promise<BookingSearchItem[]> {
+  const safeLimit = Math.min(Math.max(Math.trunc(limit), 1), 20);
+
+  const params = new URLSearchParams({
+    limit: String(safeLimit),
+  });
+
+  const response = await apiClient<RecentBookingsResponse>(
+    `/bookings/recent?${params.toString()}`,
+  );
+
+  return response.value;
+}
+
+export function createWalkInBooking(
+  payload: CreateWalkInBookingRequest,
+): Promise<WalkInBookingResult> {
+  return apiClient<WalkInBookingResult>("/bookings/walk-in", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getPendingWalkInPayment(
+  bookingReference: string,
+): Promise<WalkInPendingPayment> {
+  return apiClient<WalkInPendingPayment>(
+    `/bookings/walk-in/${encodeURIComponent(bookingReference)}/pending-payment`,
+  );
+}
+
+export function confirmWalkInPayment(
+  bookingReference: string,
+  payload: ConfirmWalkInPaymentRequest,
+): Promise<WalkInPaymentConfirmationResult> {
+  return apiClient<WalkInPaymentConfirmationResult>(
+    `/bookings/walk-in/${encodeURIComponent(bookingReference)}/confirm-payment`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
+}

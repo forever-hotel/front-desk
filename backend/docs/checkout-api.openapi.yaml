@@ -1,0 +1,287 @@
+openapi: 3.0.3
+info:
+  title: Forever Hotel Front Desk - Checkout Core API
+  version: 1.0.0
+  description: |
+    API contract for Plan 12 transactional checkout core.
+
+    The endpoint calculates the authoritative outstanding balance from the
+    running folio and persisted completed payments. The client never supplies
+    the payment amount.
+
+    Successful checkout changes the booking to CHECKED_OUT, changes the room
+    to REQUIRES_CLEANING, records the CHECK_OUT audit, and then requests FOSS
+    session deactivation after the database transaction commits.
+
+    Monetary values use integer smallest-unit representation with currency LKR.
+
+paths:
+  /check-outs:
+    post:
+      summary: Complete the transactional checkout core for an active stay
+      operationId: checkOutGuest
+      tags:
+        - Checkout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCheckOutRequest"
+            examples:
+              outstandingBalance:
+                summary: Checkout with outstanding balance
+                value:
+                  bookingReference: "44444444-4444-4444-8444-444444444444"
+                  performedBy: "66666666-6666-4666-8666-666666666666"
+                  paymentMethod: "CASH"
+              alreadyFullyPaid:
+                summary: Checkout with no new payment required
+                value:
+                  bookingReference: "44444444-4444-4444-8444-444444444444"
+                  performedBy: "66666666-6666-4666-8666-666666666666"
+      responses:
+        "201":
+          description: Checkout core completed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutResult"
+              examples:
+                completed:
+                  value:
+                    status: "checked_out"
+                    bookingReference: "44444444-4444-4444-8444-444444444444"
+                    roomNumber: "T102"
+                    bookingStatus: "CHECKED_OUT"
+                    roomStatus: "REQUIRES_CLEANING"
+                    currency: "LKR"
+                    folioTotal: 66000
+                    previouslyPaid: 30000
+                    finalPaymentAmount: 36000
+                    payment:
+                      paymentId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+                      paymentMethod: "CASH"
+                      paymentStatus: "COMPLETED"
+                      amount: 36000
+                      paidAt: "2030-01-12T10:00:00.000Z"
+                    auditLogId: "88888888-8888-4888-8888-888888888888"
+                    fossSession:
+                      status: "DEACTIVATED"
+                fossDeactivationFailed:
+                  summary: Checkout committed but post-commit FOSS deactivation failed
+                  value:
+                    status: "checked_out"
+                    bookingReference: "44444444-4444-4444-8444-444444444444"
+                    roomNumber: "T102"
+                    bookingStatus: "CHECKED_OUT"
+                    roomStatus: "REQUIRES_CLEANING"
+                    currency: "LKR"
+                    folioTotal: 66000
+                    previouslyPaid: 30000
+                    finalPaymentAmount: 36000
+                    payment:
+                      paymentId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+                      paymentMethod: "CASH"
+                      paymentStatus: "COMPLETED"
+                      amount: 36000
+                      paidAt: "2030-01-12T10:00:00.000Z"
+                    auditLogId: "88888888-8888-4888-8888-888888888888"
+                    fossSession:
+                      status: "FAILED"
+                      failureCode: "FOSS_DEACTIVATION_FAILED"
+        "400":
+          description: |
+            Invalid request. Examples include invalid UUID, unsupported payment
+            method, missing payment method while a balance is due, or forbidden
+            raw card/unknown request properties.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "402":
+          description: Final payment attempt failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Booking does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: |
+            Checkout state conflict. Examples include a booking that is not
+            CHECKED_IN, missing/invalid assigned room state, or inconsistent
+            completed-payment state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Required running-folio external charge retrieval failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    CreateCheckOutRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - bookingReference
+        - performedBy
+      properties:
+        bookingReference:
+          type: string
+          format: uuid
+          description: UUID v4 booking reference.
+        performedBy:
+          type: string
+          format: uuid
+          description: |
+            Transitional active receptionist UUID until centralized
+            authentication supplies staff identity.
+        paymentMethod:
+          type: string
+          enum:
+            - CASH
+            - CARD_ON_SITE
+          description: |
+            Required when the server-calculated outstanding balance is greater
+            than zero. Omit only when no new final payment is required.
+
+    CheckoutResult:
+      type: object
+      required:
+        - status
+        - bookingReference
+        - roomNumber
+        - bookingStatus
+        - roomStatus
+        - currency
+        - folioTotal
+        - previouslyPaid
+        - finalPaymentAmount
+        - payment
+        - auditLogId
+        - fossSession
+      properties:
+        status:
+          type: string
+          enum:
+            - checked_out
+        bookingReference:
+          type: string
+          format: uuid
+        roomNumber:
+          type: string
+          minLength: 1
+        bookingStatus:
+          type: string
+          enum:
+            - CHECKED_OUT
+        roomStatus:
+          type: string
+          enum:
+            - REQUIRES_CLEANING
+        currency:
+          type: string
+          enum:
+            - LKR
+        folioTotal:
+          type: integer
+          minimum: 0
+          description: Authoritative server-generated running-folio total.
+        previouslyPaid:
+          type: integer
+          minimum: 0
+          description: Sum of persisted COMPLETED payments counted toward settlement.
+        finalPaymentAmount:
+          type: integer
+          minimum: 0
+          description: Server-calculated outstanding amount settled during checkout.
+        payment:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/CheckoutPayment"
+        auditLogId:
+          type: string
+          format: uuid
+        fossSession:
+          oneOf:
+            - $ref: "#/components/schemas/FossDeactivatedResult"
+            - $ref: "#/components/schemas/FossDeactivationFailedResult"
+
+    CheckoutPayment:
+      type: object
+      required:
+        - paymentId
+        - paymentMethod
+        - paymentStatus
+        - amount
+        - paidAt
+      properties:
+        paymentId:
+          type: string
+          format: uuid
+        paymentMethod:
+          type: string
+          enum:
+            - CASH
+            - CARD_ON_SITE
+        paymentStatus:
+          type: string
+          enum:
+            - COMPLETED
+        amount:
+          type: integer
+          minimum: 1
+        paidAt:
+          type: string
+          format: date-time
+
+    FossDeactivatedResult:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - DEACTIVATED
+
+    FossDeactivationFailedResult:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+        - failureCode
+      properties:
+        status:
+          type: string
+          enum:
+            - FAILED
+        failureCode:
+          type: string
+          enum:
+            - FOSS_DEACTIVATION_FAILED
+
+    ErrorResponse:
+      type: object
+      properties:
+        statusCode:
+          type: integer
+        message:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+        error:
+          type: string

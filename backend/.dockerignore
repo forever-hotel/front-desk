@@ -1,0 +1,31 @@
+
+# Local dependencies and build artifacts
+node_modules
+dist
+coverage
+test
+
+# Environment variables and credentials
+.env
+.env.*
+.npmrc
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Git metadata and backups
+.git
+.git.*
+*.zip
+
+# Development files
+.vscode
+.idea
+*.log
+npm-debug.log*
+*.tsbuildinfo
+
+# Documentation not required at runtime
+README.md
+.github

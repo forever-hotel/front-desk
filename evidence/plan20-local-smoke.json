@@ -1,0 +1,49 @@
+﻿{
+    "generated_at_utc":  "2026-10-25T08:53:36.4990945Z",
+    "branch":  "feature/70-fds-auth-integration (verify via git before attaching)",
+    "scope":  "Read-only local smoke only, not public staging or full auth/E2E proof",
+    "checks":  [
+                   {
+                       "check":  "Docker frontend HTTP",
+                       "url":  "http://127.0.0.1:3100/",
+                       "expected_status":  200,
+                       "actual_status":  200,
+                       "passed":  true
+                   },
+                   {
+                       "check":  "Docker backend readiness",
+                       "url":  "http://127.0.0.1:4200/health/ready",
+                       "expected_status":  200,
+                       "actual_status":  200,
+                       "passed":  true
+                   },
+                   {
+                       "check":  "Gateway forwarded readiness",
+                       "url":  "http://127.0.0.1:8080/fds/health/ready",
+                       "expected_status":  200,
+                       "actual_status":  200,
+                       "passed":  true
+                   },
+                   {
+                       "check":  "Gateway rejects unauthenticated rooms",
+                       "url":  "http://127.0.0.1:8080/fds/rooms/status",
+                       "expected_status":  401,
+                       "actual_status":  401,
+                       "passed":  true
+                   },
+                   {
+                       "check":  "RabbitMQ broker ping",
+                       "url":  "docker exec (local broker)",
+                       "expected_status":  "success",
+                       "actual_status":  "success",
+                       "passed":  true
+                   }
+               ],
+    "passed":  true,
+    "unverified":  [
+                       "Central Auth live login/session/logout",
+                       "Authenticated Socket.IO with real Central Auth credentials",
+                       "FDS RabbitMQ publish/consume workflow (broker ping alone does not prove integration)",
+                       "Public HTTPS staging and real cross-subsystem workflows"
+                   ]
+}

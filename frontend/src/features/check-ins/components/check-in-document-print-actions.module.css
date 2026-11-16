@@ -1,0 +1,22 @@
+.wrapper {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.feedback {
+  max-width: 580px;
+}
+
+@media (max-width: 650px) {
+  .actions {
+    flex-direction: column;
+  }
+}
